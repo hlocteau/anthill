@@ -1,0 +1,139 @@
+
+template <typename Gray,typename Distance> DistanceTransform<Gray,Distance>::DistanceTransform( const arma::Cube<Gray> &input, Distance xSpacing, Distance ySpacing, Distance zSpacing ) : _xSpacing(xSpacing), _ySpacing(ySpacing), _zSpacing(zSpacing) {
+	_result = arma::Cube<Distance>( input.n_rows, input.n_cols, input.n_slices ) ;
+	uint x,y,z;
+	
+	/// initialization : 0 whenever the voxel does not belong to the object, 1 otherwise
+	
+	for ( z = 0 ; z < input.n_slices ; z++ )
+		for ( x = 0 ; x < input.n_cols ; x++ )
+			for ( y = 0 ; y < input.n_rows ; y++ ) {
+				_result(y,x,z) = (Distance) ( input(y,x,z) > (Gray)0 ? 1 : 0.0f );
+			}
+
+	compute();
+}
+
+
+template <typename Gray,typename Distance> DistanceTransform<Gray,Distance>::DistanceTransform( const BillonTpl<Gray> &input ) : _xSpacing( input.voxelWidth() ), _ySpacing( input.voxelHeight() ), _zSpacing( input.voxelDepth() ) {
+	_result = arma::Cube<Distance>( input.n_rows, input.n_cols, input.n_slices ) ;
+	uint x,y,z;
+	
+	/// initialization : 0 whenever the voxel does not belong to the object, 1 otherwise
+	
+	for ( z = 0 ; z < input.n_slices ; z++ )
+		for ( x = 0 ; x < input.n_cols ; x++ )
+			for ( y = 0 ; y < input.n_rows ; y++ ) {
+				_result(y,x,z) = (Distance) ( input(y,x,z) > (Gray)0 ? 1 : 0.0f );
+			}
+	compute();
+}
+
+template <typename Gray, typename Distance> void DistanceTransform<Gray,Distance>::compute( ) {
+	_maxDistance = 0.0f;
+	Distance b,d,spaceSquare,m;
+	int x,y,z,n;
+	Distance *buff = new Distance [ max(max(_result.n_rows,_result.n_cols), _result.n_slices) ];
+
+	/*************** Step 1 *******************/
+	// Forward
+	for ( z=0 ; z<_result.n_slices ; z++ ) {
+		for ( x=0 ; x<_result.n_cols ; x++ ) {
+			d = 0.0f;
+			for ( y=0 ; y<_result.n_rows ; y++ ) {
+				if (_result(y,x,z) != 0.0f) {
+					d+=_xSpacing;
+					_result(y,x,z) = d*d;
+				}
+				else d = 0.0f;
+			}
+		}
+	}
+
+	// Backward
+	for ( z=0 ; z<_result.n_slices ; z++ ) {
+		for ( x=0 ; x<_result.n_cols ; x++ ) {
+			d = 0.0f;
+			for ( y=_result.n_rows-1 ; y>=0 ; y-- ) {
+				if (_result(y,x,z) != 0) {
+					d+=_xSpacing;
+					if ( _result(y,x,z) > (d*d) ) _result(y,x,z) = d*d ;
+				}
+				else d = 0.0f;
+			}
+		}
+	}
+
+	/*************** Step 2 *******************/
+	spaceSquare = _ySpacing*_ySpacing;
+	for ( z=0 ; z<_result.n_slices ; z++ ) {
+		for ( y=0 ; y<_result.n_rows ; y++ ) {
+			for ( x=0 ; x<_result.n_cols ; x++ ) {
+				buff[x] = _result(y,x,z);
+			}
+			/***** Forward *****/
+			for ( x=1 ; x<_result.n_cols ; x++ ) {
+				//Si je suis plus près d'un bord au-dessus que sur l'un des cotés
+				if ( buff[x] > buff[x-1]+spaceSquare ) {
+					b = (buff[x] - buff[x-1] - spaceSquare) / spaceSquare;
+					if ( x+b > _result.n_cols ) b = (_result.n_cols-x);
+					for ( n=0 ; n<b ; n++ ) {
+						m = buff[x-1] + (n+1)*(n+1)*spaceSquare;
+						if ( buff[x+n] <= m ) break;
+						if ( _result(y,x+n,z) > m ) _result(y,x+n,z) = m; // Si erreur, remettre le if l'algorithme
+					}
+				}
+			}
+			/***** Backward *****/
+			for ( x=_result.n_cols-2 ; x>=0 ; x-- ) {
+				if ( buff[x] > buff[x+1]+spaceSquare ) {
+					b = (buff[x] - buff[x+1] - spaceSquare) / spaceSquare;
+					if ( x-b < 1 ) b = x-1;
+					for ( n=0 ; n<b ; n++ ) {
+						m = buff[x+1] + (n+1)*(n+1)*spaceSquare;
+						if ( buff[x-n] <= m ) break;
+						if ( _result(y,x-n,z) > m ) _result(y,x-n,z) = m; // Si erreur, remettre le if l'algorithme
+					}
+				}
+			}
+		}
+	}
+
+	/*************** Step 3 *******************/
+	spaceSquare = _zSpacing * _zSpacing;
+	for ( y=0 ; y<_result.n_rows ; y++ ) {
+		for ( x=0 ; x<_result.n_cols ; x++ ) {
+			for ( z=0 ; z<_result.n_slices ; z++ ) {
+				buff[z] = _result(y,x,z);
+			}
+			/***** Forward *****/
+			for ( z=1 ; z<_result.n_slices ; z++ ) {
+				if ( buff[z] > buff[z-1]+spaceSquare ) {
+					b = ( buff[z] - buff[z-1] - spaceSquare ) / spaceSquare;
+					if ( z+b > _result.n_slices ) b = _result.n_slices-z;
+					for ( n=0 ; n<b ; n++ ) {
+						m = buff[z-1] + (n+1)*(n+1)*spaceSquare;
+						if ( buff[z+n] <= m ) break;
+						if ( _result(y,x,z+n) > m ) _result(y,x,z+n) = m; // Si erreur, remettre le if l'algorithme
+					}
+				}
+			}
+			/***** Backward *****/
+			for ( z=_result.n_slices-2 ; z>=0 ; z-- ) {
+				if ( buff[z] > buff[z+1]+spaceSquare ) {
+					b = ( buff[z] - buff[z+1] - spaceSquare ) / spaceSquare;
+					if ( z-b < 1 ) b = z-1;
+					for ( n=0 ; n<b ; n++ ) {
+						m = buff[z+1] + (n+1)*(n+1)*spaceSquare;
+						if (buff[z-n] <= m) break;
+						if ( _result(y,x,z-n) > m ) _result(y,x,z-n) = m; // Si erreur, remettre le if l'algorithme
+					}
+				}
+			}
+			for ( z=0 ; z<_result.n_slices ; z++) {
+				if ( _maxDistance < _result(y,x,z) ) _maxDistance = _result(y,x,z);
+			}
+		}
+	}
+	delete [] buff ;
+}

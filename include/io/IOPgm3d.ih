@@ -1,0 +1,190 @@
+/**
+ * \file IOPgm3d.ih
+ */
+//#include <io/IOPgm3d.h>
+#include <def_billon.h>
+#include <billon.h>
+#include <QDataStream>
+#include <QTextStream>
+#include <QStringList>
+
+//namespace io {
+
+template <typename To, typename T, bool tAscii> bool IOPgm3d<To,T,tAscii>::write( const std::vector< DGtal::Z3i::Object6_26*> &objCC, const QString &fileName ) {
+	assert( objCC.size()>1 ) ;
+	uint 	width 	= objCC[1]->domain().upperBound().at(0),
+			height 	= objCC[1]->domain().upperBound().at(1),
+			depth	= objCC[1]->domain().upperBound().at(2) ;
+
+	BillonTpl<To> allImage( width, height, depth );
+	std::vector< DGtal::Z3i::Object6_26* >::const_iterator iter = objCC.begin() ;
+	int nbComp=1;
+
+	while( iter != objCC.end() ) {
+		for ( DGtal::Z3i::DigitalSet::ConstIterator pt = (*iter)->pointSet().begin() ; pt != (*iter)->pointSet().end() ; pt++ ) {
+			allImage( (*pt).at(0), (*pt).at(1), (*pt).at(2)) = nbComp;
+		}
+		iter++ ;
+		nbComp++ ;
+	}
+	allImage.setMaxValue( nbComp-1 ) ;
+	return write( allImage, fileName ) ;
+}
+
+template <typename To, typename T, bool tAscii> bool IOPgm3d<To,T,tAscii>::write( const BillonTpl<To> &img, const QString &fileName, const QString &header ) {
+	uint 	width 	= img.n_cols,
+			height 	= img.n_rows,
+			depth	= img.n_slices ;
+
+	QFile file(fileName);
+	if( !file.open(QFile::WriteOnly) ) {
+		std::cerr << QString("ERREUR : %1 n'a pas pu être écrit.").arg(fileName).toStdString() << std::endl;
+		return false;
+	}
+	QTextStream out(&file);
+	out << header <<endl;
+	if ( depth != 1 )
+		out << QString("%1 %2 %3").arg( width ).arg( height ).arg( depth ) << endl;
+	else
+		out << QString("%1 %2").arg( width ).arg( height ) << endl;
+	out << QString("%1").arg( (T)img.maxValue() ) << endl;
+	if ( !tAscii ) {
+		QDataStream dout(&file);
+		for ( int k=0 ; k< depth ; k++ ) {
+			for ( int i=0 ; i< height ; i++ ) {
+				for ( int j=0 ; j< width ; j++ ) {
+					dout << (T) img(i,j,k);
+				}
+			}
+		}
+	} else {
+		for ( int k=0 ; k< depth ; k++ ) {
+			for ( int i=0 ; i< height ; i++ ) {
+				for ( int j=0 ; j< width ; j++ ) {
+					out << (T) img(i,j,k);
+				}
+			}
+		}
+	}
+	file.close();
+	return true ;
+}
+
+template <typename To, typename T, bool tAscii> bool IOPgm3d<To,T,tAscii>::write( const arma::Cube<To> &img, const QString &fileName, const QString &header ) {
+	uint 	width 	= img.n_cols,
+			height 	= img.n_rows,
+			depth	= img.n_slices ;
+
+	QFile file(fileName);
+	if( !file.open(QFile::WriteOnly) ) {
+		std::cerr << QString("ERREUR : %1 n'a pas pu être écrit.").arg(fileName).toStdString() << std::endl;
+		return false;
+	}
+	QTextStream out(&file);
+	out << header <<endl;
+	if ( depth != 1 )
+		out << QString("%1 %2 %3").arg( width ).arg( height ).arg( depth ) << endl;
+	else
+		out << QString("%1 %2").arg( width ).arg( height ) << endl;
+	out << QString("%1").arg( (T)std::numeric_limits<T>::max() ) << endl;
+	if ( !tAscii ) {
+		QDataStream dout(&file);
+		for ( int k=0 ; k< depth ; k++ ) {
+			for ( int i=0 ; i< height ; i++ ) {
+				for ( int j=0 ; j< width ; j++ ) {
+					dout << (T) img(i,j,k);
+				}
+			}
+		}
+	} else {
+		for ( int k=0 ; k< depth ; k++ ) {
+			for ( int i=0 ; i< height ; i++ ) {
+				for ( int j=0 ; j< width ; j++ ) {
+					out << (T) img(i,j,k);
+				}
+			}
+		}
+	}
+	file.close();
+	return true ;
+}
+
+
+template< typename To, typename T, bool tAscii> void IOPgm3d<To,T,tAscii>::read( QFile & imageFile, BillonTpl<To> * img ) {
+	if ( _sAscii )
+		readAscii( imageFile, img ) ;
+	else
+		readBinary( imageFile, img ) ;
+}
+template< typename To, typename T, bool tAscii> void IOPgm3d<To,T,tAscii>::readAscii( QFile & imageFile, BillonTpl<To> * img ) {
+	//Lecture de l'image en ascii
+	QTextStream data( &imageFile ) ;
+	T curVal ;
+	char curChar ;
+	for ( int k=0 ; k<img->n_slices ; k++ ) {
+		for ( int i=0 ; i<img->n_rows ; i++ ) {
+			for ( int j=0 ; j<img->n_cols ; j++ ) {
+				if ( sizeof(T) == sizeof(char) )
+					data >> curChar ;
+				else
+					data >> curVal;
+				//Construction de l'image entière en binaire
+				if ( curVal != 0 ) {
+					(*img)(i,j,k) = curVal;
+				}
+			}
+		}
+	}
+	imageFile.close() ;
+}
+	
+template< typename To, typename T, bool tAscii> void IOPgm3d<To,T,tAscii>::readBinary( QFile & imageFile, BillonTpl<To> * img ) {
+	//Lecture de l'image en binaire
+	QDataStream data(&imageFile);
+	T curVal;
+	for ( int k=0 ; k<img->n_slices ; k++ ) {
+		for ( int i=0 ; i<img->n_rows ; i++ ) {
+			for ( int j=0 ; j<img->n_cols ; j++ ) {
+				data >> curVal;
+				//Construction de l'image entière en binaire
+				if ( curVal != 0 ) {
+					(*img)(i,j,k) = curVal;
+				}
+			}
+		}
+	}
+	//std::cout<<"At end of the stream ? "<< ( data.atEnd()?"yes":"no")<<std::endl;
+	imageFile.close() ;
+}
+
+template< typename To, typename T, bool tAscii> BillonTpl<To> * IOPgm3d<To,T,tAscii>::read( const QString &fileName ) {
+	std::map< int, QString > 	desc ;
+	QFile 						imageFile(fileName);
+	
+	if ( !pgmheader( imageFile, desc ) ) {
+		std::cerr<<"ERROR : "<<desc[ PGM_HEADER_ERROR ].toStdString()<<" on file "<<fileName.toStdString()<<std::endl;
+		return 0 ;
+	}
+	
+	if ( QString( _header ).toLower() != desc[ PGM_HEADER_TYPE ].trimmed().toLower() ) {
+		std::cerr<<"ERROR : wrong format wrt used reader; expecting ["<<_header.toStdString()<<"] while reading ["<< desc[ PGM_HEADER_TYPE ].toStdString()<<"] on file "<<fileName.toStdString()<<std::endl;
+		return 0 ;
+	}
+	
+	BillonTpl<To> *img = new BillonTpl<To>( desc[ PGM_HEADER_IMAGE_HEIGHT ].toInt(), desc[ PGM_HEADER_IMAGE_WIDTH ].toInt(), desc[ PGM_HEADER_IMAGE_DEPTH ].toInt() ) ;
+	img->fill(0);
+	img->setMaxValue( desc[ PGM_HEADER_NUMBER_OF_COLORS ].toInt() );
+	
+	float 	voxelWidth = 1.f,
+			voxelHeight = 1.f,
+			voxelDepth = 1.f;
+	if ( desc.find( PGM_HEADER_VOXEL_WIDTH ) != desc.end() ) 	voxelWidth = desc[ PGM_HEADER_VOXEL_WIDTH ].toFloat() ;
+	if ( desc.find( PGM_HEADER_VOXEL_HEIGHT ) != desc.end() ) 	voxelHeight = desc[ PGM_HEADER_VOXEL_HEIGHT ].toFloat() ;
+	if ( desc.find( PGM_HEADER_VOXEL_DEPTH ) != desc.end() ) 	voxelDepth = desc[ PGM_HEADER_VOXEL_DEPTH ].toFloat() ;
+	img->setVoxelSize( voxelWidth, voxelHeight, voxelDepth );
+	
+	read( imageFile, img ) ;
+	return img ;
+}
+
+//}
