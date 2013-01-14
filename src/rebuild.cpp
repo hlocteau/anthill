@@ -200,6 +200,41 @@ std::cerr<<"CC "<<color<<" : "<<accu( thisCC )<<std::endl;
 	if ( bDebugThisLoop ) exit(-1);
 }
 
+#define Y_ADJ( voxel, neighbor ) (voxel).at(1) + (neighbor/9-1)
+#define X_ADJ( voxel, neighbor ) (voxel).at(0) + ( (neighbor%9)/3 -1 )
+#define Z_ADJ( voxel, neighbor ) (voxel).at(2) + ( neighbor % 3 -1 )
+
+
+template <typename T> void set_adjacency( 	BillonTpl< T > &im, Z3i::DigitalSet **pts, 
+											QMap< T, QSet<T> > &relations, QMap< T, QList<std::pair< Z3i::Point,Z3i::Point > > > &locations ) {
+	uint32_t nLabels = im.maxValue() ;
+	uint32_t adj_label ;
+	Z3i::Point dep, curDep ;
+	int x, y, z,n ;
+	for ( uint32_t label = 1 ; label < nLabels ; label++ ) {
+		for ( Z3i::DigitalSet::Iterator pt = pts[ label ]->begin() ; pt != pts[ label ]->end() ; pt++ )
+			for ( n = 0 ; n < 27 ; n++ ) {
+				if ( n == 13 ) continue ; /// this is *pt
+				x = X_ADJ( *pt, n ) ;
+				if ( x < 0 || x == im.n_cols ) continue ;
+				y = Y_ADJ( *pt, n ) ;
+				if ( y < 0 || y == im.n_rows ) continue ;
+				z = Z_ADJ( *pt, n ) ;
+				if ( z < 0 || z == im.n_slices ) continue ;
+				adj_label = im(y,x,z) ;
+				if ( adj_label <= label ) continue ;
+				T key = label * nLabels + adj_label ;
+				
+				if ( !relations.contains( label ) ) relations.insert( label, QSet<T>() ) ;
+				if ( !relations[ label ].contains( adj_label ) ) {
+					relations[ label ].insert( adj_label ) ;
+					locations.insert( key, QList< std::pair< Z3i::Point, Z3i::Point > > () ) ;
+				}
+				locations[ key ].append( std::pair<Z3i::Point,Z3i::Point>( *pt, Z3i::Point(x,y,z) ) ) ;
+			}
+	}
+}
+
 int main( int narg, char **argv ) {
 
 	// parse command line ----------------------------------------------
@@ -247,6 +282,22 @@ int main( int narg, char **argv ) {
 				<<"Min-max billon's prop "<<pSkeleton->minValue()<<" "<<pSkeleton->maxValue()<<std::endl;
 	std::pair<Z3i::DigitalSet **, Z3i::Domain **> layers = labelimage_as_voxelsLayer( pSkeleton ) ;
 	size_t n_cc = pSkeleton->max() ;
+	QMap< IPgm3dFactory::value_type, QSet< IPgm3dFactory::value_type > > relations ;
+	QMap< IPgm3dFactory::value_type, QList< std::pair< Z3i::Point, Z3i::Point > > > locations ;
+	set_adjacency<IPgm3dFactory::value_type>( *pSkeleton, layers.first, relations, locations ) ;
+	{
+		/// \warning we can get several touching voxels for the same pair of connected components!
+		/// print relations & their corresponding locations
+		std::cerr<<"Relations:"<<std::endl;
+		for ( QMap< IPgm3dFactory::value_type, QSet< IPgm3dFactory::value_type > >::iterator rel_source = relations.begin() ; rel_source != relations.end() ; rel_source++ )
+			for ( QSet< IPgm3dFactory::value_type >::iterator rel_target = rel_source.value().begin() ; rel_target != rel_source.value().end() ; rel_target++ ) {
+				std::cerr<<"cc "<<rel_source.key()<<" and cc "<< *rel_target<<" : " ;
+				QMap< IPgm3dFactory::value_type, QList< std::pair< Z3i::Point, Z3i::Point > > >::iterator loc = locations.find( std::min(rel_source.key(),*rel_target) * (n_cc+1) + std::max(rel_source.key(),*rel_target) ) ;
+				for ( int iLoc = 0 ; iLoc < loc.value().size() ; iLoc ++ )
+					std::cerr<< loc.value()[ iLoc ].first<<" + "<<loc.value()[ iLoc ].second << " ";
+				std::cerr<<std::endl;
+			}
+	}
 	delete pSkeleton ;
 	std::set<int> availablelabels ;
 	Z3i::Point **boundaries = new Z3i::Point * [ (n_cc+1)*2 ] ;
