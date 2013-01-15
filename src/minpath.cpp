@@ -1,30 +1,24 @@
 #include <io/Pgm3dFactory.h>
 #include <connexcomponentextractor.h>
-#include <boost/graph/adjacency_list.hpp>
 #include <boost/graph/breadth_first_search.hpp>
-#include <boost/pending/indirect_cmp.hpp>
+#include <SkeletonGraph.hpp>
 #include <boost/range/irange.hpp>
 #include <DGtal/helpers/StdDefs.h>
 
 //#define CHECK_TOY_PROBLEM_OUTPUT
 
-using namespace boost;
+
 using DGtal::Z3i::Point ;
 
-typedef Pgm3dFactory<char> 	CPgm3dFactory ;
-typedef BillonTpl<char>		CImage ;
-typedef Pgm3dFactory<int32_t> 	IPgm3dFactory ;
-typedef int32_t				im_elem_sp_type ;
-typedef BillonTpl< im_elem_sp_type > ISPImage ;
+typedef Pgm3dFactory<char> 				CPgm3dFactory ;
+typedef BillonTpl<char>					CImage ;
+typedef SkeletonGraph<char>				CSkeletonGraph ;
+typedef Pgm3dFactory<int32_t> 			IPgm3dFactory ;
+typedef int32_t							im_elem_sp_type ;
+typedef BillonTpl< im_elem_sp_type > 	ISPImage ;
 typedef ConnexComponentExtractor<CPgm3dFactory::value_type,int16_t> CCExtractor ;
 
 
-typedef adjacency_list < vecS, vecS, undirectedS > graph_t;
-typedef graph_traits < graph_t >::vertex_descriptor Vertex;
-typedef graph_traits < graph_t >::edge_descriptor Edge;
-
-typedef graph_traits < graph_t >::vertices_size_type Size;
-typedef Size* Iiter;
 
   bool bNeedIncrement ;
 template < typename TimeMap > class bfs_time_visitor:public default_bfs_visitor {
@@ -67,335 +61,7 @@ public:
 
 #ifndef CHECK_TOY_PROBLEM_OUTPUT
 
-int x_from_linear_coord( uint32_t v, int n_cols, int n_rows, int n_slices ) {
-	return v % n_cols ;
-}
-int y_from_linear_coord( uint32_t v, int n_cols, int n_rows, int n_slices ) {
-	return (v / n_cols) % n_rows ;
-}
-int z_from_linear_coord( uint32_t v, int n_cols, int n_rows, int n_slices ) {
-	return (v / n_cols) / n_rows ;
-}
-
-/// \note it is unnecessary to provide the image's dimension each time!
-iCoord3D from_linear_coord( uint32_t v, int n_cols, int n_rows, int n_slices ) {
-	return iCoord3D( x_from_linear_coord(v,n_cols,n_rows,n_slices),y_from_linear_coord(v,n_cols,n_rows,n_slices),z_from_linear_coord(v,n_cols,n_rows,n_slices) ) ;
-}
-
-uint32_t linear_coord( uint32_t x, uint32_t y, uint32_t z, int n_cols, int n_rows, int n_slices ) {
-	return ( z * n_rows + y ) * n_cols + x ;
-} 
-
-#define CHECK_VERTEX_DEGREE_3DIMAGE(node,graph)
-
-#define CHECK_VERTEX_DEGREE_3DIMAGE2(node,graph) {\
-	if ( degree( vertex( node, graph ),graph ) > 26 ) {\
-		std::cerr<<"node "<<node<<" / voxel " ;\
-		QList<uint32_t> keys = encodingVoxel.keys(node) ;\
-		std::cerr<<x_from_linear_coord( keys[0], img.n_cols,img.n_rows,img.n_slices )<<",";\
-		std::cerr<<y_from_linear_coord( keys[0], img.n_cols,img.n_rows,img.n_slices )<<",";\
-		std::cerr<<z_from_linear_coord( keys[0], img.n_cols,img.n_rows,img.n_slices )<<std::endl;\
-		typename graph_t::adjacency_iterator adj;\
-		typename graph_t::adjacency_iterator adj_end;\
-		boost::tie(adj,adj_end) = adjacent_vertices( node,graph );\
-		keys.clear();\
-		for ( ; adj != adj_end ; adj++ ) {\
-			keys = encodingVoxel.keys(*adj) ;\
-			std::cerr<<"adjacent node "<<*adj<<" / voxel " ;\
-			std::cerr<<x_from_linear_coord( keys[0], img.n_cols,img.n_rows,img.n_slices )<<",";\
-			std::cerr<<y_from_linear_coord( keys[0], img.n_cols,img.n_rows,img.n_slices )<<",";\
-			std::cerr<<z_from_linear_coord( keys[0], img.n_cols,img.n_rows,img.n_slices )<<std::endl;\
-		}\
-		exit(-2);\
-	}\
-}
-
-#define ADD_EDGE(source,target,graph) add_edge(source,target,graph);
-
-#define ADD_EDGE2(source,target,graph) {\
-	QList<uint32_t> keys = encodingVoxel.keys(source);\
-	if ( keys.size() != 1 ) {\
-		std::cerr<<"Error : retrieve "<<keys.size()<<" key(s) from value "<<source<<" @line "<<__LINE__<<std::endl;\
-		exit(-3) ;\
-	}\
-	uint32_t source_key = keys[0];\
-	keys.clear() ;\
-	keys = encodingVoxel.keys(target);\
-	if ( keys.size() != 1 ) {\
-		std::cerr<<"Error : retrieve "<<keys.size()<<" key(s) from value "<<target<<" @line "<<__LINE__<<std::endl;\
-		exit(-3) ;\
-	}\
-	uint32_t target_key = keys[0];\
-	int source_x = x_from_linear_coord( source_key, img.n_cols, img.n_rows, img.n_slices );\
-	int source_y = y_from_linear_coord( source_key, img.n_cols, img.n_rows, img.n_slices );\
-	int source_z = z_from_linear_coord( source_key, img.n_cols, img.n_rows, img.n_slices );\
-	int target_x = x_from_linear_coord( target_key, img.n_cols, img.n_rows, img.n_slices );\
-	int target_y = y_from_linear_coord( target_key, img.n_cols, img.n_rows, img.n_slices );\
-	int target_z = z_from_linear_coord( target_key, img.n_cols, img.n_rows, img.n_slices );\
-	if ( abs(source_x-target_x)>1 || abs(source_y-target_y)>1 || abs(source_z-target_z)>1 ) {\
-		std::cerr<<"Error : can not link node "<<source<<" to node "<<target<<" as theirs coordinates are respectively : ";\
-		std::cerr<<source_x<<","<<source_y<<","<<source_z<<" and "<<target_x<<","<<target_y<<","<<target_z<<" @line "<<__LINE__<<std::endl;\
-		exit(-3);\
-	} else {\
-		add_edge(source,target,graph);\
-	}\
-}
-
-
-#define GET_VERTEX_ID(x,y,z) ( encodingVoxel.contains(linear_coord(x,y,z,img.n_cols,img.n_rows,img.n_slices))?encodingVoxel[linear_coord(x,y,z,img.n_cols,img.n_rows,img.n_slices)]:encodingVoxel.size()+1)
-
-#define CHECK_VERTEX_ID(x,y,z)
-
-#define CHECK_VERTEX_ID2(x,y,z) {\
-	uint32_t value = linear_coord(x,y,z,img.n_cols,img.n_rows,img.n_slices) ;\
-	if ( !encodingVoxel.contains(value) ) {\
-		std::cerr<<"Error : encoding of voxel("<<x<<","<<y<<","<<z<<") is "<<value<<" while no graph's vertex gets this encoding"<<std::endl;\
-		std::cerr<<"Info  : img("<<x<<","<<y<<","<<z<<") is "<<(int)img(y,x,z)<<" @line "<<__LINE__<<std::endl;\
-		exit(-3);\
-	}\
-}
-
-/// without sampling
-template< typename T >
-graph_t* imageToGraph( const BillonTpl< T > &img, QMap<uint32_t,int32_t> &encodingVoxel, T label ) {
-	graph_t* g ;
-	int x,y,z;
-	int32_t vertex_number=0 ;
-	/// node management
-	for ( z = 0 ; z < img.n_slices ; z++ )
-		for ( y = 0 ; y < img.n_rows ; y++ )
-			for ( x = 0 ; x < img.n_cols ; x++ )
-				if ( img( y, x, z ) != 0 && ( label == -1 || img( y, x, z ) == label ) ) {
-					encodingVoxel[ linear_coord(x,y,z,img.n_cols,img.n_rows,img.n_slices) ] = vertex_number ;
-					vertex_number++ ;
-				}
-	assert(vertex_number==encodingVoxel.size());
-	g = new graph_t( encodingVoxel.size() ) ;
-	int32_t edge_number = 0 ;
-	int32_t n,t ;
-	/// edge management
-	for ( z = 0 ; z < img.n_slices ; z++ )
-		for ( y = 0 ; y < img.n_rows ; y++ )
-			for ( x = 0 ; x < img.n_cols ; x++ ) {
-				if ( img( y, x, z ) != 0 ) {
-					if ( label == -1 || img( y, x, z ) == label ) {
-						n = GET_VERTEX_ID(x,y,z);
-						CHECK_VERTEX_ID(x,y,z);
-						assert( n < vertex_number ) ;
-						
-						//                  (z)^
-						//                     |                                             (z)^
-						//     	               g---------h---------i                            |
-						//     	             / |       / |       / |                            |
-						//     	           d---------e---------f   |                            |
-						//     	         / |   |   / |   |   / |   |                            |
-						//     	       a---------b---------c   |   |                            |
-						//     	       |   |   7-|---|-----|---|---9                            |
-						//     	       |   | / | |   | / | |   | / |                            |
-						//     	       |   4-----|--[5]----|---6   |                            4---------5
-						//     	       | / |   | | / |   | | / |   |                          / |       / |
-						//     	       1---------2---------3   |   |                        1---------2   |
-						//     	       |   |   G-|---|---H-|---|---I-----------> (x)        |   |     |   |
-						//     	       |   | /   |   | /   |   | /                          |   |     |   |
-						//     	       |   D-----|---E-----|---F                            |  [D]----|---E---------> (x)
-						//     	       | /       | /       | /                              | /       | /
-						//     	       A---------B---------C                                A---------B
-						//          /                                                     /
-						//        v (y)                                                 v (y)
-						//
-
-						if ( y < img.n_rows-1 )
-							if ( img( y+1, x  , z   ) != 0 	&& ( label == -1 || img( y+1, x  , z   ) == label )	)	{ /** edge DA - Right figure */
-								t = GET_VERTEX_ID(x  ,y+1,z) ;
-								CHECK_VERTEX_ID(x  ,y+1,z) ; edge_number++ ;
-								CHECK_VERTEX_DEGREE_3DIMAGE( n,*g ) ;
-								CHECK_VERTEX_DEGREE_3DIMAGE( t,*g ) ;
-								ADD_EDGE(n,t,*g) ;
-							}
-						if ( y < img.n_rows-1 && x < img.n_cols-1 )
-							if ( img( y+1, x+1, z   ) != 0 	&& ( label == -1 || img( y+1, x+1, z   ) == label )	)	{ /** edge DB - Right figure */
-								t = GET_VERTEX_ID(x+1,y+1,z) ;
-								CHECK_VERTEX_ID(x+1,y+1,z) ; edge_number++ ;
-								CHECK_VERTEX_DEGREE_3DIMAGE( n,*g ) ;
-								CHECK_VERTEX_DEGREE_3DIMAGE( t,*g ) ;
-								ADD_EDGE( n, t,*g) ;
-							}
-						if ( y < img.n_rows-1 && x < img.n_cols-1 && z < img.n_slices-1 )
-							if ( img( y+1, x+1, z+1 ) != 0 	&& ( label == -1 || img( y+1, x+1, z+1 ) == label )	)	{ /** edge D2 - Right figure */
-								t = GET_VERTEX_ID(x+1,y+1,z+1) ;
-								CHECK_VERTEX_ID( x+1,y+1,z+1 ) ; edge_number++ ;
-								CHECK_VERTEX_DEGREE_3DIMAGE( n,*g ) ;
-								CHECK_VERTEX_DEGREE_3DIMAGE( t,*g ) ;
-								ADD_EDGE( n, t,*g) ;
-							}
-						if ( y < img.n_rows-1 && z < img.n_slices-1 )
-							if ( img( y+1, x  , z+1 ) != 0 	&& ( label == -1 || img( y+1, x  , z+1 ) == label )	)	{/** edge D1 - Right figure */
-								t = GET_VERTEX_ID(x  ,y+1,z+1);
-								CHECK_VERTEX_ID( x  ,y+1,z+1 ) ; edge_number++ ;
-								CHECK_VERTEX_DEGREE_3DIMAGE( n,*g ) ;
-								CHECK_VERTEX_DEGREE_3DIMAGE( t,*g ) ;
-								ADD_EDGE( n, t,*g) ;
-							}
-						if ( z < img.n_slices-1 )
-							if ( img( y  , x  , z+1 ) != 0 	&& ( label == -1 || img( y  , x  , z+1 ) == label )	)	{/** edge D4 - Right figure */
-								t = GET_VERTEX_ID( x  ,y  ,z+1) ;
-								CHECK_VERTEX_ID( x  ,y  ,z+1 ) ; edge_number++ ;
-								CHECK_VERTEX_DEGREE_3DIMAGE( n,*g ) ;
-								CHECK_VERTEX_DEGREE_3DIMAGE( t,*g ) ;
-								ADD_EDGE( n, t,*g) ;
-							}
-						if ( x < img.n_cols-1 && z < img.n_slices-1 )
-							if ( img( y  , x+1, z+1 ) != 0 	&& ( label == -1 || img( y  , x+1, z+1 ) == label )	)	{/** edge D5 - Right figure */
-								t = GET_VERTEX_ID( x+1,y  ,z+1) ;
-								CHECK_VERTEX_ID( x+1,y  ,z+1 ) ; edge_number++ ;
-								CHECK_VERTEX_DEGREE_3DIMAGE( n,*g ) ;
-								CHECK_VERTEX_DEGREE_3DIMAGE( t,*g ) ;
-								ADD_EDGE( n, t,*g) ;
-							}
-						if ( x < img.n_cols-1 )
-							if ( img( y  , x+1, z   ) != 0 	&& ( label == -1 || img( y  , x+1, z   ) == label )	)	{/** edge DE - Right figure */
-								t = GET_VERTEX_ID( x+1,y  ,z) ;
-								CHECK_VERTEX_ID( x+1,y  ,z ) ; edge_number++ ;
-								CHECK_VERTEX_DEGREE_3DIMAGE( n,*g ) ;
-								CHECK_VERTEX_DEGREE_3DIMAGE( t,*g ) ;
-								ADD_EDGE( n, t,*g) ;
-							}
-					} /** END if ( label != -1 || img( y, x, z ) == label ) */
-				} /** END if ( img( y, x, z ) != 0 ) */
-				if ( y < img.n_rows-1 && z < img.n_slices-1 && x < img.n_cols-1 ) {
-					if ( img( y  , x  , z+1 ) != 0 	&& ( label == -1 || img( y  , x  , z+1 ) == label )	&&
-						 img( y+1, x+1, z   ) != 0 	&& ( label == -1 || img( y+1, x+1, z   ) == label ) )	{/** edge 4B - Right figure */
-						n = GET_VERTEX_ID( x  ,y  ,z+1) ;
-						t = GET_VERTEX_ID( x+1,y+1,z) ;
-						CHECK_VERTEX_ID( x  ,y  ,z+1 ) ;
-						CHECK_VERTEX_ID( x+1,y+1,z ) ; edge_number++ ;
-						CHECK_VERTEX_DEGREE_3DIMAGE( n,*g ) ;
-						CHECK_VERTEX_DEGREE_3DIMAGE( t,*g ) ;
-						ADD_EDGE( n, t,*g) ;
-					}
-					if ( img( y+1, x  , z   ) != 0 	&& ( label == -1 || img( y+1, x  , z   ) == label )	&&
-						 img( y  , x+1, z+1 ) != 0 	&& ( label == -1 || img( y  , x+1, z+1 ) == label ) )	{/** edge A5 - Right figure */
-						n = GET_VERTEX_ID( x  ,y+1,z) ;
-						t = GET_VERTEX_ID( x+1,y  ,z+1) ;
-						CHECK_VERTEX_ID( x  ,y+1,z ) ;
-						CHECK_VERTEX_ID( x+1,y  ,z+1 ) ; edge_number++ ;
-						CHECK_VERTEX_DEGREE_3DIMAGE( n,*g ) ;
-						CHECK_VERTEX_DEGREE_3DIMAGE( t,*g ) ;
-						ADD_EDGE( n, t,*g) ;
-					}
-					if ( img( y+1, x  , z+1 ) != 0 	&& ( label == -1 || img( y+1, x  , z+1 ) == label )	&&
-						 img( y  , x+1, z   ) != 0 	&& ( label == -1 || img( y  , x+1, z   ) == label ) )	{/** edge 1E - Right figure */
-						n = GET_VERTEX_ID( x  ,y+1,z+1) ;
-						t = GET_VERTEX_ID( x+1,y  ,z) ;
-						CHECK_VERTEX_ID( x  ,y+1,z+1 ) ;
-						CHECK_VERTEX_ID( x+1,y  ,z ) ;
-						edge_number++ ;
-						CHECK_VERTEX_DEGREE_3DIMAGE( n,*g ) ;
-						CHECK_VERTEX_DEGREE_3DIMAGE( t,*g ) ;
-						ADD_EDGE( n, t,*g) ;
-					}
-				}
-				if ( y < img.n_rows-1 && z < img.n_slices-1 )
-					if ( img( y+1, x  , z   ) != 0 	&& ( label == -1 || img( y+1, x  , z   ) == label )	&&
-						 img( y  , x  , z+1 ) != 0 	&& ( label == -1 || img( y  , x  , z+1 ) == label ) )	{/** edge A4 - Right figure */
-						n = GET_VERTEX_ID( x  ,y+1,z) ;
-						t = GET_VERTEX_ID( x  ,y  ,z+1) ;
-						CHECK_VERTEX_ID( x  ,y+1,z ) ;
-						CHECK_VERTEX_ID( x  ,y  ,z+1 ) ; edge_number++ ;
-						CHECK_VERTEX_DEGREE_3DIMAGE( n,*g ) ;
-						CHECK_VERTEX_DEGREE_3DIMAGE( t,*g ) ;
-						ADD_EDGE( n, t,*g) ;
-					}
-				if ( x < img.n_cols-1 && z < img.n_slices-1 )
-					if ( img( y  , x  , z+1 ) != 0 	&& ( label == -1 || img( y  , x  , z+1 ) == label )	&&
-						 img( y  , x+1, z   ) != 0 	&& ( label == -1 || img( y  , x+1, z   ) == label ) )	{/** edge 4E - Right figure */
-						n = GET_VERTEX_ID( x  ,y  ,z+1) ;
-						t = GET_VERTEX_ID( x+1,y  ,z) ;
-						CHECK_VERTEX_ID( x  ,y  ,z+1 ) ;
-						CHECK_VERTEX_ID( x+1,y  ,z ) ; edge_number++ ;
-						CHECK_VERTEX_DEGREE_3DIMAGE( n,*g ) ;
-						CHECK_VERTEX_DEGREE_3DIMAGE( t,*g ) ;
-						ADD_EDGE( n, t,*g) ;
-					}
-
-				if ( x < img.n_cols-1 && y < img.n_rows-1 )
-					if ( img( y+1, x  , z   ) != 0 	&& ( label == -1 || img( y+1, x  , z   ) == label )	&&
-						 img( y  , x+1, z   ) != 0 	&& ( label == -1 || img( y  , x+1, z   ) == label ) )	{/** edge AE - Right figure */
-						n = GET_VERTEX_ID( x  ,y+1,z) ;
-						t = GET_VERTEX_ID( x+1,y  ,z) ;
-						CHECK_VERTEX_ID( x  ,y+1,z ) ;
-						CHECK_VERTEX_ID( x+1,y  ,z ) ; edge_number++ ;
-						CHECK_VERTEX_DEGREE_3DIMAGE( n,*g ) ;
-						CHECK_VERTEX_DEGREE_3DIMAGE( t,*g ) ;
-						ADD_EDGE( n, t,*g) ;
-					}
-
-			}
-	std::cout<<"Create "<< edge_number<<" edges"<<std::endl ;
-	{
-		QList<uint32_t> keys = encodingVoxel.keys( 0 ) ;
-		std::cout<<"Degree of source node for bfs : "<<out_degree(vertex( 0, *g), *g)<<" vertex 0, voxel "<< x_from_linear_coord(keys[0],img.n_cols,img.n_rows,img.n_slices)<<","<<y_from_linear_coord(keys[0],img.n_cols,img.n_rows,img.n_slices)<<","<<z_from_linear_coord(keys[0],img.n_cols,img.n_rows,img.n_slices) <<std::endl;
-	}
-	
-	QMap< uint32_t, int32_t>::iterator Iter = encodingVoxel.begin() ;
-	bool bError = false ;
-	for ( ;Iter != encodingVoxel.end() ; Iter++ ) {
-		if ( out_degree( vertex( Iter.value(), *g), *g) != 0 ) continue ;
-		x=x_from_linear_coord( Iter.key(), img.n_cols,img.n_rows,img.n_slices) ;
-		y=y_from_linear_coord( Iter.key(), img.n_cols,img.n_rows,img.n_slices) ;
-		z=z_from_linear_coord( Iter.key(), img.n_cols,img.n_rows,img.n_slices) ;
-		std::cout<<"vertex "<< Iter.value()<<" is mapped to voxel ("<<x<<","<<y<<","<<z<<") is disconnected"<<std::endl;
-		for ( int zz=max(0,z-1);zz<=min((int)img.n_slices-1,z+1);zz++ )
-			std::cout<<"z = "<<zz<<"\t\t";
-		std::cout<<std::endl;
-		for ( int yy=max(0,y-1);yy<=min((int)img.n_rows-1,y+1);yy++ ) {
-			for ( int zz=max(0,z-1);zz<=min((int)img.n_slices-1,z+1);zz++ ) {
-				for ( int xx=max(0,x-1);xx<=min((int)img.n_cols-1,x+1);xx++ )
-					std::cout<<(int)img(yy,xx,zz)<<" ";
-				std::cout<<"\t\t" ;
-			}
-			std::cout<<std::endl;
-		}
-		bError = true ;
-	}
-	if ( bError ) exit(-3);
-	
-	typename graph_t::adjacency_iterator v, vend;
-	std::list< Vertex > vertices ; vertices.push_back( vertex( 0, *g) ) ;
-	std::set< Vertex > forbidden ;
-    for ( int iLoop=0;iLoop<0&&!vertices.empty();iLoop++ ) {
-		forbidden.insert( vertices.front() ) ;
-		/// display mini-cube
-		if ( false){
-			QList<uint32_t> keys = encodingVoxel.keys( vertices.front() ) ;
-			x = x_from_linear_coord( keys[0], img.n_cols, img.n_rows, img.n_slices ) ;
-			y = y_from_linear_coord( keys[0], img.n_cols, img.n_rows, img.n_slices ) ;
-			z = z_from_linear_coord( keys[0], img.n_cols, img.n_rows, img.n_slices ) ;
-			for ( int zz=max(0,z-1);zz<=min((int)img.n_slices-1,z+1);zz++ )
-				std::cout<<"z = "<<zz<<"\t\t";
-			std::cout<<std::endl;
-			for ( int yy=max(0,y-1);yy<=min((int)img.n_rows-1,y+1);yy++ ) {
-				for ( int zz=max(0,z-1);zz<=min((int)img.n_slices-1,z+1);zz++ ) {
-					for ( int xx=max(0,x-1);xx<=min((int)img.n_cols-1,x+1);xx++ )
-						std::cout<<(int)img(yy,xx,zz)<<" ";
-					std::cout<<"\t\t" ;
-				}
-				std::cout<<std::endl;
-			}
-		}		
-		for (tie(v,vend) = adjacent_vertices(vertices.front(), *g); v != vend; ++v) {
-			QList<uint32_t> keys = encodingVoxel.keys( *v ) ;
-			std::cout<<"from "<< vertices.front()<<" adj vertex "<<*v<<" voxel "<<x_from_linear_coord(keys[0],img.n_cols,img.n_rows,img.n_slices)<<","<<y_from_linear_coord(keys[0],img.n_cols,img.n_rows,img.n_slices)<<","<<z_from_linear_coord(keys[0],img.n_cols,img.n_rows,img.n_slices)<<std::endl;
-			if ( forbidden.find( *v ) == forbidden.end() ) {
-				vertices.push_back( *v ) ;
-				forbidden.insert( vertices.front() ) ;
-			}
-		}
-		vertices.pop_front() ;
-	}
-	return g ;
-}
-
+#if 0
 bool avoid_adjcacent( QMap< uint32_t,int32_t> &samples, QMap< uint32_t,int32_t> &allsamples, graph_t *pGraph ) {
 	typename graph_t::adjacency_iterator adj, adj_end;
 	QList<uint32_t> keys ;
@@ -482,29 +148,8 @@ bool connectivity_map( QMap< uint32_t,int32_t> &samples, QMap< uint32_t,int32_t>
 	}
 	return bFound ;
 }
-
 #endif
-
-void init_toyproblem(graph_t ** pGraph) {
-	(*pGraph) = new graph_t ;
-	add_edge( 0,2, **pGraph ) ;
-	add_edge( 1,1, **pGraph ) ;
-	add_edge( 1,3, **pGraph ) ;
-	add_edge( 1,4, **pGraph ) ;
-	add_edge( 2,1, **pGraph ) ;
-	add_edge( 2,3, **pGraph ) ;
-	add_edge( 2,4, **pGraph ) ;
-	add_edge( 3,1, **pGraph ) ;
-	add_edge( 3,4, **pGraph ) ;
-	add_edge( 4,0, **pGraph ) ;
-	add_edge( 4,1, **pGraph ) ;
-}
-void solution_toy_problem( graph_t * pGraph, std::vector < int32_t > &dtime ) {
-	for ( int inode=0;inode<num_vertices(*pGraph);inode++ ) {
-		std::cout<<"Vertex "<<vertex( inode, *pGraph )<<" has distance "<<dtime[ inode ]<<std::endl;
-	}
-	std::cout<<std::endl;
-}
+#endif
 
 //#define DEBUG_CC_EXTRACTION
 //#define DEBUG_USE_V3D_CC_EXPORT
@@ -567,7 +212,7 @@ bool exist_mapping( const BillonTpl< T > &labels, const BillonTpl< U > &lblV3D, 
 	return is_mapping ;
 }
 
-const int n_voi = 7 ;
+const int n_voi = 0 ;
 iCoord3D dbg_voi[] = { iCoord3D(75,65,18), iCoord3D(130,32,44), iCoord3D(171,306,7), iCoord3D(198,371,92), iCoord3D(199,371,77), iCoord3D(230,57,10), iCoord3D(282,157,25) } ;
 
 template <typename T> CImage * filter_imlabel( BillonTpl< T> &im, T selectedLabel ) {
@@ -661,22 +306,22 @@ std::pair< ISPImage*, im_elem_sp_type> v3d_extraction( const char *inputFileName
 	return std::pair< ISPImage*, im_elem_sp_type > ( lblV3D, mainCCIndex ) ;
 }
 
-void antipodal_voxels_path( const graph_t &g, const std::vector < int32_t > &dtime, 
-							const QMap< uint32_t, int32_t > &encodingVoxel, int n_cols, int n_rows, int n_slices, 
-							QList<iCoord3D> &path ) {
+template <typename T>
+void antipodal_voxels_path( const SkeletonGraph<T> &SG, const std::vector < int32_t > &dtime, QList<iCoord3D> &path ) {
 	uint32_t farestVoxel = 1 ;
 	for ( uint32_t idx = 0 ; idx != dtime.size() ; idx++  )
 		if ( dtime[ idx ] > dtime[ farestVoxel ] )
 			farestVoxel = idx ;
-	path.append( from_linear_coord( encodingVoxel.keys(farestVoxel)[0], n_cols, n_rows, n_slices ) ) ;
+	path.append( SG[ farestVoxel ] ) ;
 	
-	graph_t::adjacency_iterator adj,adj_end ;
+	typename SkeletonGraph<T>::graph_t::adjacency_iterator adj,adj_end ;
+	const typename SkeletonGraph<T>::graph_t g = SG.graph() ;
 	/// from this voxel, backpropagation
 	while ( dtime[ farestVoxel ] != 1 ) {
 		boost::tie( adj,adj_end ) = adjacent_vertices( vertex( farestVoxel, g ), g ) ;
 		for ( ; adj != adj_end ; adj++ ) {
 			if ( dtime[ *adj ] < dtime[ farestVoxel ] ) {
-				path.append( from_linear_coord( encodingVoxel.keys(*adj)[0], n_cols, n_rows, n_slices ) ) ;
+				path.append( SG[*adj] ) ;
 				farestVoxel = *adj;
 				break ;
 			}
@@ -684,14 +329,12 @@ void antipodal_voxels_path( const graph_t &g, const std::vector < int32_t > &dti
 		assert ( adj != adj_end ) ;
 	}
 }
-template <typename T>
-bool is_junction( const graph_t &g, const QMap< uint32_t, int32_t > &encodingVoxel, const iCoord3D &pt, const BillonTpl<T> &img ) {
-	uint32_t value = linear_coord(pt.x,pt.y,pt.z,img.n_cols,img.n_rows,img.n_slices) ;
-	int32_t node = encodingVoxel[ value ] ;
-	
+template <typename T> bool is_junction( const SkeletonGraph<T> & SG, const iCoord3D &pt ) {
+	int32_t node = SG.node( pt ) ;
+	const typename SkeletonGraph<T>::graph_t & g = SG.graph() ;
 	if ( degree( node, g ) <= 2 ) return false ;
 	
-	graph_t::adjacency_iterator adj_begin, adj_na,adj_nb,adj_end,
+	typename SkeletonGraph<T>::graph_t::adjacency_iterator adj_begin, adj_na,adj_nb,adj_end,
 								adj_nc_begin, adj_nc_end,
 								adj_nd_begin, adj_nd_end,
 								nb,nc,nd,
@@ -725,8 +368,7 @@ bool is_junction( const graph_t &g, const QMap< uint32_t, int32_t > &encodingVox
 						junction.fill(0);
 						junction(1,1,1) = 1 ;
 						for ( n = adj_begin ; n != adj_end ; n++ ) {
-							uint32_t ea = encodingVoxel.keys( *n )[ 0 ] ;
-							iCoord3D pta = from_linear_coord( ea, img.n_cols, img.n_rows, img.n_slices ) ;
+							iCoord3D pta = SG[ *n ] ;
 							junction( pta.y - pt.y +1 , pta.x-pt.x + 1, pta.z-pt.z+1) = 1 ;
 						}
 						std::cerr << adjacent_voxels( iCoord3D(1,1,1), junction ) << std::endl ;
@@ -744,115 +386,72 @@ bool is_junction( const graph_t &g, const QMap< uint32_t, int32_t > &encodingVox
 	return false ;
 }
 
+#ifdef CHECK_TOY_PROBLEM_OUTPUT
+void init_toyproblem(graph_t ** pGraph) {
+	(*pGraph) = new graph_t ;
+	add_edge( 0,2, **pGraph ) ;
+	add_edge( 1,1, **pGraph ) ;
+	add_edge( 1,3, **pGraph ) ;
+	add_edge( 1,4, **pGraph ) ;
+	add_edge( 2,1, **pGraph ) ;
+	add_edge( 2,3, **pGraph ) ;
+	add_edge( 2,4, **pGraph ) ;
+	add_edge( 3,1, **pGraph ) ;
+	add_edge( 3,4, **pGraph ) ;
+	add_edge( 4,0, **pGraph ) ;
+	add_edge( 4,1, **pGraph ) ;
+}
+void solution_toy_problem( graph_t * pGraph, std::vector < int32_t > &dtime ) {
+	for ( int inode=0;inode<num_vertices(*pGraph);inode++ ) {
+		std::cout<<"Vertex "<<vertex( inode, *pGraph )<<" has distance "<<dtime[ inode ]<<std::endl;
+	}
+	std::cout<<std::endl;
+}
+
 int main( int narg, char **argv ) {
 	graph_t 				*pGraph =0;
-	uint32_t 				source = 0 ;
-	QMap<uint32_t,int32_t> 	encoding_vertices ;
-
-#ifdef CHECK_TOY_PROBLEM_OUTPUT
 	init_toyproblem(&pGraph) ;
-#else
-	const char *inputFileName = argv[1] ;
-	const char *outputFileName = argv[2] ;
-	const char *depthFileName = argv[3] ;
 	
-	BillonTpl< CCExtractor::value_type > 	*pOwnLabel=0;
-	CCExtractor::value_type 				idOwn ;
-	ISPImage								*pV3DLabel=0;
-	im_elem_sp_type							idV3D ;
-	
-#ifdef DEBUG_CC_EXTRACTION
-	{
-		boost::tie(pOwnLabel,idOwn) = own_extraction( inputFileName, true ) ;
-		boost::tie(pV3DLabel,idV3D) = v3d_extraction( "/tmp/labelWithV3D.pgm3d" ) ;
-		std::cerr<<"Comparison between anthouse.labels ("<<pOwnLabel->n_rows<<" x "<<pOwnLabel->n_cols<<" x "<<pOwnLabel->n_slices<<") and v3d.labels ("
-														<<pV3DLabel->n_rows<<" x "<<pV3DLabel->n_cols<<" x "<<pV3DLabel->n_slices<<")"<<std::endl;
-		register int z, y, x ;
-		for ( z=0;z<pOwnLabel->n_slices;z++)
-			for (x=0;x<pOwnLabel->n_cols;x++)
-				for ( y=0;y<pOwnLabel->n_rows;y++ ) {
-					if ( (*pOwnLabel)(y,x,z) )
-						if ( !exist_mapping( *pOwnLabel, *pV3DLabel,x,y,z ) ) {
-							std::cerr<<"anthouse.cc "<<(*pOwnLabel)(y,x,z)<<" vs v3d.cc "<<(*pV3DLabel)(y,x,z)<<std::endl;
-						}
-				}
-		std::cerr<<"== debug == "<<__FILE__<<" @ line "<<__LINE__<<std::endl;
-		for ( int i_voi = 0 ; i_voi < n_voi ; i_voi++ )
-			std::cerr<<adjacent_voxels( dbg_voi[ i_voi ], *pOwnLabel ) ;
-		
-		delete pOwnLabel ;
-		delete pV3DLabel ;
-		exit(8);
-	}
-#else
-	CImage *img = 0;
-#ifdef DEBUG_USE_V3D_CC_EXPORT
-	boost::tie(pV3DLabel,idV3D) = v3d_extraction( "/tmp/labelWithV3D.pgm3d" ) ;
-	std::cerr<<"[V3D] labels "<<pV3DLabel->n_rows<<" x "<<pV3DLabel->n_cols<<" x "<<pV3DLabel->n_slices<<" validity "<< !have_touching_conn_comp( *pV3DLabel ) <<std::endl;
-	img = filter_imlabel( *pV3DLabel,idV3D ) ;
-	std::cerr<<"[V3D] Select component "<<idV3D<<std::endl;
-	delete pV3DLabel ;
-#else
-	boost::tie(pOwnLabel,idOwn) = own_extraction( inputFileName, false ) ;
-	std::cerr<<"[OWN] labels "<<pOwnLabel->n_rows<<" x "<<pOwnLabel->n_cols<<" x "<<pOwnLabel->n_slices<<" validity "<< !have_touching_conn_comp( *pOwnLabel )<<std::endl;
-	img = filter_imlabel( *pOwnLabel,idOwn ) ;
-	std::cerr<<"[OWN] Select component "<<idOwn<<std::endl;
-	delete pOwnLabel ;
-#endif
-	/// initializing the graph
-	pGraph = imageToGraph( *img, encoding_vertices, (char)1 );
-
-	ISPImage spimg( img->n_rows, img->n_cols, img->n_slices ) ;
-	spimg.fill(0) ;
-
-	std::cout<<encoding_vertices.begin().key()<<" "<<encoding_vertices.begin().value()<<std::endl
-			 <<y_from_linear_coord(encoding_vertices.begin().key(),spimg.n_cols, spimg.n_rows, spimg.n_slices)<<","<<x_from_linear_coord(encoding_vertices.begin().key(),spimg.n_cols, spimg.n_rows, spimg.n_slices)<<","<<z_from_linear_coord(encoding_vertices.begin().key(),spimg.n_cols, spimg.n_rows, spimg.n_slices)<<std::endl;
-	std::cout<<num_vertices(*pGraph)<<" vertices / "<<encoding_vertices.size()<<" encoded voxels"<<std::endl;
-
-	delete img ;
-#endif
-#endif
 	/// computing shortest path from source voxel
 	std::vector < int32_t > dtime(num_vertices(*pGraph));
 	int32_t time = 1;
 	bfs_time_visitor < int32_t * >vis(&dtime[0], time);
 	breadth_first_search(*pGraph, vertex( source, *pGraph), visitor(vis));
-  
-#ifdef CHECK_TOY_PROBLEM_OUTPUT
 	solution_toy_problem(pGraph,dtime) ;
+	
+	delete pGraph ;
+	return 0 ;
+}
 #else
-#ifndef DEBUG_CC_EXTRACTION
-	/// exporting result
-	QFile file("/tmp/minpath.log") ;
-	if( !file.open(QFile::WriteOnly) ) {
-		std::cerr << "Error : can not write log file"<< std::endl;
-		return -1;
-	}
-	QTextStream out(&file) ;
-	out<<"Command line : "<<argv[0]<<" "<<argv[1]<<" "<<argv[2]<<endl;
-	QMap< uint32_t,int32_t> missing ;
-	for ( QMap<uint32_t,int32_t>::iterator it = encoding_vertices.begin() ; it != encoding_vertices.end() ; it++ ) {
-		spimg( y_from_linear_coord( it.key(),spimg.n_cols, spimg.n_rows, spimg.n_slices ) , x_from_linear_coord( it.key(),spimg.n_cols, spimg.n_rows, spimg.n_slices ), z_from_linear_coord( it.key(),spimg.n_cols, spimg.n_rows, spimg.n_slices ) ) = dtime[ it.value() ] ;
-		out<<y_from_linear_coord( it.key(),spimg.n_cols, spimg.n_rows, spimg.n_slices )<<" , "<<x_from_linear_coord( it.key(),spimg.n_cols, spimg.n_rows, spimg.n_slices )<<" , "<<z_from_linear_coord( it.key(),spimg.n_cols, spimg.n_rows, spimg.n_slices )<<" : "<<dtime[ it.value() ]<<endl;
-		if ( dtime[ it.value() ] == 0 ) {
-			missing[ it.key() ] = it.value() ;
-			spimg( y_from_linear_coord( it.key(),spimg.n_cols, spimg.n_rows, spimg.n_slices ) , x_from_linear_coord( it.key(),spimg.n_cols, spimg.n_rows, spimg.n_slices ), z_from_linear_coord( it.key(),spimg.n_cols, spimg.n_rows, spimg.n_slices ) ) = time+1 ;
- 		}
+
+template <typename T> seg_geodesic( const SkeletonGraph<T> &SG, int32_t source, const QString &serie ) {
+	std::vector < int32_t > dtime(SG.number_of_vertices());
+	int32_t time = 1;
+	bfs_time_visitor < int32_t * >vis(&dtime[0], time);
+	breadth_first_search( g, vertex( source, g), visitor(vis));
+
+	if ( save_travels ) {
+		spimg.fill( 0 ) ;
+		for ( SkeletonGraph<T>::ConstVoxelIterator it = SG.encoding_begin() ; it != SG.encoding_end() ; it++ ) {
+			if ( dtime[ it.value() ] == 0 ) continue ;
+			iCoord3D pt = SG.from_linear_coord( it.key() ) ;
+			spimg( pt.y , pt.x, pt.z ) = dtime[ it.value() ] ;
+		}
+		spimg.setMinValue( 0 ) ;
+		spimg.setMaxValue( time+1 ) ;
+		IOPgm3d< im_elem_sp_type, qint32,false>::write( spimg, QString("%1").arg( outputFileName ) ) ;
 	}
 	QList<iCoord3D> path ;
-	antipodal_voxels_path( *pGraph, dtime, encoding_vertices, spimg.n_cols, spimg.n_rows, spimg.n_slices, path ) ;
- 	spimg.setMinValue( 0 ) ;
- 	spimg.setMaxValue( time+1 ) ;
-	IOPgm3d< im_elem_sp_type, qint32,false>::write( spimg, QString("%1").arg( outputFileName ) ) ;
-	spimg.fill( 0 ) ;
-	for ( int step = 0 ; step < path.size() ; step++ )
-		spimg( path.at(step).y,path.at(step).x,path.at(step).z) =1;//time-step;
- 	spimg.setMinValue( 0 ) ;
- 	spimg.setMaxValue( 1/*time+1*/ ) ;
+	antipodal_voxels_path( SG, dtime, path ) ;
+	if ( save_longest_travel ) {
+		spimg.fill( 0 ) ;
+		for ( int step = 0 ; step < path.size() ; step++ )
+			spimg( path.at(step).y,path.at(step).x,path.at(step).z) =1;
+		spimg.setMinValue( 0 ) ;
+		spimg.setMaxValue( 1 ) ;
+		IOPgm3d< im_elem_sp_type, qint32,false>::write( spimg, QString("/tmp/geodesic.pgm3d") ) ;
+	}
 
-	IOPgm3d< im_elem_sp_type, qint32,false>::write( spimg, QString("/tmp/geodesic.pgm3d") ) ;
-
-	std::cout<<"Number of elements being zero : "<<missing.size()<<std::endl;
 	{
 		IPgm3dFactory ifactory ;
 		ISPImage *depthmap = ifactory.read( QString("%1").arg(depthFileName) ) ;
@@ -861,7 +460,7 @@ int main( int narg, char **argv ) {
 		int nComp = 1 ;
 		out <<"thickness along the longest path (geodesic)"<<endl;
 		for ( int step = 0 ; step < path.size() ; step++ ) {
-			bool junction = is_junction( *pGraph, encoding_vertices, path.at(step), *depthmap ) ;
+			bool junction = is_junction( SG,path.at(step) ) ;
 			if ( junction ) nComp++ ;
 			out << (*depthmap)( path.at(step).y,path.at(step).x,path.at(step).z) << " "<<junction <<  endl ;
 			spimg( path.at(step).y,path.at(step).x,path.at(step).z) = nComp ;
@@ -870,6 +469,47 @@ int main( int narg, char **argv ) {
 		IOPgm3d< im_elem_sp_type, qint32,false>::write( spimg, QString("/tmp/geodesic.comp.pgm3d") ) ;
 		delete depthmap ;
 	}
+	/// have to remove all edges between the distinct adjacent connected components
+}
+
+int main( int narg, char **argv ) {
+	const char *inputFileName = argv[1] ;
+	const char *outputFileName = argv[2] ;
+	const char *depthFileName = argv[3] ;
+	
+	BillonTpl< CCExtractor::value_type > 	*pOwnLabel=0;
+	CCExtractor::value_type 				idOwn ;
+	boost::tie(pOwnLabel,idOwn) = own_extraction( inputFileName, true ) ;
+	CImage *img = filter_imlabel( *pOwnLabel,idOwn ) ;
+	delete pOwnLabel ;
+
+	/// initializing the graph
+	CSkeletonGraph SG( *img, (char)1 );
+	const CSkeletonGraph::graph_t & g = SG.graph() ; 
+
+
+	ISPImage spimg( img->n_rows, img->n_cols, img->n_slices ) ;
+	spimg.fill(0) ;
+
+	/// aplly source selection...
+	uint32_t 				source = 0 ;
+	std::cout<<SG.encoding_begin().key()<<" "<<SG.encoding_begin().value()<<" = "<<source<<std::endl
+			 <<SG[ source ].y<<","<<SG[ source ].x<<","<<SG[ source ].z<<std::endl;
+	std::cout<<SG.number_of_vertices()<<std::endl;
+
+	delete img ;
+
+	/// computing shortest path from source voxel
+
+  
+	/// exporting result
+	QFile file("/tmp/minpath.log") ;
+	if( !file.open(QFile::WriteOnly) ) {
+		std::cerr << "Error : can not write log file"<< std::endl;
+		return -1;
+	}
+	QTextStream out(&file) ;
+	out<<"Command line : "<<argv[0]<<" "<<argv[1]<<" "<<argv[2]<<endl;
 	file.close();
 #ifdef EXPENSIVE_TESTING
 	if ( !missing.empty()) {
@@ -880,9 +520,7 @@ int main( int narg, char **argv ) {
 	avoid_adjcacent( missing, encoding_vertices, pGraph ) ;
 	reverse_avoid_adjcacent( missing, encoding_vertices, pGraph ) ;
 #endif
-#endif
-#endif
-	delete pGraph ;
 	
 	return 0 ;
 }
+#endif

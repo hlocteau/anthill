@@ -27,6 +27,8 @@ typedef RDT::OutputImage							OutImage ;
 
 #define DEBUG_ENCODING_IMAGE
 
+//#define BUILD_INDIVIDUAL_COMP
+
 void process1( const Image &partialDepthImg, DigitalSet &output ) {
 	RDT rdt ;
 	rdt.reconstructionAsSet( output, partialDepthImg ) ;
@@ -68,7 +70,7 @@ void process5( const Image &fullDepthImg, const DigitalSet &sample, OutImage & o
 }
 
 void errorAndHelp( const po::options_description & general_opt ) {
-	std::cerr 	<< "Selection (or separation when reject is specified) of skeleton point wrt their depth. When both percentage and value are specified, selection is done wrt the first criterion being valid."<<std::endl
+	std::cerr 	<< "Rebuild labelled regions from a labelled skeleton and a depth map."<<std::endl
 				<< general_opt << "\n";
 }
 void missingParam ( std::string param )
@@ -231,8 +233,124 @@ template <typename T> void set_adjacency( 	BillonTpl< T > &im, Z3i::DigitalSet *
 					locations.insert( key, QList< std::pair< Z3i::Point, Z3i::Point > > () ) ;
 				}
 				locations[ key ].append( std::pair<Z3i::Point,Z3i::Point>( *pt, Z3i::Point(x,y,z) ) ) ;
+				if ( !relations.contains( adj_label ) ) relations.insert( adj_label, QSet<T>() ) ;
+				if ( !relations[ adj_label ].contains( label ) ) {
+					relations[ adj_label ].insert( label ) ;
+				}
 			}
 	}
+}
+
+template <typename T> const T & get_first( const std::pair< T, T > & value ) {
+	return value.first ;
+}
+template <typename T> const T & get_second( const std::pair< T, T > & value ) {
+	return value.second ;
+}
+
+uint32_t n_can_not_seg = 0 ;
+
+template <typename T, typename U, typename V> void rebuildcc_indomain( 	const BillonTpl<T> & Distances, const Z3i::DigitalSet & layer_pts, 
+																		U color, BillonTpl<U> &componentImg, 
+																		V node, const QMap< V, QSet<V> > &relations, 
+																		const QMap< V, QList<std::pair< Z3i::Point,Z3i::Point > > > &locations, 
+																		size_t nLabels ) {
+	Z3i::Point 	lower=layer_pts.domain().lowerBound(),
+				upper=layer_pts.domain().upperBound() ;
+	for ( Z3i::DigitalSet::ConstIterator pt = layer_pts.begin() ; pt != layer_pts.end(); pt++ ) {
+		lower.at(0) = std::min ( pt->at(0) - Distances( (*pt).at(1),(*pt).at(0),(*pt).at(2) ) , lower.at(0) ) ;
+		lower.at(1) = std::min ( pt->at(1) - Distances( (*pt).at(1),(*pt).at(0),(*pt).at(2) ) , lower.at(1) ) ;
+		lower.at(2) = std::min ( pt->at(2) - Distances( (*pt).at(1),(*pt).at(0),(*pt).at(2) ) , lower.at(2) ) ;
+		upper.at(0) = std::max ( pt->at(0) + Distances( (*pt).at(1),(*pt).at(0),(*pt).at(2) ) , upper.at(0) ) ;
+		upper.at(1) = std::max ( pt->at(1) + Distances( (*pt).at(1),(*pt).at(0),(*pt).at(2) ) , upper.at(1) ) ;
+		upper.at(2) = std::max ( pt->at(2) + Distances( (*pt).at(1),(*pt).at(0),(*pt).at(2) ) , upper.at(2) ) ;
+	}
+	Z3i::Domain domain( Z3i::Point(0,0,0), upper-lower) ;
+	Z3i::DigitalSet skeletonSet(domain),
+					componentSet(domain) ;
+	Image 		distances( domain ) ;
+	for ( Z3i::DigitalSet::ConstIterator pt = layer_pts.begin() ; pt != layer_pts.end(); pt++ ) {
+		distances.setValue( *pt-lower, Distances( (*pt).at(1),(*pt).at(0),(*pt).at(2) ) ) ;
+		skeletonSet.insertNew( *pt - lower ) ;
+	}
+	trace.info()<<"input "<<skeletonSet.size()<<" voxels"<<std::endl;
+#if BUILD_INDIVIDUAL_COMP
+arma::icube thisCC( domain.upperBound().at(1), domain.upperBound().at(0), domain.upperBound().at(2) ) ;
+thisCC.fill(0);
+#endif
+
+#ifdef USE_DIGITAL_SET_FOR_RECONSTRUCTION
+	process3( distances, skeletonSet, componentSet ) ;
+	for ( Z3i::DigitalSet::ConstIterator pt = componentSet.begin() ; pt != componentSet.end() ; pt++ )
+		componentImg( (*pt).at(1)+lower.at(1),(*pt).at(0)+lower.at(0),(*pt).at(2)+lower.at(2) ) = color ;
+	trace.info() <<"output (A) "<<componentSet.size()<<" voxels"<<std::endl;
+#else
+	OutImage componentDGImg( domain ) ;
+	process4( distances, componentDGImg ) ;
+#endif
+
+	uint nvoxels = 0 ;
+	bool bDebugThisLoop = false && ( color== 6 ) ;
+	
+	for ( typename QSet<T>::ConstIterator adj_node = relations[ node ].begin() ; adj_node != relations[ node ].end() ; adj_node++ ) {
+		T key = std::min( *adj_node, node ) * nLabels + std::max( *adj_node, node ) ;
+		std::cerr<<node<<"|"<<*adj_node<<" : ";
+		for ( QList< std::pair< Z3i::Point, Z3i::Point > >::ConstIterator loc = locations[ key ].begin() ; loc != locations[ key ].end() ; loc++ )
+			std::cerr<<(*loc).first.at(0)<<","<<(*loc).first.at(1)<<","<<(*loc).first.at(2)<<" "
+					<<(*loc).second.at(0)<<","<<(*loc).second.at(1)<<","<<(*loc).second.at(2)<<" ";
+		std::cerr<<std::endl;
+	}
+	const Z3i::Point & (*me)( const std::pair< Z3i::Point, Z3i::Point > &) ;
+	const Z3i::Point & (*other)( const std::pair< Z3i::Point, Z3i::Point > &) ;
+	Z3i::Point relative_loc_me, relative_loc_other ;
+	Z3i::Point::Component squared_distance_me, squared_distance_other ;
+	for ( Domain::ConstIterator pt = domain.begin() ; pt != domain.end(); pt++ ) {
+		if ( componentDGImg( *pt ) > 0 ) {
+			bool 	bInside = true ;
+			for ( typename QSet<T>::ConstIterator adj_node = relations[ node ].begin() ; bInside && adj_node != relations[ node ].end() ; adj_node++ ) {
+				if ( node < *adj_node ) {
+					me = &get_first ;
+					other = &get_second ;
+				} else {
+					other = &get_first ;
+					me = &get_second ;					
+				}
+				T key = std::min( *adj_node, node ) * nLabels + std::max( *adj_node, node ) ;
+				for ( QList< std::pair< Z3i::Point, Z3i::Point > >::ConstIterator loc = locations[ key ].begin() ; bInside && loc != locations[ key ].end() ; loc++ ) {
+					relative_loc_me = *pt + lower - (*me)( *loc ) ;
+					squared_distance_me = relative_loc_me.dot( relative_loc_me ) ;
+					relative_loc_other = *pt + lower - (*other)(*loc) ;
+					squared_distance_other = relative_loc_other.dot( relative_loc_other ) ;
+					if ( squared_distance_other > Distances( (*other)(*loc).at(1),(*other)(*loc).at(0),(*other)(*loc).at(2) ) ) continue ;
+					
+					if ( squared_distance_me > Distances( (*me)(*loc).at(1),(*me)(*loc).at(0),(*me)(*loc).at(2) ) ) { bInside = false ; continue ; }
+					if ( squared_distance_other < squared_distance_me ) bInside = false ;
+					if ( bInside && squared_distance_other == squared_distance_me ) n_can_not_seg++ ;
+				}
+			}
+			if ( bInside ) {
+				if ( componentImg( (*pt).at(1)+lower.at(1),(*pt).at(0)+lower.at(0),(*pt).at(2)+lower.at(2) ) ) {
+					//std::cout<<(*pt).at(1)+lower.at(1)<<","<<(*pt).at(0)+lower.at(0)<<","<<(*pt).at(2)+lower.at(2)<<std::endl;
+					#if BUILD_INDIVIDUAL_COMP
+					thisCC( (*pt).at(1), (*pt).at(0),(*pt).at(2) ) = 2 ;
+					#endif
+				} else {
+					#if BUILD_INDIVIDUAL_COMP
+					thisCC( (*pt).at(1), (*pt).at(0),(*pt).at(2) ) = 1 ;
+					#endif
+				}
+				componentImg( (*pt).at(1)+lower.at(1),(*pt).at(0)+lower.at(0),(*pt).at(2)+lower.at(2) ) = color ;
+				nvoxels++ ;
+			}
+		}
+	}
+#if BUILD_INDIVIDUAL_COMP
+IOPgm3d<int,qint8,false>::write( thisCC, QString( "/tmp/cc%1.pgm3d" ).arg( (int)color ) ) ;
+std::cerr<<"CC "<<(int)color<<" : "<<accu( thisCC )<<std::endl;
+#endif
+	trace.info() <<"output (B) "<<nvoxels<<" voxels ** "<<n_can_not_seg<<std::endl;
+
+	if ( bDebugThisLoop ) exit(-1);
 }
 
 int main( int narg, char **argv ) {
@@ -348,7 +466,8 @@ int main( int narg, char **argv ) {
 	}
 	for ( std::set<int>::const_iterator id = availablelabels.begin() ; id != availablelabels.end() ; id++ ) {
 		trace.info() <<"Domain for layer "<< *id <<" : "<<* layers.second[ *id ]<<std::endl;
-		rebuildcc_indomain( *pDistances, *layers.first[ *id ], (vm["preserve"].as<bool>()? *id : 1 ), componentImg, boundaries + (*id-1) * 2 ) ;
+		//rebuildcc_indomain( *pDistances, *layers.first[ *id ], (vm["preserve"].as<bool>()? *id : 1 ), componentImg, boundaries + (*id-1) * 2 ) ;
+		rebuildcc_indomain( *pDistances, *layers.first[ *id ], (char)(vm["preserve"].as<bool>()? *id : 1 ), componentImg, (IPgm3dFactory::value_type)*id, relations, locations, n_cc+1 ) ;
 		componentImg.setMaxValue(*id) ;
 		delete layers.first[ *id ] ;
 		delete layers.second[ *id ] ;

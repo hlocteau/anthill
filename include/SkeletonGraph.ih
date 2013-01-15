@@ -1,0 +1,309 @@
+
+#ifdef DEBUG_ENCODING_IMAGE_AS_GRAPH
+#define CHECK_VERTEX_DEGREE_3DIMAGE(node,graph) {\
+	if ( degree( vertex( node, graph ),graph ) > 26 ) {\
+		std::cerr<<"node "<<node<<" / voxel " ;\
+		QList<uint32_t> keys = _decVoxel.keys(node) ;\
+		std::cerr<<x_from_linear_coord( keys[0] )<<",";\
+		std::cerr<<y_from_linear_coord( keys[0] )<<",";\
+		std::cerr<<z_from_linear_coord( keys[0] )<<std::endl;\
+		typename graph_t::adjacency_iterator adj;\
+		typename graph_t::adjacency_iterator adj_end;\
+		boost::tie(adj,adj_end) = adjacent_vertices( node,graph );\
+		keys.clear();\
+		for ( ; adj != adj_end ; adj++ ) {\
+			keys = _decVoxel.keys(*adj) ;\
+			std::cerr<<"adjacent node "<<*adj<<" / voxel " ;\
+			std::cerr<<x_from_linear_coord( keys[0] )<<",";\
+			std::cerr<<y_from_linear_coord( keys[0] )<<",";\
+			std::cerr<<z_from_linear_coord( keys[0] )<<std::endl;\
+		}\
+		exit(-2);\
+	}\
+}
+
+#define ADD_EDGE(source,target,graph) {\
+	QList<uint32_t> keys = _decVoxel.keys(source);\
+	if ( keys.size() != 1 ) {\
+		std::cerr<<"Error : retrieve "<<keys.size()<<" key(s) from value "<<source<<" @line "<<__LINE__<<std::endl;\
+		exit(-3) ;\
+	}\
+	uint32_t source_key = keys[0];\
+	keys.clear() ;\
+	keys = _decVoxel.keys(target);\
+	if ( keys.size() != 1 ) {\
+		std::cerr<<"Error : retrieve "<<keys.size()<<" key(s) from value "<<target<<" @line "<<__LINE__<<std::endl;\
+		exit(-3) ;\
+	}\
+	uint32_t target_key = keys[0];\
+	int source_x = x_from_linear_coord( source_key );\
+	int source_y = y_from_linear_coord( source_key );\
+	int source_z = z_from_linear_coord( source_key );\
+	int target_x = x_from_linear_coord( target_key );\
+	int target_y = y_from_linear_coord( target_key );\
+	int target_z = z_from_linear_coord( target_key );\
+	if ( abs(source_x-target_x)>1 || abs(source_y-target_y)>1 || abs(source_z-target_z)>1 ) {\
+		std::cerr<<"Error : can not link node "<<source<<" to node "<<target<<" as theirs coordinates are respectively : ";\
+		std::cerr<<source_x<<","<<source_y<<","<<source_z<<" and "<<target_x<<","<<target_y<<","<<target_z<<" @line "<<__LINE__<<std::endl;\
+		exit(-3);\
+	} else {\
+		add_edge(source,target,graph);\
+	}\
+}
+
+#define CHECK_VERTEX_ID(x,y,z) {\
+	uint32_t value = linear_coord(x,y,z) ;\
+	if ( !_decVoxel.contains(value) ) {\
+		std::cerr<<"Error : encoding of voxel("<<x<<","<<y<<","<<z<<") is "<<value<<" while no graph's vertex gets this encoding"<<std::endl;\
+		std::cerr<<"Info  : img("<<x<<","<<y<<","<<z<<") is "<<(int)img(y,x,z)<<" @line "<<__LINE__<<std::endl;\
+		exit(-3);\
+	}\
+}
+#else
+
+#define CHECK_VERTEX_DEGREE_3DIMAGE(node,graph)
+
+#define ADD_EDGE(source,target,graph) add_edge(source,target,graph);
+
+#define CHECK_VERTEX_ID(x,y,z)
+
+#endif
+
+#define GET_VERTEX_ID(x,y,z) ( _decVoxel.contains(linear_coord(x,y,z))?_decVoxel[linear_coord(x,y,z)]:_n_vertices+1 )
+
+template< typename T > int SkeletonGraph<T>::x_from_linear_coord( uint32_t v ) const {
+	return v % _n_cols ;
+}
+template< typename T > int SkeletonGraph<T>::y_from_linear_coord( uint32_t v ) const {
+	return (v / _n_cols) % _n_rows ;
+}
+template< typename T > int SkeletonGraph<T>::z_from_linear_coord( uint32_t v ) const {
+	return (v / _n_cols) / _n_rows ;
+}
+template< typename T > iCoord3D SkeletonGraph<T>::from_linear_coord( uint32_t v ) const {
+	return iCoord3D( v % _n_cols,(v / _n_cols) % _n_rows,(v / _n_cols) / _n_rows ) ;
+}
+template< typename T > uint32_t SkeletonGraph<T>::linear_coord( uint32_t x, uint32_t y, uint32_t z ) const {
+	return ( z * _n_rows + y ) * _n_cols + x ;
+} 
+template< typename T > uint32_t SkeletonGraph<T>::linear_coord( const iCoord3D &pt ) const {
+	return ( (uint32_t)pt.z * _n_rows + (uint32_t)pt.y ) * _n_cols + (uint32_t)pt.x ;
+} 
+template< typename T > SkeletonGraph<T>::~SkeletonGraph( ) {
+	_decVoxel.clear() ;
+	delete _pg ;
+}
+
+template< typename T > SkeletonGraph<T>::SkeletonGraph( const BillonTpl< T > & img, T label ) {
+	_n_rows = img.n_rows ;
+	_n_cols = img.n_cols ;
+	_n_slices = img.n_slices ;
+	_selectedLabel = label ;
+	_n_vertices=0 ;
+	_n_edges = 0 ;
+	_pg = (graph_t*) 0 ;
+	compute( img ) ;
+}
+
+template< typename T > void SkeletonGraph<T>::compute( const BillonTpl< T > &img ) {
+	int x,y,z;
+	
+	/// node management
+	for ( z = 0 ; z < _n_slices ; z++ )
+		for ( y = 0 ; y < _n_rows ; y++ )
+			for ( x = 0 ; x < _n_cols ; x++ )
+				if ( img( y, x, z ) != 0 && ( _selectedLabel == -1 || img( y, x, z ) == _selectedLabel ) ) {
+					_decVoxel[ linear_coord(x,y,z) ] = _n_vertices ;
+					_n_vertices++ ;
+				}
+	_pg = new graph_t( _n_vertices ) ;
+	
+	int32_t source,target ;
+	/// edge management
+	for ( z = 0 ; z < _n_slices ; z++ )
+		for ( y = 0 ; y < _n_rows ; y++ )
+			for ( x = 0 ; x < _n_cols ; x++ ) {
+				if ( img( y, x, z ) != 0 ) {
+					if ( _selectedLabel == -1 || img( y, x, z ) == _selectedLabel ) {
+						source = GET_VERTEX_ID(x,y,z);
+						CHECK_VERTEX_ID(x,y,z);
+						assert( source < _n_vertices ) ;
+						
+						//                  (z)^
+						//                     |                                             (z)^
+						//     	               g---------h---------i                            |
+						//     	             / |       / |       / |                            |
+						//     	           d---------e---------f   |                            |
+						//     	         / |   |   / |   |   / |   |                            |
+						//     	       a---------b---------c   |   |                            |
+						//     	       |   |   7-|---|-----|---|---9                            |
+						//     	       |   | / | |   | / | |   | / |                            |
+						//     	       |   4-----|--[5]----|---6   |                            4---------5
+						//     	       | / |   | | / |   | | / |   |                          / |       / |
+						//     	       1---------2---------3   |   |                        1---------2   |
+						//     	       |   |   G-|---|---H-|---|---I-----------> (x)        |   |     |   |
+						//     	       |   | /   |   | /   |   | /                          |   |     |   |
+						//     	       |   D-----|---E-----|---F                            |  [D]----|---E---------> (x)
+						//     	       | /       | /       | /                              | /       | /
+						//     	       A---------B---------C                                A---------B
+						//          /                                                     /
+						//        v (y)                                                 v (y)
+						//
+
+						if ( y < _n_rows-1 )
+							if ( img( y+1, x  , z   ) != 0 	&& ( _selectedLabel == -1 || img( y+1, x  , z   ) == _selectedLabel )	)	{ /** edge DA - Right figure */
+								target = GET_VERTEX_ID(x  ,y+1,z) ;
+								CHECK_VERTEX_ID(x  ,y+1,z) ; _n_edges++ ;
+								CHECK_VERTEX_DEGREE_3DIMAGE( source,*_pg ) ;
+								CHECK_VERTEX_DEGREE_3DIMAGE( target,*_pg ) ;
+								ADD_EDGE( source, target, *_pg) ;
+							}
+						if ( y < _n_rows-1 && x < _n_cols-1 )
+							if ( img( y+1, x+1, z   ) != 0 	&& ( _selectedLabel == -1 || img( y+1, x+1, z   ) == _selectedLabel )	)	{ /** edge DB - Right figure */
+								target = GET_VERTEX_ID(x+1,y+1,z) ;
+								CHECK_VERTEX_ID(x+1,y+1,z) ; _n_edges++ ;
+								CHECK_VERTEX_DEGREE_3DIMAGE( n,*g ) ;
+								CHECK_VERTEX_DEGREE_3DIMAGE( t,*g ) ;
+								ADD_EDGE( source, target,*_pg) ;
+							}
+						if ( y < _n_rows-1 && x < _n_cols-1 && z < _n_slices-1 )
+							if ( img( y+1, x+1, z+1 ) != 0 	&& ( _selectedLabel == -1 || img( y+1, x+1, z+1 ) == _selectedLabel )	)	{ /** edge D2 - Right figure */
+								target = GET_VERTEX_ID(x+1,y+1,z+1) ;
+								CHECK_VERTEX_ID( x+1,y+1,z+1 ) ; _n_edges++ ;
+								CHECK_VERTEX_DEGREE_3DIMAGE( n,*g ) ;
+								CHECK_VERTEX_DEGREE_3DIMAGE( t,*g ) ;
+								ADD_EDGE( source, target,*_pg) ;
+							}
+						if ( y < _n_rows-1 && z < _n_slices-1 )
+							if ( img( y+1, x  , z+1 ) != 0 	&& ( _selectedLabel == -1 || img( y+1, x  , z+1 ) == _selectedLabel )	)	{/** edge D1 - Right figure */
+								target = GET_VERTEX_ID(x  ,y+1,z+1);
+								CHECK_VERTEX_ID( x  ,y+1,z+1 ) ; _n_edges++ ;
+								CHECK_VERTEX_DEGREE_3DIMAGE( n,*g ) ;
+								CHECK_VERTEX_DEGREE_3DIMAGE( t,*g ) ;
+								ADD_EDGE( source, target,*_pg) ;
+							}
+						if ( z < _n_slices-1 )
+							if ( img( y  , x  , z+1 ) != 0 	&& ( _selectedLabel == -1 || img( y  , x  , z+1 ) == _selectedLabel )	)	{/** edge D4 - Right figure */
+								target = GET_VERTEX_ID( x  ,y  ,z+1) ;
+								CHECK_VERTEX_ID( x  ,y  ,z+1 ) ; _n_edges++ ;
+								CHECK_VERTEX_DEGREE_3DIMAGE( n,*g ) ;
+								CHECK_VERTEX_DEGREE_3DIMAGE( t,*g ) ;
+								ADD_EDGE( source, target,*_pg) ;
+							}
+						if ( x < _n_cols-1 && z < _n_slices-1 )
+							if ( img( y  , x+1, z+1 ) != 0 	&& ( _selectedLabel == -1 || img( y  , x+1, z+1 ) == _selectedLabel )	)	{/** edge D5 - Right figure */
+								target = GET_VERTEX_ID( x+1,y  ,z+1) ;
+								CHECK_VERTEX_ID( x+1,y  ,z+1 ) ; _n_edges++ ;
+								CHECK_VERTEX_DEGREE_3DIMAGE( n,*g ) ;
+								CHECK_VERTEX_DEGREE_3DIMAGE( t,*g ) ;
+								ADD_EDGE( source, target,*_pg) ;
+							}
+						if ( x < _n_cols-1 )
+							if ( img( y  , x+1, z   ) != 0 	&& ( _selectedLabel == -1 || img( y  , x+1, z   ) == _selectedLabel )	)	{/** edge DE - Right figure */
+								target = GET_VERTEX_ID( x+1,y  ,z) ;
+								CHECK_VERTEX_ID( x+1,y  ,z ) ; _n_edges++ ;
+								CHECK_VERTEX_DEGREE_3DIMAGE( n,*g ) ;
+								CHECK_VERTEX_DEGREE_3DIMAGE( t,*g ) ;
+								ADD_EDGE( source, target,*_pg) ;
+							}
+					} /** END if ( _selectedLabel != -1 || img( y, x, z ) == _selectedLabel ) */
+				} /** END if ( img( y, x, z ) != 0 ) */
+				if ( y < _n_rows-1 && z < _n_slices-1 && x < _n_cols-1 ) {
+					if ( img( y  , x  , z+1 ) != 0 	&& ( _selectedLabel == -1 || img( y  , x  , z+1 ) == _selectedLabel )	&&
+						 img( y+1, x+1, z   ) != 0 	&& ( _selectedLabel == -1 || img( y+1, x+1, z   ) == _selectedLabel ) )	{/** edge 4B - Right figure */
+						source = GET_VERTEX_ID( x  ,y  ,z+1) ;
+						target = GET_VERTEX_ID( x+1,y+1,z) ;
+						CHECK_VERTEX_ID( x  ,y  ,z+1 ) ;
+						CHECK_VERTEX_ID( x+1,y+1,z ) ; _n_edges++ ;
+						CHECK_VERTEX_DEGREE_3DIMAGE( n,*g ) ;
+						CHECK_VERTEX_DEGREE_3DIMAGE( t,*g ) ;
+						ADD_EDGE( source, target,*_pg) ;
+					}
+					if ( img( y+1, x  , z   ) != 0 	&& ( _selectedLabel == -1 || img( y+1, x  , z   ) == _selectedLabel )	&&
+						 img( y  , x+1, z+1 ) != 0 	&& ( _selectedLabel == -1 || img( y  , x+1, z+1 ) == _selectedLabel ) )	{/** edge A5 - Right figure */
+						source = GET_VERTEX_ID( x  ,y+1,z) ;
+						target = GET_VERTEX_ID( x+1,y  ,z+1) ;
+						CHECK_VERTEX_ID( x  ,y+1,z ) ;
+						CHECK_VERTEX_ID( x+1,y  ,z+1 ) ; _n_edges++ ;
+						CHECK_VERTEX_DEGREE_3DIMAGE( n,*g ) ;
+						CHECK_VERTEX_DEGREE_3DIMAGE( t,*g ) ;
+						ADD_EDGE( source, target,*_pg) ;
+					}
+					if ( img( y+1, x  , z+1 ) != 0 	&& ( _selectedLabel == -1 || img( y+1, x  , z+1 ) == _selectedLabel )	&&
+						 img( y  , x+1, z   ) != 0 	&& ( _selectedLabel == -1 || img( y  , x+1, z   ) == _selectedLabel ) )	{/** edge 1E - Right figure */
+						source = GET_VERTEX_ID( x  ,y+1,z+1) ;
+						target = GET_VERTEX_ID( x+1,y  ,z) ;
+						CHECK_VERTEX_ID( x  ,y+1,z+1 ) ;
+						CHECK_VERTEX_ID( x+1,y  ,z ) ;
+						_n_edges++ ;
+						CHECK_VERTEX_DEGREE_3DIMAGE( n,*g ) ;
+						CHECK_VERTEX_DEGREE_3DIMAGE( t,*g ) ;
+						ADD_EDGE( source, target,*_pg) ;
+					}
+				}
+				if ( y < _n_rows-1 && z < _n_slices-1 )
+					if ( img( y+1, x  , z   ) != 0 	&& ( _selectedLabel == -1 || img( y+1, x  , z   ) == _selectedLabel )	&&
+						 img( y  , x  , z+1 ) != 0 	&& ( _selectedLabel == -1 || img( y  , x  , z+1 ) == _selectedLabel ) )	{/** edge A4 - Right figure */
+						source = GET_VERTEX_ID( x  ,y+1,z) ;
+						target = GET_VERTEX_ID( x  ,y  ,z+1) ;
+						CHECK_VERTEX_ID( x  ,y+1,z ) ;
+						CHECK_VERTEX_ID( x  ,y  ,z+1 ) ; _n_edges++ ;
+						CHECK_VERTEX_DEGREE_3DIMAGE( n,*g ) ;
+						CHECK_VERTEX_DEGREE_3DIMAGE( t,*g ) ;
+						ADD_EDGE( source, target,*_pg) ;
+					}
+				if ( x < _n_cols-1 && z < _n_slices-1 )
+					if ( img( y  , x  , z+1 ) != 0 	&& ( _selectedLabel == -1 || img( y  , x  , z+1 ) == _selectedLabel )	&&
+						 img( y  , x+1, z   ) != 0 	&& ( _selectedLabel == -1 || img( y  , x+1, z   ) == _selectedLabel ) )	{/** edge 4E - Right figure */
+						source = GET_VERTEX_ID( x  ,y  ,z+1) ;
+						target = GET_VERTEX_ID( x+1,y  ,z) ;
+						CHECK_VERTEX_ID( x  ,y  ,z+1 ) ;
+						CHECK_VERTEX_ID( x+1,y  ,z ) ; _n_edges++ ;
+						CHECK_VERTEX_DEGREE_3DIMAGE( n,*g ) ;
+						CHECK_VERTEX_DEGREE_3DIMAGE( t,*g ) ;
+						ADD_EDGE( source, target,*_pg) ;
+					}
+
+				if ( x < _n_cols-1 && y < _n_rows-1 )
+					if ( img( y+1, x  , z   ) != 0 	&& ( _selectedLabel == -1 || img( y+1, x  , z   ) == _selectedLabel )	&&
+						 img( y  , x+1, z   ) != 0 	&& ( _selectedLabel == -1 || img( y  , x+1, z   ) == _selectedLabel ) )	{/** edge AE - Right figure */
+						source = GET_VERTEX_ID( x  ,y+1,z) ;
+						target = GET_VERTEX_ID( x+1,y  ,z) ;
+						CHECK_VERTEX_ID( x  ,y+1,z ) ;
+						CHECK_VERTEX_ID( x+1,y  ,z ) ; _n_edges++ ;
+						CHECK_VERTEX_DEGREE_3DIMAGE( n,*g ) ;
+						CHECK_VERTEX_DEGREE_3DIMAGE( t,*g ) ;
+						ADD_EDGE( source, target,*_pg) ;
+					}
+
+			}
+}
+
+template <typename T> bool SkeletonGraph<T>::isolated_vertex( const BillonTpl<T> &img ) const {
+	ConstVoxelIterator Iter = encoding_begin(),
+						IterEnd = encoding_end() ;
+	bool bIsolated = false ;
+	int x,y,z ;
+	for ( ;Iter != IterEnd ; Iter++ ) {
+		if ( out_degree( vertex( Iter.value(), *_pg), *_pg) != 0 ) continue ;
+		bIsolated = true ;
+		
+		x=x_from_linear_coord( Iter.key()) ;
+		y=y_from_linear_coord( Iter.key()) ;
+		z=z_from_linear_coord( Iter.key()) ;
+		std::cerr<<"vertex "<< Iter.value()<<" is mapped to voxel ("<<x<<","<<y<<","<<z<<") is disconnected"<<std::endl;
+		for ( int zz=max(0,z-1);zz<=min((int)_n_slices-1,z+1);zz++ )
+			std::cerr<<"z = "<<zz<<"\t\t";
+		std::cerr<<std::endl;
+		for ( int yy=max(0,y-1);yy<=min((int)_n_rows-1,y+1);yy++ ) {
+			for ( int zz=max(0,z-1);zz<=min((int)_n_slices-1,z+1);zz++ ) {
+				for ( int xx=max(0,x-1);xx<=min((int)_n_cols-1,x+1);xx++ )
+					std::cerr<<(int)img(yy,xx,zz)<<" ";
+				std::cerr<<"\t\t" ;
+			}
+			std::cerr<<std::endl;
+		}
+		
+	}
+	return bIsolated ;
+}
