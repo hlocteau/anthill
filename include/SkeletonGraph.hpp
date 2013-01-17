@@ -7,7 +7,10 @@
 #include <QMap>
 #include <boost/graph/adjacency_list.hpp>
 #include <boost/pending/indirect_cmp.hpp>
+<<<<<<< HEAD
 #include <QList>
+=======
+>>>>>>> 515235c90402910dc8f56b66529f25f53f1799bd
 
 using namespace boost;
 
@@ -21,14 +24,20 @@ public:
 	typedef Size* 											Iiter;
 
 	typedef QMap<uint32_t,int32_t>::ConstIterator			ConstVoxelIterator ;
+<<<<<<< HEAD
 	typedef std::pair< Vertex, Vertex >						VerticesPair ; 
+=======
+>>>>>>> 515235c90402910dc8f56b66529f25f53f1799bd
 	SkeletonGraph( const BillonTpl<T> &img, T label ) ;
 	~SkeletonGraph ( ) ;
 	bool 				isolated_vertex			( const BillonTpl<T> &img ) 			const ;
 	
+<<<<<<< HEAD
 	bool				hide_edges				( QList< VerticesPair > & ) ;
 	bool				restore_all_edges		( QList< VerticesPair > * pL = 0 ) ;
 
+=======
+>>>>>>> 515235c90402910dc8f56b66529f25f53f1799bd
 	inline
 	const graph_t &		graph					( )										const {
 		return *_pg ;
@@ -56,12 +65,15 @@ public:
 		return _decVoxel.find( linear_coord( pt ) ).value() ;
 	}
 	
+<<<<<<< HEAD
 	void				size					( int &rows, int &cols, int &slices ) 	const {
 		rows = _n_rows ;
 		cols = _n_cols ;
 		slices = _n_slices ;
 	}
 	
+=======
+>>>>>>> 515235c90402910dc8f56b66529f25f53f1799bd
 	inline uint32_t 	linear_coord			( uint32_t x, uint32_t y, uint32_t z ) 	const ;
 	inline uint32_t 	linear_coord			( const iCoord3D &pt ) 					const ;
 	inline iCoord3D 	from_linear_coord		( uint32_t v ) 							const ;
@@ -79,8 +91,11 @@ private:
 	int32_t 				_n_edges ;
 	QMap<uint32_t,int32_t> 	_decVoxel ;
 	graph_t* 				_pg ;
+<<<<<<< HEAD
 	
 	QList< VerticesPair >	_hidden_edges ;
+=======
+>>>>>>> 515235c90402910dc8f56b66529f25f53f1799bd
 } ;
 
 #include <SkeletonGraph.ih>
