@@ -5,7 +5,6 @@
 #include <boost/range/irange.hpp>
 #include <DGtal/helpers/StdDefs.h>
 
-<<<<<<< HEAD
 #include <boost/filesystem.hpp>
 template <typename T> const T & get_first( const std::pair< T, T > & value ) {
 	return value.first ;
@@ -22,26 +21,13 @@ namespace fs = boost::filesystem ;
 
 typedef Pgm3dFactory<char> 				CPgm3dFactory ;
 typedef BillonTpl<char>					CharImage ;
-=======
-//#define CHECK_TOY_PROBLEM_OUTPUT
-
-
-using DGtal::Z3i::Point ;
-
-typedef Pgm3dFactory<char> 				CPgm3dFactory ;
-typedef BillonTpl<char>					CImage ;
->>>>>>> 515235c90402910dc8f56b66529f25f53f1799bd
 typedef SkeletonGraph<char>				CSkeletonGraph ;
 typedef Pgm3dFactory<int32_t> 			IPgm3dFactory ;
 typedef int32_t							im_elem_sp_type ;
 typedef BillonTpl< im_elem_sp_type > 	ISPImage ;
 typedef ConnexComponentExtractor<CPgm3dFactory::value_type,int16_t> CCExtractor ;
 
-<<<<<<< HEAD
 using DGtal::Z3i::Point ;
-=======
-
->>>>>>> 515235c90402910dc8f56b66529f25f53f1799bd
 
   bool bNeedIncrement ;
 template < typename TimeMap > class bfs_time_visitor:public default_bfs_visitor {
@@ -51,11 +37,7 @@ public:
   template < typename Vertex, typename Graph >
     void discover_vertex(Vertex u, const Graph & g) const
   {
-<<<<<<< HEAD
     //std::cout<<"-> visiting vertex "<<vertex(u,g)<<" and set its discovery time "<<m_time<<std::endl;
-=======
-    std::cout<<"-> visiting vertex "<<vertex(u,g)<<" and set its discovery time "<<m_time<<std::endl;
->>>>>>> 515235c90402910dc8f56b66529f25f53f1799bd
     bNeedIncrement = true ;
     put(m_timemap, u, m_time);
   }
@@ -242,13 +224,8 @@ bool exist_mapping( const BillonTpl< T > &labels, const BillonTpl< U > &lblV3D, 
 const int n_voi = 0 ;
 iCoord3D dbg_voi[] = { iCoord3D(75,65,18), iCoord3D(130,32,44), iCoord3D(171,306,7), iCoord3D(198,371,92), iCoord3D(199,371,77), iCoord3D(230,57,10), iCoord3D(282,157,25) } ;
 
-<<<<<<< HEAD
 template <typename T> CharImage * filter_imlabel( BillonTpl< T> &im, T selectedLabel ) {
 	CharImage *out = new CharImage( im.n_rows, im.n_cols, im.n_slices ) ;
-=======
-template <typename T> CImage * filter_imlabel( BillonTpl< T> &im, T selectedLabel ) {
-	CImage *out = new CImage( im.n_rows, im.n_cols, im.n_slices ) ;
->>>>>>> 515235c90402910dc8f56b66529f25f53f1799bd
 	out->fill(0) ;
 	out->setMinValue(0);
 	out->setMaxValue(1);
@@ -263,17 +240,10 @@ template <typename T> CImage * filter_imlabel( BillonTpl< T> &im, T selectedLabe
 
 std::pair< BillonTpl< CCExtractor::value_type > *,CCExtractor::value_type > own_extraction( const char *inputFileName, bool addboundary ) {
 	CPgm3dFactory factory ;
-<<<<<<< HEAD
 	CharImage *skel = factory.read( QString( "%1").arg(inputFileName) ) ;
 	factory.correctEncoding( skel ) ;
 	if ( addboundary ) {
 		CharImage *skelwithboundary =new CharImage ( skel->n_rows+2,skel->n_cols+2,skel->n_slices+2) ;
-=======
-	CImage *skel = factory.read( QString( "%1").arg(inputFileName) ) ;
-	factory.correctEncoding( skel ) ;
-	if ( addboundary ) {
-		CImage *skelwithboundary =new CImage ( skel->n_rows+2,skel->n_cols+2,skel->n_slices+2) ;
->>>>>>> 515235c90402910dc8f56b66529f25f53f1799bd
 		skelwithboundary->fill(0);
 		register int x,y,z;
 		for ( z=0;z<skel->n_slices;z++)
@@ -293,15 +263,9 @@ std::pair< BillonTpl< CCExtractor::value_type > *,CCExtractor::value_type > own_
 	CCExtractor::TMapVolume::ConstIterator mainCCIter = volumes.constBegin() ;
 	const CCExtractor::TMap3DBounds &bboxes = extractor.bounds3D();
 	CCExtractor::TMap3DBounds::ConstIterator bboxIter = bboxes.constBegin();
-<<<<<<< HEAD
 	//std::cout<<"Label : Volume ; x0 ; y0; z0 "<<std::endl;
 	for ( CCExtractor::TMapVolume::ConstIterator lblIter = volumes.constBegin() ; lblIter != volumes.constEnd() ; lblIter++ ) {
 		//std::cout<<setw(6)<<(int)lblIter.key()<<":"<<setw(7)<<lblIter.value()<<";"<<setw(4)<<bboxIter.value().first.x<<";"<<setw(4)<<bboxIter.value().first.y<<";"<<setw(4)<<bboxIter.value().first.z<<std::endl;
-=======
-	std::cout<<"Label : Volume ; x0 ; y0; z0 "<<std::endl;
-	for ( CCExtractor::TMapVolume::ConstIterator lblIter = volumes.constBegin() ; lblIter != volumes.constEnd() ; lblIter++ ) {
-		std::cout<<setw(6)<<(int)lblIter.key()<<":"<<setw(7)<<lblIter.value()<<";"<<setw(4)<<bboxIter.value().first.x<<";"<<setw(4)<<bboxIter.value().first.y<<";"<<setw(4)<<bboxIter.value().first.z<<std::endl;
->>>>>>> 515235c90402910dc8f56b66529f25f53f1799bd
 		assert( lblIter.key() == bboxIter.key() ) ;
 		if ( mainCCIter.value() < lblIter.value() )
 			mainCCIter = lblIter ;
@@ -416,11 +380,7 @@ template <typename T> bool is_junction( const SkeletonGraph<T> & SG, const iCoor
 							iCoord3D pta = SG[ *n ] ;
 							junction( pta.y - pt.y +1 , pta.x-pt.x + 1, pta.z-pt.z+1) = 1 ;
 						}
-<<<<<<< HEAD
 						//std::cerr << adjacent_voxels( iCoord3D(1,1,1), junction ) << std::endl ;
-=======
-						std::cerr << adjacent_voxels( iCoord3D(1,1,1), junction ) << std::endl ;
->>>>>>> 515235c90402910dc8f56b66529f25f53f1799bd
 						return true ;
 					}
 				}
@@ -473,7 +433,6 @@ int main( int narg, char **argv ) {
 }
 #else
 
-<<<<<<< HEAD
 
 int32_t cut_path( const QList< iCoord3D > &pts, const QList<bool > &prop_junction, const QList<int32_t> & prop_depth, QList<int32_t> &prop_cc ) {
 	int nComp = 1 ;
@@ -626,102 +585,25 @@ void compress_files( int32_t current_seed, int step ) {
 		remove ( filepath );
 		filepath = QString("/tmp/travel.%5.%6.pgm3d").arg((int)current_seed).arg(step).toStdString();
 		remove ( filepath );
-=======
-template <typename T> seg_geodesic( const SkeletonGraph<T> &SG, int32_t source, const QString &serie ) {
-	std::vector < int32_t > dtime(SG.number_of_vertices());
-	int32_t time = 1;
-	bfs_time_visitor < int32_t * >vis(&dtime[0], time);
-	breadth_first_search( g, vertex( source, g), visitor(vis));
-
-	if ( save_travels ) {
-		spimg.fill( 0 ) ;
-		for ( SkeletonGraph<T>::ConstVoxelIterator it = SG.encoding_begin() ; it != SG.encoding_end() ; it++ ) {
-			if ( dtime[ it.value() ] == 0 ) continue ;
-			iCoord3D pt = SG.from_linear_coord( it.key() ) ;
-			spimg( pt.y , pt.x, pt.z ) = dtime[ it.value() ] ;
-		}
-		spimg.setMinValue( 0 ) ;
-		spimg.setMaxValue( time+1 ) ;
-		IOPgm3d< im_elem_sp_type, qint32,false>::write( spimg, QString("%1").arg( outputFileName ) ) ;
-	}
-	QList<iCoord3D> path ;
-	antipodal_voxels_path( SG, dtime, path ) ;
-	if ( save_longest_travel ) {
-		spimg.fill( 0 ) ;
-		for ( int step = 0 ; step < path.size() ; step++ )
-			spimg( path.at(step).y,path.at(step).x,path.at(step).z) =1;
-		spimg.setMinValue( 0 ) ;
-		spimg.setMaxValue( 1 ) ;
-		IOPgm3d< im_elem_sp_type, qint32,false>::write( spimg, QString("/tmp/geodesic.pgm3d") ) ;
-	}
-
-	{
-		IPgm3dFactory ifactory ;
-		ISPImage *depthmap = ifactory.read( QString("%1").arg(depthFileName) ) ;
-		ifactory.correctEncoding( depthmap ) ;
-		spimg.fill(0) ;
-		int nComp = 1 ;
-		out <<"thickness along the longest path (geodesic)"<<endl;
-		for ( int step = 0 ; step < path.size() ; step++ ) {
-			bool junction = is_junction( SG,path.at(step) ) ;
-			if ( junction ) nComp++ ;
-			out << (*depthmap)( path.at(step).y,path.at(step).x,path.at(step).z) << " "<<junction <<  endl ;
-			spimg( path.at(step).y,path.at(step).x,path.at(step).z) = nComp ;
-		}
-		spimg.setMaxValue( nComp+1 ) ;
-		IOPgm3d< im_elem_sp_type, qint32,false>::write( spimg, QString("/tmp/geodesic.comp.pgm3d") ) ;
-		delete depthmap ;
-	}
-	/// have to remove all edges between the distinct adjacent connected components
->>>>>>> 515235c90402910dc8f56b66529f25f53f1799bd
 }
 
 int main( int narg, char **argv ) {
 	const char *inputFileName = argv[1] ;
-<<<<<<< HEAD
 	const char *depthFileName = argv[2] ;
 	
 	BillonTpl< CCExtractor::value_type > 	*pOwnLabel=0;
 	CCExtractor::value_type 				idOwn ;
 	boost::tie(pOwnLabel,idOwn) = own_extraction( inputFileName, false ) ;
 	CharImage *img = filter_imlabel( *pOwnLabel,idOwn ) ;
-=======
-	const char *outputFileName = argv[2] ;
-	const char *depthFileName = argv[3] ;
-	
-	BillonTpl< CCExtractor::value_type > 	*pOwnLabel=0;
-	CCExtractor::value_type 				idOwn ;
-	boost::tie(pOwnLabel,idOwn) = own_extraction( inputFileName, true ) ;
-	CImage *img = filter_imlabel( *pOwnLabel,idOwn ) ;
->>>>>>> 515235c90402910dc8f56b66529f25f53f1799bd
 	delete pOwnLabel ;
 
 	/// initializing the graph
 	CSkeletonGraph SG( *img, (char)1 );
 	const CSkeletonGraph::graph_t & g = SG.graph() ; 
-<<<<<<< HEAD
 	delete img ;
 
 	/// aplly source selection...
 	uint32_t 				source = 0 ;
-=======
-
-
-	ISPImage spimg( img->n_rows, img->n_cols, img->n_slices ) ;
-	spimg.fill(0) ;
-
-	/// aplly source selection...
-	uint32_t 				source = 0 ;
-	std::cout<<SG.encoding_begin().key()<<" "<<SG.encoding_begin().value()<<" = "<<source<<std::endl
-			 <<SG[ source ].y<<","<<SG[ source ].x<<","<<SG[ source ].z<<std::endl;
-	std::cout<<SG.number_of_vertices()<<std::endl;
-
-	delete img ;
-
-	/// computing shortest path from source voxel
-
-  
->>>>>>> 515235c90402910dc8f56b66529f25f53f1799bd
 	/// exporting result
 	QFile file("/tmp/minpath.log") ;
 	if( !file.open(QFile::WriteOnly) ) {
@@ -730,7 +612,6 @@ int main( int narg, char **argv ) {
 	}
 	QTextStream out(&file) ;
 	out<<"Command line : "<<argv[0]<<" "<<argv[1]<<" "<<argv[2]<<endl;
-<<<<<<< HEAD
 	
 	/// computing shortest path from source voxel
 	QList< int32_t > nextsource ;
@@ -747,8 +628,6 @@ int main( int narg, char **argv ) {
 		trashcan.clear() ;
 		compress_files( nextsource.at(i),i+1 ) ;
 	}
-=======
->>>>>>> 515235c90402910dc8f56b66529f25f53f1799bd
 	file.close();
 #ifdef EXPENSIVE_TESTING
 	if ( !missing.empty()) {

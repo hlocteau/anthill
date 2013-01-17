@@ -307,7 +307,6 @@ template <typename T> bool SkeletonGraph<T>::isolated_vertex( const BillonTpl<T>
 	}
 	return bIsolated ;
 }
-<<<<<<< HEAD
 
 template <typename T> bool SkeletonGraph<T>::hide_edges( QList< VerticesPair > & edges ) {
 	bool anyError = false ;
@@ -335,5 +334,3 @@ template <typename T> bool SkeletonGraph<T>::restore_all_edges( QList< VerticesP
 	}
 	return true ;
 }
-=======
->>>>>>> 515235c90402910dc8f56b66529f25f53f1799bd
