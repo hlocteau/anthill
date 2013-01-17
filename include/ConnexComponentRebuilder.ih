@@ -1,0 +1,245 @@
+#define Y_ADJ( voxel, neighbor ) (voxel).at(1) + (neighbor/9-1)
+#define X_ADJ( voxel, neighbor ) (voxel).at(0) + ( (neighbor%9)/3 -1 )
+#define Z_ADJ( voxel, neighbor ) (voxel).at(2) + ( neighbor % 3 -1 )
+
+template <typename T, typename U, typename V> ConnexComponentRebuilder<T,U,V>::~ConnexComponentRebuilder( ) {
+	if ( _allocated_depth ) delete _depth ;
+	
+	for ( QMap< uint32_t, LayerType >::Iterator iter = _layers.begin() ; iter != _layers.end() ; iter++ ) {
+		delete iter.value().first ;	/// digitalset
+		delete iter.value().second ;/// domain
+	}
+}
+
+template <typename T, typename U, typename V> bool ConnexComponentRebuilder<T,U,V>::setDepth( BillonTpl< U > *depth ) {
+	if ( _depth ) {
+		if ( _allocated_depth ) delete _depth ;
+	}
+	_depth = depth ;
+	_allocated_depth = false ;
+	if ( _depth->n_rows != _n_rows || _depth->n_cols != _n_cols || _depth->n_slices != _n_slices ) {
+		std::cerr<<"Warning : depth image's size ["<< _depth->n_rows<<" x "<< _depth->n_cols<<" x "<<_depth->n_slices<<"] is not equal"
+				<<"to labelled skeleton image's size ["<<_n_rows<<" x "<<_n_cols<<" x "<<_n_slices<<"]"<<std::endl;
+		return false ;
+	}
+	return true ;
+}
+
+template <typename T, typename U, typename V> bool ConnexComponentRebuilder<T,U,V>::setDepth( const QString & depthFileName ) {
+	if ( _depth ) {
+		if ( _allocated_depth ) delete _depth ;
+	}
+	Pgm3dFactory< U > factory ;
+	_depth = factory.read( depthFileName ) ;
+	factory.correctEncoding( _depth ) ;
+	_allocated_depth = true ;
+	if ( _depth->n_rows != _n_rows || _depth->n_cols != _n_cols || _depth->n_slices != _n_slices ) {
+		std::cerr<<"Warning : depth image's size ["<< _depth->n_rows<<" x "<< _depth->n_cols<<" x "<<_depth->n_slices<<"] is not equal"
+				<<"to labelled skeleton image's size ["<<_n_rows<<" x "<<_n_cols<<" x "<<_n_slices<<"]"<<std::endl;
+		return false ;
+	}
+	return true ;
+}
+
+template <typename T, typename U, typename V> bool ConnexComponentRebuilder<T,U,V>::setBounds( uint32_t selection ) {
+	if ( !_depth ) return false ;
+		
+	Point 	lower=_layers[ selection ].second->lowerBound(),
+			upper=_layers[ selection ].second->upperBound() ;
+	const DigitalSet * pts = _layers[ selection ].first ;
+	for ( DigitalSet::ConstIterator pt = pts->begin() ; pt != pts->end(); pt++ ) {
+		lower.at(0) = std::min ( pt->at(0) - (*_depth)( (*pt).at(1),(*pt).at(0),(*pt).at(2) ) , lower.at(0) ) ;
+		lower.at(1) = std::min ( pt->at(1) - (*_depth)( (*pt).at(1),(*pt).at(0),(*pt).at(2) ) , lower.at(1) ) ;
+		lower.at(2) = std::min ( pt->at(2) - (*_depth)( (*pt).at(1),(*pt).at(0),(*pt).at(2) ) , lower.at(2) ) ;
+		upper.at(0) = std::max ( pt->at(0) + (*_depth)( (*pt).at(1),(*pt).at(0),(*pt).at(2) ) , upper.at(0) ) ;
+		upper.at(1) = std::max ( pt->at(1) + (*_depth)( (*pt).at(1),(*pt).at(0),(*pt).at(2) ) , upper.at(1) ) ;
+		upper.at(2) = std::max ( pt->at(2) + (*_depth)( (*pt).at(1),(*pt).at(0),(*pt).at(2) ) , upper.at(2) ) ;
+	}
+	_lower[ selection ] = lower ;
+	_upper[ selection ] = upper ;
+	return true ;
+}
+
+template <typename T, typename U, typename V> ConnexComponentRebuilder<T,U,V>::ConnexComponentRebuilder( const BillonTpl<T> & img ) : _result( img.n_rows, img.n_cols, img.n_slices ) {
+	_n_labels = img.max() + 1 ;
+	_depth = 0 ;
+	_allocated_depth = false ;
+	_n_rows = img.n_rows ;
+	_n_cols = img.n_cols ;
+	_n_slices = img.n_slices ;
+	_result.fill(0);
+	init( img ) ;
+}
+
+template <typename T, typename U, typename V> ConnexComponentRebuilder<T,U,V>::ConnexComponentRebuilder( const QString & lblSkelFileName ) {
+	
+	Pgm3dFactory< T > factory ;
+	BillonTpl< T > * pimg = factory.read( lblSkelFileName ) ;
+	factory.correctEncoding( pimg ) ;
+
+	_n_labels = pimg->max() + 1 ;
+	_depth = 0 ;
+	_allocated_depth = false ;
+	_n_rows = pimg->n_rows ;
+	_n_cols = pimg->n_cols ;
+	_n_slices = pimg->n_slices ;
+	_result = BillonTpl<V>( _n_rows, _n_cols, _n_slices ) ;
+	_result.fill(0);
+	init( *pimg ) ;
+	delete pimg ;
+}
+
+template <typename T, typename U, typename V> void ConnexComponentRebuilder<T,U,V>::init( const BillonTpl< T > &img ) {
+	Point *lower = new Point [ _n_labels ] ;
+	Point *upper = new Point [ _n_labels ] ;
+	uint32_t label ;
+	for ( label = 1 ; label < _n_labels ; label++ ) {
+		lower[ label ] = Point ( _n_cols, _n_rows, _n_slices ) ;
+		upper[ label ] = Point ( 0, 0, 0 ) ;
+	}
+
+	QList< iCoord3D > *pts = new QList< iCoord3D > [ _n_labels ] ;
+	register int x,y,z ;
+	for ( z = 0 ; z < _n_slices ; z++ )
+		for ( x = 0 ; x < _n_cols ; x++ )
+			for ( y = 0 ; y < _n_rows ; y++ ) {
+				label = img(y,x,z) ;
+				if ( label == 0 ) continue ;
+				pts[ label ].append( iCoord3D(x,y,z) ) ;
+				lower[ label ].at(0) = std::min( lower[ label ].at(0), x ) ;
+				lower[ label ].at(1) = std::min( lower[ label ].at(1), y ) ;
+				lower[ label ].at(2) = std::min( lower[ label ].at(2), z ) ;
+				upper[ label ].at(0) = std::max( upper[ label ].at(0), x ) ;
+				upper[ label ].at(1) = std::max( upper[ label ].at(1), y ) ;
+				upper[ label ].at(2) = std::max( upper[ label ].at(2), z ) ;
+			}
+	
+	for ( label = 1 ; label < _n_labels ; label++ ) {
+		LayerType layer ;
+		layer.second = new Domain( lower[label], upper[label] ) ;
+		layer.first  = new DigitalSet( * layer.second ) ;
+		_layers[ label ] = layer ;
+		while ( !pts[ label ].empty() ) {
+			iCoord3D aPoint = pts[ label ].takeAt(0);
+			layer.first->insertNew( Point( aPoint.x,aPoint.y, aPoint.z ) ) ;
+		}
+	}
+	delete [] lower ;
+	delete [] upper ;
+
+	/// adjacency relations
+	uint32_t adj_label ;
+	register int n ;
+	for ( uint32_t label = 1 ; label < _n_labels ; label++ ) {
+		const DigitalSet *pts = _layers[ label ].first ;
+		for ( DigitalSet::Iterator pt = pts->begin() ; pt != pts->end() ; pt++ )
+			for ( n = 0 ; n < 27 ; n++ ) {
+				if ( n == 13 ) continue ; /// this is *pt
+				x = X_ADJ( *pt, n ) ;
+				if ( x < 0 || x == _n_cols ) continue ;
+				y = Y_ADJ( *pt, n ) ;
+				if ( y < 0 || y == _n_rows ) continue ;
+				z = Z_ADJ( *pt, n ) ;
+				if ( z < 0 || z == _n_slices ) continue ;
+				adj_label = img(y,x,z) ;
+				if ( adj_label <= label ) continue ;
+				uint32_t key = label * _n_labels + adj_label ;
+				
+				if ( !_adjacency.contains( label ) ) _adjacency.insert( label, QSet<uint32_t>() ) ;
+				if ( !_adjacency[ label ].contains( adj_label ) ) {
+					_adjacency[ label ].insert( adj_label ) ;
+					_locations.insert( key, QList< VoxelsPair > () ) ;
+				}
+				_locations[ key ].append( VoxelsPair( *pt, Point(x,y,z) ) ) ;
+				if ( !_adjacency.contains( adj_label ) ) _adjacency.insert( adj_label, QSet<uint32_t>() ) ;
+				if ( !_adjacency[ adj_label ].contains( label ) ) {
+					_adjacency[ adj_label ].insert( label ) ;
+				}
+			}
+	}
+
+
+}
+
+template <typename T, typename U, typename V> bool ConnexComponentRebuilder<T,U,V>::run( ) {
+	for ( uint32_t label = 1 ; label < _n_labels ; label++ )
+		if ( !run( label, label ) ) return false ;
+	return true ;
+}
+
+template <typename T, typename U, typename V> bool ConnexComponentRebuilder<T,U,V>::run( uint32_t selection, V color ) {
+	if ( !_depth ) return false ;
+	if ( !_layers.contains( selection ) ) return false ;
+	if ( !_lower.contains( selection ) )
+		setBounds( selection ) ;
+
+	Domain domain( Point(0,0,0), _upper[ selection ] - _lower[ selection ]) ;
+	DigitalSet 	skeletonSet(domain),
+				componentSet(domain) ;
+	Image 		distances( domain ) ;
+	const DigitalSet * pts = _layers[ selection ].first ;
+	for ( DigitalSet::ConstIterator pt = pts->begin() ; pt != pts->end(); pt++ ) {
+		distances.setValue( *pt-_lower[selection], (*_depth)( (*pt).at(1),(*pt).at(0),(*pt).at(2) ) ) ;
+		skeletonSet.insertNew( *pt - _lower[ selection ] ) ;
+	}
+
+	#if BUILD_INDIVIDUAL_COMP
+	arma::icube thisCC( domain.upperBound().at(1), domain.upperBound().at(0), domain.upperBound().at(2) ) ;
+	thisCC.fill(0);
+	#endif
+
+	OutImage componentDGImg( domain ) ;
+	RDT rdt ;
+	componentDGImg = rdt.reconstruction( distances ) ;
+
+
+
+	const Point & (*me)( const VoxelsPair &) ;
+	const Point & (*other)( const VoxelsPair &) ;
+	Point relative_loc_me, relative_loc_other ;
+	Point::Component squared_distance_me, squared_distance_other ;
+	const QSet<uint32_t> & relations = _adjacency[ selection ] ;
+	for ( Domain::ConstIterator pt = domain.begin() ; pt != domain.end(); pt++ ) {
+		if ( componentDGImg( *pt ) > 0 ) {
+			bool 	bInside = true ;
+			for ( typename QSet<uint32_t>::ConstIterator adj_node = relations.begin() ; bInside && adj_node != relations.end() ; adj_node++ ) {
+				if ( selection < *adj_node ) {
+					me = &get_first ;
+					other = &get_second ;
+				} else {
+					other = &get_first ;
+					me = &get_second ;					
+				}
+				uint32_t key = std::min( *adj_node, selection ) * _n_labels + std::max( *adj_node, selection ) ;
+				for ( QList< VoxelsPair >::ConstIterator loc = _locations[ key ].begin() ; bInside && loc != _locations[ key ].end() ; loc++ ) {
+					relative_loc_me = *pt + _lower[ selection ] - (*me)( *loc ) ;
+					squared_distance_me = relative_loc_me.dot( relative_loc_me ) ;
+					relative_loc_other = *pt + _lower[ selection ] - (*other)(*loc) ;
+					squared_distance_other = relative_loc_other.dot( relative_loc_other ) ;
+					/// \note should check that this voxel is touching the separating plane
+					if ( squared_distance_other > (*_depth)( (*other)(*loc).at(1),(*other)(*loc).at(0),(*other)(*loc).at(2) ) ) continue ;
+					
+					if ( squared_distance_me > (*_depth)( (*me)(*loc).at(1),(*me)(*loc).at(0),(*me)(*loc).at(2) ) ) { bInside = false ; continue ; }
+					if ( squared_distance_other < squared_distance_me ) bInside = false ;
+				}
+			}
+			if ( bInside ) {
+				#if BUILD_INDIVIDUAL_COMP
+				if ( _result( (*pt).at(1)+_lower[selection].at(1),(*pt).at(0)+_lower[selection].at(0),(*pt).at(2)+_lower[selection].at(2) ) ) {
+					
+					thisCC( (*pt).at(1), (*pt).at(0),(*pt).at(2) ) = 2 ;
+				} else {
+					thisCC( (*pt).at(1), (*pt).at(0),(*pt).at(2) ) = 1 ;
+				}
+				#endif
+				_result( (*pt).at(1)+_lower[selection].at(1),(*pt).at(0)+_lower[selection].at(0),(*pt).at(2)+_lower[selection].at(2) ) = color ;
+			}
+		}
+	}
+	#if BUILD_INDIVIDUAL_COMP
+	IOPgm3d<int,qint8,false>::write( thisCC, QString( "/tmp/cc%1.pgm3d" ).arg( (int)color ) ) ;
+	std::cerr<<"CC "<<(int)color<<" : "<<accu( thisCC )<<std::endl;
+	#endif
+	return true ;
+}
+

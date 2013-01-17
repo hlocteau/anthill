@@ -1,0 +1,429 @@
+//#include <Bounding.hpp>
+
+#include <billon.h>
+#include <io/IOPgm3d.h>
+/// Coding
+/// val1 val2 val3 val4 val5
+/// val1 first coordinate in the loop
+/// val2 second coordinate in the loop
+///
+/// 0 stands for the x coordinate in a Z3i::Point
+/// 1 stands for the y coordinate in a Z3i::Point
+/// 2 stands for the z coordinate in a Z3i::Point
+///
+/// val3 location of the y coordinate
+/// val4 location of the x coordinate
+/// val5 location of the z coordinate
+template< typename T > unsigned int Bounding<T>::_s_planesBounds[] = {1, 2, 0, 2, 1, 
+											0, 2, 2, 0, 1,
+											0, 1, 1, 0, 2 } ;
+
+using std::map ;
+using std::pair ;
+
+//#define DEBUG_BOUNDING
+//#define DEBUG_2D_to_3D_MAPPING
+
+template<typename T> Bounding<T>::Bounding( const arma::Cube<T> & labels, int combination ) : _labels(labels) {
+	_comb = combination;
+	computeBoundingBoxes() ;
+}
+
+template<typename T> Bounding<T>::~Bounding() {
+}
+
+template<typename T>
+void Bounding<T>::error_outlying( const map< int,pair<int,int> > &shape_XBound, const arma::Mat< char > &volume, 
+								  const Geom2D::EdgePolygon &segs, int plane, int coord, const Z2i::DigitalSet &boundary,
+								  const arma::Cube< char > &convexPlane, TBBoxConstIterator &iterBboxes ) {
+	std::cerr<<__FUNCTION__<<" for plane "<<plane<<" at coord="<<coord<<std::endl;
+	arma::Cube< char > buffer( volume.n_rows, volume.n_cols,1 ) ;
+	/// draw initial object
+	std::cerr<<"Draw input..."<<std::endl;
+	//buffer.slice(0) = volume ;
+	//buffer.slice(0) *= 32 ;
+	for ( int y = 0 ; y < volume.n_rows; y++ )
+		for ( int x = 0 ; x < volume.n_cols; x++ )
+			buffer.at(y,x,0) = (volume.at(y,x)==1?1:0) ;
+	
+	/// draw obtained object
+	std::cerr<<"Draw object..."<<std::endl;
+	unsigned int decode[3];
+	unsigned int * encode = _s_planesBounds + plane * 5 ;
+	decode[2]=coord-iterBboxes->second.first.at( plane );
+	for ( decode[ 0 ]=0;decode[ 0 ]<volume.n_rows ; decode[ 0 ]++ )
+		for ( decode[ 1 ]=0;decode[ 1 ]<volume.n_cols ; decode[ 1 ]++ )
+			try {
+				if ( convexPlane.at( decode[ encode[ 2 ] ]+iterBboxes->second.first.at(1) , decode[ encode[ 3 ] ]+iterBboxes->second.first.at(0), decode[ encode[ 4 ] ]+iterBboxes->second.first.at(2) ) )
+					buffer(decode[ 0 ],decode[ 1 ],0) += 2 ;
+			} catch ( std::logic_error e ) {
+				std::cerr<<"Error : cube's dimensions are "<<convexPlane.n_rows<<" x "<<convexPlane.n_cols<<" x "<<convexPlane.n_slices<<std::endl
+						<<"Try to access element ("	<<decode[ encode[ 2 ] ]+iterBboxes->second.first.at(1)<<" , "
+													<<decode[ encode[ 3 ] ]+iterBboxes->second.first.at(0)<<" , "
+													<<decode[ encode[ 4 ] ]+iterBboxes->second.first.at(2) <<")"<<std::endl
+						<<"From matrix's element ("<<decode[0]<<","<<decode[1]<<std::endl;
+				exit(-1) ;
+			}
+	/// draw segs
+	std::cerr<<"Draw "<<segs.size()<<" segment(s)..."<<std::endl;
+	Z2i::Point *pts_edge ;
+	unsigned int size, iPt ;
+	for ( int iSeg = 0 ; iSeg < segs.size() ; iSeg++ ) {
+		pts_edge = Geom2D::computeD8Segment( segs[ iSeg ].p(), segs[ iSeg ].q(), size ) ;
+		for ( iPt = 1 ; iPt < size ; iPt++ )
+			buffer.at( pts_edge[iPt].at(1), pts_edge[iPt].at(0),0 ) += 4 ;
+		delete [] pts_edge ;
+	}
+	
+	/// draw boundary points
+	std::cerr<<"Draw "<<boundary.size() <<" boundary points..."<<std::endl;
+	Z2i::DigitalSet::ConstIterator ptIter ;
+	for ( ptIter = boundary.begin() ; ptIter != boundary.end() ; ptIter++ )
+		buffer.at( (*ptIter).at(1), (*ptIter).at(0),0 ) += 8 ;
+	std::cerr<<"Saved data for proofreading code"<<std::endl;
+	IOPgm3d< char, qint8, false>::write( buffer, QString("/tmp/errOutLying-%1-%2.pgm" ).arg( plane ).arg( coord ) ) ;
+	std::cerr<<__FUNCTION__<<" END"<<std::endl;
+	
+	if ( buffer.n_rows< 40 && buffer.n_cols< 40 ) {
+		for ( int y = 0 ; y < buffer.n_rows; y++ ) {
+			for ( int x = 0 ; x < buffer.n_cols; x++ )
+				std::cout<<setw(4)<<(int)( (uchar)buffer.at(y,x,0) );
+			std::cout<<std::endl;
+		}
+		for ( map< int,pair<int,int> >::const_iterator fillIter = shape_XBound.begin() ; fillIter != shape_XBound.end() ; fillIter++ )
+			std::cerr<<"At "<<fillIter->first<<"\t\trange "<<fillIter->second.first<<" : "<<fillIter->second.second<<std::endl;
+	}
+	
+	exit(-1);
+}
+
+template<typename T>
+arma::Cube< char > * Bounding<T>::convexHull2DAxis( int axis, TBBoxConstIterator &iterBboxes ) {
+	unsigned int 	rows 	= iterBboxes->second.second.at(1) - iterBboxes->second.first.at(1) + 1,
+					cols 	= iterBboxes->second.second.at(0) - iterBboxes->second.first.at(0) + 1,
+					slices 	= iterBboxes->second.second.at(2) - iterBboxes->second.first.at(2) + 1 ;
+	arma::Cube< char > *result =new arma::Cube< char >( rows, cols, slices ) ;
+	if ( _comb == COMB_OR ) {
+		result->fill( 0 ); 
+	} else {
+		result->fill(1) ;
+	}
+	register int t ;
+	if ( axis & BOUNDING_X_AXIS ) {
+		for ( t = iterBboxes->second.first.at(BOUNDING_YZ_PLANE) ; t <= iterBboxes->second.second.at(BOUNDING_YZ_PLANE) ; t++ )
+			convexHull2DPlane( BOUNDING_YZ_PLANE, t, iterBboxes, *result ) ;
+	}
+	if ( axis & BOUNDING_Y_AXIS ) {
+		for ( t = iterBboxes->second.first.at(BOUNDING_XZ_PLANE) ; t <= iterBboxes->second.second.at(BOUNDING_XZ_PLANE) ; t++ )
+			convexHull2DPlane( BOUNDING_XZ_PLANE, t, iterBboxes, *result ) ;
+	}
+	if ( axis & BOUNDING_Z_AXIS ) {
+		for ( t = iterBboxes->second.first.at(BOUNDING_XY_PLANE) ; t <= iterBboxes->second.second.at(BOUNDING_XY_PLANE) ; t++ )
+			convexHull2DPlane( BOUNDING_XY_PLANE, t, iterBboxes, *result ) ;
+	}
+	
+	return result ;
+}
+
+template<typename T>
+void Bounding<T>::convexHull2DPlane( int plane, int coord, TBBoxConstIterator &iterBboxes, arma::Cube< char > &convexPlane ) {
+	register unsigned int index[ 3 ] ;
+
+	const unsigned int *bounds = _s_planesBounds + plane * 5 ;
+#ifdef DEBUG_BOUNDING
+	std::cout<<"As plane is "<<plane<<" we get parameters : ";
+	std::copy( bounds, bounds+5, std::ostream_iterator< unsigned int >( std::cout, " " ) ) ;
+	std::cout<<std::endl;
+#endif
+	const src_elem_type &current_label = iterBboxes->first ;
+	const TBBox &bbox = iterBboxes->second ;
+	const Point &lower = bbox.first ;
+	const Point &upper = bbox.second ;
+	int view_n_rows = upper.at( bounds[0] )+1-lower.at( bounds[0] ),
+		view_n_cols = upper.at( bounds[1] )+1-lower.at( bounds[1] ) ;
+	arma::Mat< char > volume = arma::zeros< arma::Mat<char> >( view_n_rows, view_n_cols ) ;
+	src_elem_type value ;
+	index[2] = coord ;
+#ifdef DEBUG_BOUNDING
+std::cout<<"First loop interval : "<<lower.at( bounds[0] )<<" "<<upper.at( bounds[0] )<<" Second loop interval "<<lower.at( bounds[1] )<<" "<<upper.at( bounds[1] )<<std::endl;
+index[0] = lower.at( bounds[0] ) ;
+index[1] = lower.at( bounds[1] ) ;
+std::cout<<"First voxel evaluated x y z = "<<index[ bounds[2] ]<<" "<<index[ bounds[3] ]<<" "<<index[ bounds[4] ]<<std::endl;
+#endif
+
+#ifdef DEBUG_2D_to_3D_MAPPING
+arma::Cube<int> xyz_ut[2] ;
+xyz_ut[0] = arma::Cube<int>( upper.at(1)+1-lower.at(1),upper.at(0)+1-lower.at(0), upper.at(2)+1-lower.at(2));
+xyz_ut[0].fill(-1) ;
+xyz_ut[1] = arma::Cube<int>( upper.at(1)+1-lower.at(1),upper.at(0)+1-lower.at(0), upper.at(2)+1-lower.at(2));
+xyz_ut[1].fill(-1) ;
+#endif
+	
+	for ( index[0] = lower.at( bounds[0] ) ; index[0] <= upper.at( bounds[0] ) ; index[0]++ )
+		for ( index[1] = lower.at( bounds[1] ) ; index[1] <= upper.at( bounds[1] ) ; index[1]++ ) {
+			value = _labels( index[ bounds[2] ], index[ bounds[3] ], index[ bounds[4] ] ) ;
+			if ( value == current_label )
+				volume( index[0]-lower.at( bounds[0] ), index[1]-lower.at( bounds[1] ) ) = FOREGROUND_COMP ;
+			else if ( value != BACKGROUND_COMP )
+				volume( index[0]-lower.at( bounds[0] ), index[1]-lower.at( bounds[1] ) ) = FOREIGN_COMP ;
+				
+#ifdef DEBUG_2D_to_3D_MAPPING
+xyz_ut[0](index[ bounds[2] ]-lower.at(1), index[ bounds[3] ]-lower.at(0), index[ bounds[4] ]-lower.at(2)) = index[0]-lower.at( bounds[0] ) ;
+xyz_ut[1](index[ bounds[2] ]-lower.at(1), index[ bounds[3] ]-lower.at(0), index[ bounds[4] ]-lower.at(2)) = index[1]-lower.at( bounds[1] ) ;
+#endif
+		}
+#ifdef DEBUG_BOUNDING
+std::cout<<std::endl;
+for ( int y = 0 ; y < view_n_rows ; y++, std::cout<<std::endl )
+	for ( int x = 0 ; x < view_n_cols ; x++ ) std::cout<<(int)volume.at(y,x)<<" " ;
+std::cout<<std::endl;
+#endif
+	/// identify boundary points
+	Z2i::Domain domain( Z2i::Point(0,0), Z2i::Point(view_n_rows, view_n_cols) ) ;
+	Z2i::DigitalSet boundary( domain ) ;
+	computeBoundaryPoints( volume, boundary ) ;
+	if ( boundary.empty() ) return ;
+#ifdef DEBUG_BOUNDING
+for ( Z2i::DigitalSet::ConstIterator pt = boundary.begin() ; pt != boundary.end() ; pt++ )
+	std::cout<<(*pt).at(1)<<","<<(*pt).at(0)<<" " ;
+std::cout<<std::endl;
+#endif
+	Geom2D::VertexPolygon convexhull ;
+	Geom2D::ConvexHull( boundary, convexhull ) ;
+#ifdef DEBUG_BOUNDING
+std::cout<<"Convex hull vertices are " ;
+for ( Geom2D::VertexPolygon::iterator pt = convexhull.begin() ; pt != convexhull.end() ; pt++ )
+	std::cout<<(*pt).at(0)<<","<<(*pt).at(1)<<" " ;
+std::cout<<std::endl;
+#endif
+	Geom2D::EdgePolygon segs ;
+	Geom2D::init_edges_polygon( segs, convexhull ) ;
+	if ( segs.size() >= 0/*3*/ ) {
+		Z2i::Point *pts_edge ;
+		unsigned int size, iPt ;
+		map< int,pair<int,int> > shape_XBound ;
+		map< int,pair<int,int> >::iterator pos ;
+		for ( int iSeg = 0 ; iSeg < segs.size() ; iSeg++ ) {
+			pts_edge = Geom2D::computeD8Segment( segs[ iSeg ].p(), segs[ iSeg ].q(), size ) ;
+			for ( iPt = 0 ; iPt < size ; iPt++ ) {
+				#ifdef DEBUG_BOUNDING
+				std::cout<<pts_edge[iPt].at(0)<<","<<pts_edge[iPt].at(1)<<std::endl ;
+				#endif
+				pos = shape_XBound.find( pts_edge[ iPt ].at(0) ) ;
+				if ( pos == shape_XBound.end() )
+					shape_XBound.insert( pair<int,pair<int,int> >( pts_edge[ iPt ].at(0), std::pair< int,int>( pts_edge[ iPt ].at(1), pts_edge[ iPt ].at(1) ) ) ) ;
+				else {
+					if ( pos->second.first > pts_edge[ iPt ].at(1) ) 	pos->second.first = pts_edge[ iPt ].at(1) ;
+					if ( pos->second.second < pts_edge[ iPt ].at(1) ) 	pos->second.second = pts_edge[ iPt ].at(1) ;
+				}
+			}
+			delete [] pts_edge ;
+		}
+		#ifdef DEBUG_BOUNDING
+		std::cout<<std::endl;
+		#endif
+		map< int,pair<int,int> >::iterator shape_XBound_iter ;
+		register int u,t ;
+		bool shift_write = ( convexPlane.n_rows != _labels.n_rows || convexPlane.n_cols != _labels.n_cols || convexPlane.n_slices != _labels.n_slices ) ;
+		index[2] -= lower.at( plane ) ;
+		if ( _comb == COMB_OR ) {
+			/// introduce 1 values
+			for ( shape_XBound_iter = shape_XBound.begin() ; shape_XBound_iter != shape_XBound.end() ; shape_XBound_iter++ ) {
+				#ifdef DEBUG_BOUNDING
+				std::cout<<"At "<<shape_XBound_iter->first<<" 	range is "<<shape_XBound_iter->second.first<<" to "<<shape_XBound_iter->second.second<<std::endl;
+				#endif
+				index[0] = shape_XBound_iter->first ;
+				if ( shift_write ) index[0] += lower.at( bounds[0] ) ;
+				for ( t = shape_XBound_iter->second.first ; t <= shape_XBound_iter->second.second ; t++ ) {
+					index[1] = t ;
+					if ( shift_write ) index[1] += lower.at( bounds[1] ) ;
+					#ifdef DEBUG_BOUNDING
+					if ( t == shape_XBound_iter->second.first ) std::cout<<"write at "<<index[ bounds[2] ]<<" "<<index[ bounds[3] ]<<" "<<index[ bounds[4] ]<<" / coord is "<<coord<<" index[2] is "<<index[2]<<std::endl;
+					#endif
+					convexPlane( index[ bounds[2] ], index[ bounds[3] ], index[ bounds[4] ] ) = 1 ;
+				}
+			}
+		} else {
+			/// _comb value is COMB_AND
+			/// introduce 0 values
+			/// [ step 1 ] we have to manage index[0] in the interval [0,shape_XBound.begin()->first-1],				index[1] in [0,view_n_cols-1]
+			/// [ step 2 ]                               the interval [shape_XBound.rbegin()->first+1,view_n_rows-1]	index[1] in [0,view_n_cols-1]
+			/// [ step 3 ]                               the interval shape_XBound										index[1] in [0,view_n_cols-1] \minuset shape_XBound.second
+			
+			bool errorOutlying = false ;
+			
+			arma::Mat<int> ut_xyz[3];
+			for ( int iCoord = 0 ; iCoord < 3 ; iCoord ++ ) {
+				ut_xyz[ iCoord ] = arma::Mat<int>( view_n_rows, view_n_cols ) ;
+				ut_xyz[ iCoord ].fill(-1) ;
+			}
+			
+			/// [ step 1 ]
+			if ( shape_XBound.begin()->first > 0 )
+				for ( u = 0 ; u < shape_XBound.begin()->first ; u++ ) {
+					index[1] = u ;
+					for ( t = 0 ; t < view_n_rows ; t++ ) {
+						index[0] = t ;
+						ut_xyz[ 0 ](t,u) = index[ bounds[3] ] ;	ut_xyz[ 1 ](t,u) = index[ bounds[2] ] ; ut_xyz[ 2 ](t,u) = index[ bounds[4] ] ;
+						
+						convexPlane( index[ bounds[2] ], index[ bounds[3] ], index[ bounds[4] ] ) = 0 ;
+						if ( false&&_labels( index[ bounds[2] ]+(shift_write?0:lower.at(1)), index[ bounds[3] ]+(shift_write?0:lower.at(0)), index[ bounds[4] ]+(shift_write?0:lower.at(2)) ) == current_label )
+							errorOutlying = true ;
+					}
+				}
+			if ( errorOutlying && false )
+				{ std::cerr<<"step 1"<<std::endl; error_outlying( shape_XBound, volume, segs,plane,coord, boundary, convexPlane, iterBboxes ) ; }
+			/// [ step 2 ]
+			if ( shape_XBound.rbegin()->first+1 < view_n_cols )
+				for ( u = shape_XBound.rbegin()->first+1 ; u < view_n_cols ; u++ ) {
+					index[1] = u ;
+					for ( t = 0 ; t < view_n_rows ; t++ ) {
+						index[0] = t ;
+						ut_xyz[ 0 ](t,u) = index[ bounds[3] ] ;	ut_xyz[ 1 ](t,u) = index[ bounds[2] ] ; ut_xyz[ 2 ](t,u) = index[ bounds[4] ] ;
+						convexPlane( index[ bounds[2] ], index[ bounds[3] ], index[ bounds[4] ] ) = 0 ;
+						if ( false&&_labels( index[ bounds[2] ]+(shift_write?0:lower.at(1)), index[ bounds[3] ]+(shift_write?0:lower.at(0)), index[ bounds[4] ]+(shift_write?0:lower.at(2)) ) == current_label ) {
+							if ( !errorOutlying ) {
+								std::cerr<<"First problem with u="<<u<<" t="<<t<<" index[bounds[2]]="<<index[ bounds[2] ]<<" index[bounds[3]]="<<index[ bounds[3] ]<<" index[bounds[4]]="<<index[ bounds[4] ]<<std::endl;
+								if ( shift_write ) 	std::cerr<<" +shift "<<lower.at(1)<<" "<<lower.at(0)<<" "<<lower.at(2)<<std::endl;
+								else				std::cerr<<" no shift"<<std::endl;
+								std::cerr<<"View "<<(int)volume( index[0],index[1] )<<std::endl;
+								errorOutlying = true ;
+								{ std::cerr<<"step 2"<<std::endl; error_outlying( shape_XBound, volume, segs,plane,coord, boundary, convexPlane, iterBboxes ) ; }
+							}
+						}
+
+					}
+				}
+			if ( errorOutlying && false  )
+				{ std::cerr<<"step 2"<<std::endl; error_outlying( shape_XBound, volume, segs,plane,coord, boundary, convexPlane, iterBboxes ) ; }
+			/// [ step 3 ]
+			for ( shape_XBound_iter = shape_XBound.begin() ; shape_XBound_iter != shape_XBound.end() ; shape_XBound_iter++ ) {
+				#ifdef DEBUG_BOUNDING
+				std::cout<<"At "<<shape_XBound_iter->first<<" 	range is "<<shape_XBound_iter->second.first<<" to "<<shape_XBound_iter->second.second<<std::endl;
+				#endif
+				index[1] = shape_XBound_iter->first ;
+				u=index[1];
+				if ( shape_XBound_iter->second.first > 0 )
+					for ( t = 0 ; t < shape_XBound_iter->second.first ; t++ ) {
+						index[0] = t ;
+						ut_xyz[ 0 ](t,u) = index[ bounds[3] ] ;	ut_xyz[ 1 ](t,u) = index[ bounds[2] ] ; ut_xyz[ 2 ](t,u) = index[ bounds[4] ] ;
+						convexPlane( index[ bounds[2] ], index[ bounds[3] ], index[ bounds[4] ] ) = 0 ;
+						if ( false&&_labels( index[ bounds[2] ]+(shift_write?0:lower.at(1)), index[ bounds[3] ]+(shift_write?0:lower.at(0)), index[ bounds[4] ]+(shift_write?0:lower.at(2)) ) == current_label )
+							errorOutlying = true ;
+					}
+				if ( errorOutlying && false  )
+					{ std::cerr<<"step 3a"<<std::endl; error_outlying( shape_XBound, volume, segs,plane,coord, boundary, convexPlane, iterBboxes ) ; }
+				if ( shape_XBound_iter->second.second+1 < view_n_rows )
+					for ( t = shape_XBound_iter->second.second+1 ; t < view_n_rows ; t++ ) {
+						index[0] = t ;
+						convexPlane( index[ bounds[2] ], index[ bounds[3] ], index[ bounds[4] ] ) = 0 ;
+						ut_xyz[ 0 ](t,u) = index[ bounds[3] ] ;	ut_xyz[ 1 ](t,u) = index[ bounds[2] ] ; ut_xyz[ 2 ](t,u) = index[ bounds[4] ] ;
+						if ( false&&_labels( index[ bounds[2] ]+(shift_write?0:lower.at(1)), index[ bounds[3] ]+(shift_write?0:lower.at(0)), index[ bounds[4] ]+(shift_write?0:lower.at(2)) ) == current_label )
+							errorOutlying = true ;
+					}
+				if ( errorOutlying && false  )
+					{ std::cerr<<"step 3b"<<std::endl; error_outlying( shape_XBound, volume, segs,plane,coord, boundary, convexPlane, iterBboxes ) ; }
+#ifdef DEBUG_2D_to_3D_MAPPING
+				std::cerr<<"transformation 1"<<std::endl;
+				for ( int t=0;t<view_n_rows;t++ ) {
+					for ( int u=0;u<view_n_cols ; u++ )
+						if ( ut_xyz[1](t,u) != -1 || ut_xyz[0](t,u) != -1 )
+						std::cout<<u<<","<<t<<" --> "<<setw(4)<<ut_xyz[0](t,u)<<setw(4)<<ut_xyz[1](t,u)<<setw(4)<<ut_xyz[2](t,u)<<std::endl;
+					std::cout<<std::endl;
+				}
+				std::cerr<<"transformation 2"<<std::endl;
+				for ( int z=0;z<xyz_ut[0].n_slices;z++ ) {
+					for ( int x=0;x<xyz_ut[0].n_cols ; x++ )
+						for ( int y=0;y<xyz_ut[0].n_rows ; y++ )
+							if ( xyz_ut[0](y,x,z) != -1 || xyz_ut[1](y,x,z) != -1 )
+								std::cout<<x<<","<<y<<","<<z<<" --> "<<xyz_ut[0](y,x,z)<<" "<<xyz_ut[1](y,x,z)<<std::endl;
+					std::cout<<std::endl;
+				}
+#endif
+				if ( false&&errorOutlying )
+					{ error_outlying( shape_XBound, volume, segs,plane,coord, boundary, convexPlane, iterBboxes ) ; }
+			}
+			
+		}
+	}
+
+#ifdef DEBUG_2D_to_3D_MAPPING
+	{
+		/// show values on the plane
+		std::cout<<"Plane "<<plane<<" at coord "<< coord<<std::endl;
+		index[2] = coord ;
+		for ( index[0] = lower.at( bounds[0] ) ; index[0] <= upper.at( bounds[0] ) ; index[0]++ ) {
+			for ( index[1] = lower.at( bounds[1] ) ; index[1] <= upper.at( bounds[1] ) ; index[1]++ )
+				std::cout<<(int)convexPlane( index[ bounds[2] ]-lower.at(1), index[ bounds[3] ]-lower.at(0), index[ bounds[4] ]-lower.at(2) )<<" " ;
+			std::cout<<std::endl;
+		}
+		std::cout<<std::endl;
+	}
+#endif
+}
+
+template<typename T>
+void Bounding<T>::computeBoundingBoxes( ) {
+	register unsigned int 	x, y, z ;
+	unsigned int 					width 	= _labels.n_cols,
+									height	= _labels.n_rows,
+									depth	= _labels.n_slices ;
+	src_elem_type					value ;
+	TBBoxIterator		position ;
+	
+	for ( x = 0 ; x < width ; x++ )
+		for ( y = 0 ; y < height ; y++ )
+			for ( z = 0 ; z < depth ; z++ ) {
+				value = _labels( y, x, z ) ;
+				if ( value == BACKGROUND_COMP ) continue ;
+				position = _bboxes.find( value ) ;
+				if ( position == _bboxes.end() ) {
+					_bboxes.insert( typename TBBoxes::value_type( value, TBBox( Point(x,y,z), Point(x,y,z) ) ) ) ;
+				} else {
+					Point & lower = position->second.first ;
+					Point & upper = position->second.second ;
+					if ( lower.at(0) > x ) lower.at(0) = x ;
+					if ( lower.at(1) > y ) lower.at(1) = y ;
+					if ( lower.at(2) > z ) lower.at(2) = z ;
+					
+					if ( upper.at(0) < x ) upper.at(0) = x ;
+					if ( upper.at(1) < y ) upper.at(1) = y ;
+					if ( upper.at(2) < z ) upper.at(2) = z ;
+				}
+			}
+
+}
+
+template<typename T>
+void Bounding<T>::computeBoundaryPoints( const arma::Mat< char > &volume, Z2i::DigitalSet & boundary ) {
+	unsigned int lastValue ;
+	register int 	x, y, z ;
+	for ( x = 0 ; x < volume.n_cols ; x++ ) {
+		for ( y = 0 ; y < volume.n_rows ; y++ )
+			if ( volume( y, x ) == 1 ) {
+				boundary.insertNew( Z2i::Point( x,y ) ) ;
+				lastValue = y ;
+				break ;
+			}
+		if ( y == volume.n_rows ) continue ;
+		for ( y = volume.n_rows-1 ; y > lastValue ; y-- )
+			if ( volume( y, x ) == 1 ) {
+				boundary.insertNew( Z2i::Point( x,y ) ) ;
+				break ;
+			}
+	}
+	for ( y = 0 ; y < volume.n_rows ; y++ ) {
+		for ( x = 0 ; x < volume.n_cols ; x++ )
+			if ( volume( y, x ) == 1 ) {
+				boundary.insertNew( Z2i::Point( x,y ) ) ;
+				lastValue = x ;
+				break ;
+			}
+		if ( x == volume.n_cols ) continue ;
+		for ( x = volume.n_cols-1 ; x > lastValue ; x-- )
+			if ( volume( y, x ) == 1 ) {
+				boundary.insertNew( Z2i::Point( x,y ) ) ;
+				break ;
+			}
+	}
+}
