@@ -48,6 +48,7 @@ private:
 	QMap< uint32_t, QSet< uint32_t > >		_adjacency ;
 	QMap< uint32_t, QList< VoxelsPair > >	_locations ;
 	BillonTpl< V >							_result ;
+	QString									_depthfile ;
 } ;
 
 #include <ConnexComponentRebuilder.ih>

@@ -69,7 +69,7 @@ int main( int narg, char **argv ) {
 	
 	int idComponent = vm["id"].as<int>() ;
 
-	ConnexComponentRebuilder< char, int32_t, char > CCR( QString( inputFileName.c_str() ) );
+	ConnexComponentRebuilder< short, int32_t, char > CCR( QString( inputFileName.c_str() ) );
 	CCR.setDepth( QString( depthFileName.c_str() ) ) ;
 	trace.beginBlock("Reconstruction") ;
 	if ( idComponent != -1 ) CCR.run( idComponent, (char)1 ) ;

@@ -38,6 +38,7 @@ template <typename T, typename U, typename V> bool ConnexComponentRebuilder<T,U,
 				<<"to labelled skeleton image's size ["<<_n_rows<<" x "<<_n_cols<<" x "<<_n_slices<<"]"<<std::endl;
 		return false ;
 	}
+	_depthfile = depthFileName ;
 	return true ;
 }
 
@@ -48,15 +49,26 @@ template <typename T, typename U, typename V> bool ConnexComponentRebuilder<T,U,
 			upper=_layers[ selection ].second->upperBound() ;
 	const DigitalSet * pts = _layers[ selection ].first ;
 	for ( DigitalSet::ConstIterator pt = pts->begin() ; pt != pts->end(); pt++ ) {
-		lower.at(0) = std::min ( pt->at(0) - (*_depth)( (*pt).at(1),(*pt).at(0),(*pt).at(2) ) , lower.at(0) ) ;
-		lower.at(1) = std::min ( pt->at(1) - (*_depth)( (*pt).at(1),(*pt).at(0),(*pt).at(2) ) , lower.at(1) ) ;
-		lower.at(2) = std::min ( pt->at(2) - (*_depth)( (*pt).at(1),(*pt).at(0),(*pt).at(2) ) , lower.at(2) ) ;
-		upper.at(0) = std::max ( pt->at(0) + (*_depth)( (*pt).at(1),(*pt).at(0),(*pt).at(2) ) , upper.at(0) ) ;
-		upper.at(1) = std::max ( pt->at(1) + (*_depth)( (*pt).at(1),(*pt).at(0),(*pt).at(2) ) , upper.at(1) ) ;
-		upper.at(2) = std::max ( pt->at(2) + (*_depth)( (*pt).at(1),(*pt).at(0),(*pt).at(2) ) , upper.at(2) ) ;
+		U d = floor( 1.+sqrt( double( (*_depth)( (*pt).at(1),(*pt).at(0),(*pt).at(2) ) ) ) ) ;
+		lower.at(0) = std::min ( pt->at(0) - d , lower.at(0) ) ;
+		lower.at(1) = std::min ( pt->at(1) - d , lower.at(1) ) ;
+		lower.at(2) = std::min ( pt->at(2) - d , lower.at(2) ) ;
+		upper.at(0) = std::max ( pt->at(0) + d , upper.at(0) ) ;
+		upper.at(1) = std::max ( pt->at(1) + d , upper.at(1) ) ;
+		upper.at(2) = std::max ( pt->at(2) + d , upper.at(2) ) ;
 	}
 	_lower[ selection ] = lower ;
 	_upper[ selection ] = upper ;
+	
+/// explain the bounds being found
+for ( DigitalSet::ConstIterator pt = pts->begin() ; false && pt != pts->end(); pt++ ) {
+	if ( lower.at(0) == pt->at(0) - (*_depth)( (*pt).at(1),(*pt).at(0),(*pt).at(2) ) ) std::cout<<"Xmin "<<lower.at(0)<<"="<<pt->at(0)<<"-"<<(*_depth)( (*pt).at(1),(*pt).at(0),(*pt).at(2) )<<std::endl;
+	if ( lower.at(1) == pt->at(1) - (*_depth)( (*pt).at(1),(*pt).at(0),(*pt).at(2) ) ) std::cout<<"Ymin "<<lower.at(1)<<"="<<pt->at(1)<<"-"<<(*_depth)( (*pt).at(1),(*pt).at(0),(*pt).at(2) )<<std::endl;
+	if ( lower.at(2) == pt->at(2) - (*_depth)( (*pt).at(1),(*pt).at(0),(*pt).at(2) ) ) std::cout<<"Zmin "<<lower.at(2)<<"="<<pt->at(2)<<"-"<<(*_depth)( (*pt).at(1),(*pt).at(0),(*pt).at(2) )<<std::endl;
+	if ( upper.at(0) == pt->at(0) + (*_depth)( (*pt).at(1),(*pt).at(0),(*pt).at(2) ) ) std::cout<<"Xmax "<<upper.at(0)<<"="<<pt->at(0)<<"+"<<(*_depth)( (*pt).at(1),(*pt).at(0),(*pt).at(2) )<<std::endl;
+	if ( upper.at(1) == pt->at(1) + (*_depth)( (*pt).at(1),(*pt).at(0),(*pt).at(2) ) ) std::cout<<"Ymax "<<upper.at(1)<<"="<<pt->at(1)<<"+"<<(*_depth)( (*pt).at(1),(*pt).at(0),(*pt).at(2) )<<std::endl;
+	if ( upper.at(2) == pt->at(2) + (*_depth)( (*pt).at(1),(*pt).at(0),(*pt).at(2) ) ) std::cout<<"Zmax "<<upper.at(2)<<"="<<pt->at(2)<<"+"<<(*_depth)( (*pt).at(1),(*pt).at(0),(*pt).at(2) )<<std::endl;
+}
 	return true ;
 }
 
@@ -75,7 +87,7 @@ template <typename T, typename U, typename V> ConnexComponentRebuilder<T,U,V>::C
 	
 	Pgm3dFactory< T > factory ;
 	BillonTpl< T > * pimg = factory.read( lblSkelFileName ) ;
-	factory.correctEncoding( pimg ) ;
+	//factory.correctEncoding( pimg ) ;
 
 	_n_labels = pimg->max() + 1 ;
 	_depth = 0 ;
@@ -168,37 +180,59 @@ template <typename T, typename U, typename V> bool ConnexComponentRebuilder<T,U,
 }
 
 template <typename T, typename U, typename V> bool ConnexComponentRebuilder<T,U,V>::run( uint32_t selection, V color ) {
-	if ( !_depth ) return false ;
-	if ( !_layers.contains( selection ) ) return false ;
+	if ( !_depth ) {
+		std::cerr<<__FILE__<<" depth undefined"<<std::endl;
+		return false ;
+	}
+	if ( !_layers.contains( selection ) ) {
+		std::cerr<<__FILE__<<" missing layer "<<selection<<std::endl;
+		return false ;
+	}
 	if ( !_lower.contains( selection ) )
 		setBounds( selection ) ;
-
+//std::cerr<<"Info ("<<__FUNCTION__<<" @ line "<<__LINE__<<" ) rebuild component "<<selection<<std::endl;
 	Domain domain( Point(0,0,0), _upper[ selection ] - _lower[ selection ]) ;
-	DigitalSet 	skeletonSet(domain),
-				componentSet(domain) ;
-	Image 		distances( domain ) ;
+//std::cerr<<"Info ("<<__FUNCTION__<<" @ line "<<__LINE__<<" ) domain "<<domain.lowerBound()<<" "<<domain.upperBound()<<std::endl;
+	Image 		*distances =new Image( domain ) ;
 	const DigitalSet * pts = _layers[ selection ].first ;
+//std::cerr<<"Info ("<<__FUNCTION__<<" @ line "<<__LINE__<<" ) skeleton's size "<<pts->size()<<std::endl;
 	for ( DigitalSet::ConstIterator pt = pts->begin() ; pt != pts->end(); pt++ ) {
-		distances.setValue( *pt-_lower[selection], (*_depth)( (*pt).at(1),(*pt).at(0),(*pt).at(2) ) ) ;
-		skeletonSet.insertNew( *pt - _lower[ selection ] ) ;
+		Point ptShift = *pt ;
+		ptShift -= _lower[selection] ;
+		assert( ptShift.at(0)>=0&&ptShift.at(1)>=0&&ptShift.at(2)>=0);
+		
+		distances->setValue( ptShift, (*_depth)( (*pt).at(1),(*pt).at(0),(*pt).at(2) ) ) ;
 	}
+	if ( !_depthfile.isEmpty() ) {
+		/// Temporarily free memory
+		delete _depth ;
+	}
+//std::cerr<<"Info ("<<__FUNCTION__<<" @ line "<<__LINE__<<" ) initialization done "<<std::endl;
 
 	#if BUILD_INDIVIDUAL_COMP
 	arma::icube thisCC( domain.upperBound().at(1), domain.upperBound().at(0), domain.upperBound().at(2) ) ;
 	thisCC.fill(0);
 	#endif
-
+//std::cerr<<"Info ("<<__FUNCTION__<<" @ line "<<__LINE__<<" )"<<std::endl;
 	OutImage componentDGImg( domain ) ;
+//std::cerr<<"Info ("<<__FUNCTION__<<" @ line "<<__LINE__<<" )"<<std::endl;
 	RDT rdt ;
-	componentDGImg = rdt.reconstruction( distances ) ;
-
-
+//std::cerr<<"Info ("<<__FUNCTION__<<" @ line "<<__LINE__<<" )"<<std::endl;
+	componentDGImg = rdt.reconstruction( *distances ) ;
+//std::cerr<<"Info ("<<__FUNCTION__<<" @ line "<<__LINE__<<" )"<<std::endl;
+	delete distances ;
+	if ( !_depthfile.isEmpty() ) {
+		Pgm3dFactory< U > factory ;
+		_depth = factory.read( _depthfile ) ;
+		factory.correctEncoding( _depth ) ;
+	}
 
 	const Point & (*me)( const VoxelsPair &) ;
 	const Point & (*other)( const VoxelsPair &) ;
 	Point relative_loc_me, relative_loc_other ;
 	Point::Component squared_distance_me, squared_distance_other ;
 	const QSet<uint32_t> & relations = _adjacency[ selection ] ;
+	std::cerr<<"Info ("<<__FUNCTION__<<" @ line "<<__LINE__<<" ) number of relations "<<relations.size()<<std::endl;
 	for ( Domain::ConstIterator pt = domain.begin() ; pt != domain.end(); pt++ ) {
 		if ( componentDGImg( *pt ) > 0 ) {
 			bool 	bInside = true ;
@@ -240,6 +274,7 @@ template <typename T, typename U, typename V> bool ConnexComponentRebuilder<T,U,
 	IOPgm3d<int,qint8,false>::write( thisCC, QString( "/tmp/cc%1.pgm3d" ).arg( (int)color ) ) ;
 	std::cerr<<"CC "<<(int)color<<" : "<<accu( thisCC )<<std::endl;
 	#endif
+	//std::cerr<<"Info ("<<__FUNCTION__<<" @ line "<<__LINE__<<" ) copy done "<<selection<<std::endl;
 	return true ;
 }
 

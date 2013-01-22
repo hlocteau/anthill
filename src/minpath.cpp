@@ -16,8 +16,9 @@ template <typename T> const T & get_second( const std::pair< T, T > & value ) {
 namespace fs = boost::filesystem ;
 //#define CHECK_TOY_PROBLEM_OUTPUT
 
-
-
+#include <SignalMinMax.hpp>
+#include <boost/graph/connected_components.hpp>
+#include <unistd.h>
 
 typedef Pgm3dFactory<char> 				CPgm3dFactory ;
 typedef BillonTpl<char>					CharImage ;
@@ -316,11 +317,13 @@ std::pair< ISPImage*, im_elem_sp_type> v3d_extraction( const char *inputFileName
 }
 
 template <typename T>
-void antipodal_voxels_path( const SkeletonGraph<T> &SG, const std::vector < int32_t > &dtime, QList<iCoord3D> &path ) {
-	uint32_t farestVoxel = 1 ;
-	for ( uint32_t idx = 0 ; idx != dtime.size() ; idx++  )
-		if ( dtime[ idx ] > dtime[ farestVoxel ] )
-			farestVoxel = idx ;
+void linking_voxels_path( const SkeletonGraph<T> &SG, const std::vector < int32_t > &dtime, QList<iCoord3D> &path, uint32_t farestVoxel, bool absolute_max ) {
+	if ( absolute_max ) {
+		farestVoxel = 1 ;
+		for ( uint32_t idx = 0 ; idx != dtime.size() ; idx++  )
+			if ( dtime[ idx ] > dtime[ farestVoxel ] )
+				farestVoxel = idx ;
+	}
 	path.append( SG[ farestVoxel ] ) ;
 	
 	typename SkeletonGraph<T>::graph_t::adjacency_iterator adj,adj_end ;
@@ -436,15 +439,102 @@ int main( int narg, char **argv ) {
 
 int32_t cut_path( const QList< iCoord3D > &pts, const QList<bool > &prop_junction, const QList<int32_t> & prop_depth, QList<int32_t> &prop_cc ) {
 	int nComp = 1 ;
-	for ( int iVoxel = 0 ; iVoxel < pts.size() ; iVoxel++ ) {
+	prop_cc.append( nComp ) ;
+	for ( int iVoxel = 1 ; iVoxel < pts.size()-1 ; iVoxel++ ) {
 		prop_cc.append( nComp ) ;
 		if ( prop_junction.at( iVoxel ) ) nComp++ ;
 	}
+	prop_cc.append( nComp ) ;
 	return nComp + 1 ;
 }
 
+uint get_mindepth_location( const QList< iCoord3D > &path, const fs::path &depthFilePath, uint radius ) {
+	/// \note voxel being identified while rebuilding the components should be forbidden
+	IPgm3dFactory ifactory ;
+	ISPImage *depthmap = ifactory.read( QString("%1").arg(depthFilePath.c_str()) ) ;
+	ifactory.correctEncoding( depthmap ) ;
+	QList< im_elem_sp_type > indepth ;
+	uint length = path.size() ;
+	for ( uint i = 0 ; i < length ; i++ )
+		indepth.append( (*depthmap)( path.at(i).y, path.at(i).x, path.at(i).z ) ) ;
+	delete depthmap ;
+	QList< double > depth ;
+	blur_signal( indepth,depth,radius) ;
+	
+	uint loc = 1 ;
+	for ( uint i = 2 ; i < length-1 ; i++ ) {
+		if ( depth.at(i) < depth.at(loc) ) {
+			loc = i ;
+		} else if ( depth.at(i) == depth.at(loc) ) {
+			if ( std::min( i, length-i) > std::min( loc, length-loc) )
+				loc = i ;
+		}
+	}
+	return loc ;
+}
+
+template <typename T> void make_disjoint( SkeletonGraph<T> &SG, uint32_t seed_A, uint32_t seed_B,
+											const fs::path &depthFilePath, QTextStream &out, uint radius) {
+	bool are_connected = true ;
+	const typename SkeletonGraph<T>::graph_t & g = SG.graph() ;
+	do {
+		std::vector < int32_t > dtime(SG.number_of_vertices());
+		int32_t time = 1;
+		bfs_time_visitor < int32_t * >vis(&dtime[0], time);
+		breadth_first_search( g, vertex( seed_A, g), visitor(vis));
+	
+		are_connected = ( dtime[ seed_B ] != 0 ) ;
+		if ( are_connected ) {
+			QList< std::pair< typename SkeletonGraph<T>::Vertex, typename SkeletonGraph<T>::Vertex > > boundaries ;
+			QList< iCoord3D > path ;
+			linking_voxels_path( SG, dtime, path, seed_B,false ) ;
+			//vector<int32_t>().swap(dtime);
+			/// identify the best cut along the path linking seed_A to seed_B
+			uint loc = get_mindepth_location( path, depthFilePath,radius ) ;
+			
+			typename QSet< typename SkeletonGraph<T>::Vertex >::ConstIterator sourceIter, targetIter ;			
+			QSet< typename SkeletonGraph<T>::Vertex > Sources, Targets ;
+			typename SkeletonGraph<T>::Vertex Sinit, Tinit ;
+			Sinit = SG.node( path.at( loc-1 ) ) ;
+			Sources.insert( Sinit ) ;
+			typename SkeletonGraph<T>::graph_t::adjacency_iterator adj, adj_end;
+			boost::tie( adj, adj_end ) = adjacent_vertices( vertex( Sinit, g), g) ;
+			for ( ; adj != adj_end ; adj++ ) {
+				//if ( dtime[ *adj ] == dtime[ loc ] )
+					Sources.insert( *adj ) ;
+			}
+			
+			Tinit = SG.node( path.at( loc+1 ) ) ;
+			Targets.insert( Tinit ) ;
+			boost::tie( adj, adj_end ) = adjacent_vertices( vertex( Tinit, g), g) ;
+			for ( ; adj != adj_end ; adj++ ) {
+				//if ( dtime[ *adj ] == dtime[ loc+1] )
+					Targets.insert( *adj ) ;
+			}
+			typename SkeletonGraph<T>::Edge e ;
+			bool are_linked ;
+			for ( sourceIter = Sources.begin() ; sourceIter != Sources.end() ; sourceIter++ )
+				for ( targetIter = Targets.begin() ; targetIter != Targets.end() ; targetIter++ ) {
+					if ( Sources.contains( *targetIter ) && Targets.contains( * sourceIter ) )
+						if ( * sourceIter > *targetIter ) continue ;
+					boost::tie( e, are_linked ) = edge( *sourceIter, *targetIter, g ) ;
+					if ( are_linked ) {
+						boundaries.append( std::pair< typename SkeletonGraph<T>::Vertex, typename SkeletonGraph<T>::Vertex > ( *sourceIter, *targetIter ) ) ;
+					} else {
+						boost::tie( e, are_linked ) = edge( *targetIter, *sourceIter, g ) ;
+						if ( are_linked ) out<<"Error : detection of an edge is not reflexive : "<<*targetIter<<", "<<*sourceIter<<endl;
+					}
+				}
+			out <<"remove "<<boundaries.size()<<" edges close to ["
+					<<path.at(loc).x<<","<<path.at(loc).y<<","<<path.at(loc).z<<"] "
+					<<"["<<path.at(loc+1).x<<","<<path.at(loc+1).y<<","<<path.at(loc+1).z<<"]"<<endl;
+			SG.hide_edges( boundaries ) ;
+		}
+	} while ( are_connected ) ;
+}
+
 template <typename T> void seg_geodesic( SkeletonGraph<T> &SG, int32_t current_seed, int step, 
-	const fs::path & outputFolderPath, const fs::path &depthFilePath, QTextStream &out, QList< int32_t > &newSeeds, bool save_travels ) {
+	const fs::path & outputFolderPath, const fs::path &depthFilePath, QTextStream &out, QList< int32_t > &newSeeds, bool save_travels, uint radius_blur, uint radius_local_extrema, double th ) {
 	std::vector < int32_t > dtime(SG.number_of_vertices());
 	int32_t time = 1;
 	bfs_time_visitor < int32_t * >vis(&dtime[0], time);
@@ -475,7 +565,9 @@ template <typename T> void seg_geodesic( SkeletonGraph<T> &SG, int32_t current_s
 		IOPgm3d< int32_t, qint32,false>::write( travel, QString("%1").arg( filepath.c_str() ) ) ;
 	}
 	QList<iCoord3D> path ;
-	antipodal_voxels_path( SG, dtime, path ) ;
+	linking_voxels_path( SG, dtime, path,0,true ) ;
+	//dtime.clear();
+	vector<int32_t>().swap(dtime);
 	QList< int32_t > prop_cc ;
 	QList< uint > starting_index ;
 	int32_t n_cc ;
@@ -491,7 +583,13 @@ template <typename T> void seg_geodesic( SkeletonGraph<T> &SG, int32_t current_s
 			prop_junction.append( is_junction( SG,path.at(iVoxel) ) ) ;
 			prop_depth.append( (*depthmap)( path.at(iVoxel).y,path.at(iVoxel).x,path.at(iVoxel).z) ) ;
 		}
-		n_cc = cut_path( path, prop_junction, prop_depth, prop_cc ) ;
+		delete depthmap ;
+		QList<double> prop_meandepth ;
+		blur_signal( prop_depth, prop_meandepth, radius_blur ) ;
+		SignalMinMax< double, int32_t,true,true> SMM( prop_meandepth, radius_local_extrema,th ) ;
+		SMM.result( prop_cc ) ;
+		n_cc = prop_cc.back() +1  ;
+		//n_cc = cut_path( path, prop_junction, prop_depth, prop_cc ) ;
 		lblSkel.fill(0) ;
 		out <<"thickness along the longest path (geodesic)"<<endl;
 		
@@ -518,7 +616,7 @@ template <typename T> void seg_geodesic( SkeletonGraph<T> &SG, int32_t current_s
 	{
 		/// run reconstruction
 		ConnexComponentRebuilder< int32_t, int32_t, int32_t > CCR( lblSkel ) ;
-		CCR.setDepth( depthmap ) ;
+		CCR.setDepth( QString("%1").arg(depthFilePath.c_str()) ) ;
 		CCR.run() ;
 		typename SkeletonGraph<T>::graph_t::edge_iterator edgeIter, edgeEnd ;
 		boost::tie( edgeIter, edgeEnd ) = edges( g ) ;
@@ -559,21 +657,35 @@ template <typename T> void seg_geodesic( SkeletonGraph<T> &SG, int32_t current_s
 				if ( result( adj_pt.y, adj_pt.x, adj_pt.z ) == i_cc+1 )
 					Targets.insert( *adj ) ;
 			}
-			
+			out << "components "<<i_cc<<" and "<<i_cc+1<<" : "<<Sources.size()<<" x "<<Targets.size()<<" pairs of voxels"<<endl;
 			typename SkeletonGraph<T>::Edge e ;
 			bool are_linked ;
 			for ( sourceIter = Sources.begin() ; sourceIter != Sources.end() ; sourceIter++ )
 				for ( targetIter = Targets.begin() ; targetIter != Targets.end() ; targetIter++ ) {
 					boost::tie( e, are_linked ) = edge( *sourceIter, *targetIter, g ) ;
-					if ( are_linked )
+					if ( are_linked ) {
 						boundaries.append( std::pair< typename SkeletonGraph<T>::Vertex, typename SkeletonGraph<T>::Vertex > ( *sourceIter, *targetIter ) ) ;
+					} else {
+						boost::tie( e, are_linked ) = edge( *targetIter, *sourceIter, g ) ;
+						if ( are_linked ) out<<"Error : detection of an edge is not reflexive : "<<*targetIter<<", "<<*sourceIter<<endl;
+					}
 				}
 		}
 		
-		
+		out<<"Remove "<<boundaries.size()<<" edge(s) our of "<<SG.number_of_edges()<<endl;
 		SG.hide_edges( boundaries ) ;
+		out<<"Thus, we get "<<SG.number_of_edges()<<" edge(s)"<<endl;
+		/**
+		 * Solution 1 : separate any pair of regions
+		 * Solution 2 : separate recursively the regions taking advantage of the "linear decomposition of the object"
+		 */
+		for ( int k = 0 ; k < newSeeds.size()-1 ; k++ ) {
+			int32_t s = newSeeds.at(k) ;
+			int32_t t = newSeeds.at(k+1) ;
+			out<<"separating seeds "<<s<<" x "<<t<<" ("<<k+1<<" out of "<<newSeeds.size()-1<<")"<<endl;
+			make_disjoint( SG, s,t, depthFilePath, out, radius_blur ) ;
+		}
 	}
-	delete depthmap ;
 }
 
 void compress_files( int32_t current_seed, int step ) {
@@ -612,19 +724,24 @@ int main( int narg, char **argv ) {
 	}
 	QTextStream out(&file) ;
 	out<<"Command line : "<<argv[0]<<" "<<argv[1]<<" "<<argv[2]<<endl;
+	out<<"In folder "<<	getcwd(0,0)<<endl;
 	
 	/// computing shortest path from source voxel
 	QList< int32_t > nextsource ;
 	QList< int32_t > trashcan ;
-	seg_geodesic( SG, source, 0, "/tmp", depthFileName, out, nextsource, true ) ;
+	uint radius_blur = 5 ;
+	uint radius_local_extrema = 2 ;
+	double th = 15 ;
+	seg_geodesic( SG, source, 0, "/tmp", depthFileName, out, nextsource, true, radius_blur, radius_local_extrema, th ) ;
 	compress_files( source, 0 ) ;
-	for ( int i=0;i<std::min(10,(int)nextsource.size());i++ ) {
-		seg_geodesic( SG, nextsource.at(i), i+1, "/tmp", depthFileName, out, trashcan, true ) ;
+	for ( int i=0;i<std::min(0,(int)nextsource.size());i++ ) {
+		seg_geodesic( SG, nextsource.at(i), i+1, "/tmp", depthFileName, out, trashcan, true, radius_blur, radius_local_extrema, th ) ;
 		out<<"Seeds for step "<<i+1<< endl ;
 		for (int j = 0 ; j < trashcan.size() ; j++ ) {
 			iCoord3D v = SG[ trashcan.at(j) ] ;
 			out<<v.x<<","<<v.y<<","<<v.z<<endl;
 		}
+		nextsource.append( trashcan ) ;
 		trashcan.clear() ;
 		compress_files( nextsource.at(i),i+1 ) ;
 	}
@@ -639,6 +756,34 @@ int main( int narg, char **argv ) {
 	reverse_avoid_adjcacent( missing, encoding_vertices, pGraph ) ;
 #endif
 	
+	/// final result
+	{
+		
+		std::vector<int32_t> component(num_vertices(g));
+		int32_t num = connected_components(g, &component[0]);
+		
+		std::vector<int32_t>::size_type i;
+		cout << "Total number of components: " << num << " for "<<num_vertices(g)<<" vertices"<<endl;
+		int rows, cols, slices ;
+		SG.size( rows, cols, slices ) ;
+		BillonTpl< int32_t > result( rows, cols, slices ) ;
+		result.fill(0);
+		/// it should be faster to iterate on the QMap
+		#if 0
+		for (uint32_t i = 0; i != component.size(); i++) {
+		  iCoord3D pt = SG[ i ] ;
+		  result( pt.y, pt.x, pt.z ) = component[i]+1;
+		}
+		#else
+		for ( SkeletonGraph<int32_t>::ConstVoxelIterator it = SG.encoding_begin() ; it != SG.encoding_end() ; it++ )
+			result( SG.y_from_linear_coord( it.key() ),
+					SG.x_from_linear_coord( it.key() ),
+					SG.z_from_linear_coord( it.key() ) ) = component[ it.value() ]+1 ;
+		#endif
+		fs::path filepath = "/tmp" ;
+		filepath /= "seg.final.pgm3d" ;
+		IOPgm3d< int32_t, qint32,false>::write( result, QString("%1").arg( filepath.c_str() ) ) ;
+	}
 	return 0 ;
 }
 #endif

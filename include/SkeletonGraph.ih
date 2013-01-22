@@ -318,6 +318,7 @@ template <typename T> bool SkeletonGraph<T>::hide_edges( QList< VerticesPair > &
 		if ( correct ) {
 			remove_edge( e, *_pg ) ;
 			_hidden_edges.append( a_link ) ;
+			_n_edges--;
 		} else
 			anyError = true ;
 	}
@@ -329,6 +330,7 @@ template <typename T> bool SkeletonGraph<T>::restore_all_edges( QList< VerticesP
 	while ( !_hidden_edges.empty() ) {
 		VerticesPair a_link = _hidden_edges.takeAt(0) ;
 		add_edge( a_link.first, a_link.second, *_pg ) ;
+		_n_edges++;
 		if ( pL != 0 )
 			pL->append( a_link ) ;
 	}

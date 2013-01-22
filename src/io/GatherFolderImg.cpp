@@ -57,7 +57,7 @@ std::cerr<<__FILE__<<" @ line "<<__LINE__<<std::endl;
 				counter( y, x ) += (*image)( y,x,0 ) ;
 		delete image ;
 	}
-std::cerr<<__FILE__<<" @ line "<<__LINE__<<std::endl;
+std::cerr<<__FILE__<<" @ line "<<__LINE__<<" max frequency = "<<counter.max()<<std::endl;
 	short th = (_scene.n_slices*_minFrequencyMask)/100 ;
 	for ( y = 0 ; y < _mask.n_rows ; y++ )
 		for ( x = 0 ; x < _mask.n_cols ; x++ )
