@@ -16,9 +16,10 @@ namespace DicomReader
 	// Déclaration de fonctions privées
 	namespace
 	{
-        int enumerate_dicom_seriesWITHITK( const QString &repository, std::vector< std::string > &series ) ;
+        int enumerate_dicom_seriesWITHITK( const QString &repository, QMap< QString, QMap< QString,QString > > &seriesDico ) ;
         Billon* makeBillonFromDicomWithITK( const QString &repository, const std::string &filter );
 		QString getTag( const QString &entryId, const itk::MetaDataDictionary &dictionary );
+		void allTag( const itk::MetaDataDictionary &dictionary, QMap< QString, QString > & );
 	}
 
 
@@ -35,8 +36,8 @@ namespace DicomReader
 		return cube;
 	}
 
-    int enumerate_dicom_series( const QString &repository, std::vector< std::string > &series ) {
-        int num = enumerate_dicom_seriesWITHITK( repository, series ) ;
+    int enumerate_dicom_series( const QString &repository, QMap< QString, QMap< QString,QString > > &seriesDico ) {
+        int num = enumerate_dicom_seriesWITHITK( repository, seriesDico ) ;
         if ( num == 0 ) {
             qWarning() << QObject::tr("ERREUR : Impossible de lire le contenu du répertoire.");
         }
@@ -47,12 +48,11 @@ namespace DicomReader
 	namespace
 	{
 
-    inline int enumerate_dicom_seriesWITHITK( const QString &repository, std::vector< std::string > &series ) {
+    inline int enumerate_dicom_seriesWITHITK( const QString &repository, QMap< QString, QMap< QString,QString > > &seriesDico ) {
         typedef itk::GDCMSeriesFileNames NamesGeneratorType;
         NamesGeneratorType::Pointer nameGenerator = NamesGeneratorType::New();
 
         nameGenerator->SetUseSeriesDetails( true ); // to handle distinct series within a single repository
-
 
         nameGenerator->SetDirectory(repository.toStdString());
 
@@ -61,11 +61,8 @@ namespace DicomReader
         SeriesIdContainer::const_iterator seriesItr = seriesUID.begin();
         SeriesIdContainer::const_iterator seriesEnd = seriesUID.end();
         while( seriesItr != seriesEnd ) {
-            series.push_back( seriesItr->c_str() ) ;
-
-            std::cout << seriesItr->c_str() << " is available"<<std::endl;
-
-            int number_of_slices = 0 ;
+            QString qserie = QString::fromStdString( seriesItr->c_str() ) ;
+            seriesDico.insert( qserie, QMap< QString,QString > () ) ;
 
             typedef std::vector< std::string > FileNamesContainer;
             FileNamesContainer fileNames;
@@ -94,30 +91,11 @@ namespace DicomReader
             }
             typedef itk::MetaDataDictionary DictionaryType ;
             const DictionaryType &dictionary = dicomIO->GetMetaDataDictionary();
-            typedef itk::MetaDataObject< std::string > MetaDataStringType;
-            DictionaryType::ConstIterator itr = dictionary.Begin();
-            DictionaryType::ConstIterator end = dictionary.End();
-            while( itr != end ) {
-                itk::MetaDataObjectBase::Pointer entry = itr->second;
-                MetaDataStringType::Pointer entryvalue = dynamic_cast<MetaDataStringType *>( entry.GetPointer() ) ;
-                if( entryvalue ) {
-                    std::string tagkey = itr->first;
-                    std::string labelId;
-                    bool found = itk::GDCMImageIO::GetLabelFromTag( tagkey, labelId );
-                    std::string tagvalue = entryvalue->GetMetaDataObjectValue();
-                    if( found && false) {
-                        std::cout << "\t(" << tagkey << ") " << labelId;
-                        std::cout << " = " << tagvalue.c_str() << std::endl;
-                    }
-                }
-                itr++ ;
-            }
-            number_of_slices = reader->GetFileNames().size();
-            std::cout<<number_of_slices<<" slice(s)"<<std::endl;
-
+            
+            allTag( dictionary, seriesDico[ qserie ] ) ;
             seriesItr++;
         }
-        return series.size() ;
+        return seriesDico.size() ;
     }
 
     inline
@@ -205,7 +183,6 @@ namespace DicomReader
 			itk::ImageRegionConstIterator< ImageType > in( image,image->GetBufferedRegion() );
 			int max, min;
 			max = min = in.Value();
-            std::cout<<"Fouind values "<<depth<<" / "<<height<<" "<<width<<std::endl;
 			for ( uint k=0; k<depth; k++ )
 			{
 				Slice &slice = billon->slice(k);
@@ -227,7 +204,6 @@ namespace DicomReader
 
 			const ImageType::SpacingType &spacing = image->GetSpacing();
 			billon->setVoxelSize(spacing[0],spacing[1],spacing[2]);
-
 			return billon;
 		}
 
@@ -248,6 +224,27 @@ namespace DicomReader
 				}
 			}
 			return value;
+		}
+		
+		inline
+		void allTag( const itk::MetaDataDictionary &dictionary, QMap< QString,QString> & keyValues )
+		{
+			
+			std::vector< std::string > keys = dictionary.GetKeys() ;
+			std::vector< std::string >::iterator keyIter = keys.begin() ;
+			while ( keyIter != keys.end () )
+			{
+				const itk::MetaDataObjectBase * entryValue = dictionary.Get( *keyIter ) ;
+				const itk::MetaDataObject<std::string> *readableEntryValue = dynamic_cast< const itk::MetaDataObject<std::string> *> (entryValue);
+				if ( readableEntryValue )
+				{
+					QString value = QString::fromStdString( readableEntryValue->GetMetaDataObjectValue() );
+					value = value.trimmed() ;
+					if ( ! value.isEmpty() )
+						keyValues.insert( QString::fromStdString(*keyIter), value ) ;
+				}
+				keyIter++ ;
+			}
 		}
 	}
 

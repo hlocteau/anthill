@@ -4,7 +4,7 @@
 #include "billon.h"
 #include "coordinate.h"
 #include "dicomreader.h"
-
+#include "io/AntHillFile.hpp"
 #include "geom2d.h"
 
 #include <QFileDialog>
@@ -15,6 +15,8 @@
 #include "DGtal/images/ImageSelector.h"
 #include "DGtal/io/writers/PNMWriter.h"
 #include "DGtal/io/colormaps/GrayscaleColorMap.h"
+
+namespace fs = boost::filesystem ;
 
 bool USE_SEGM_TOOL = true ;
 
@@ -48,8 +50,7 @@ MainWindow::~MainWindow()
 void MainWindow::on_actionClose_folder_triggered()
 {
     _currentRepository.clear() ;
-    _seriesUID.clear() ;
-    _shortDescriptionOfSeries.clear() ;
+    _seriesDictionary.clear() ;
 
     _ui->sequenceSlider->setSliderPosition(0);
     _ui->spinMinIntensity->setValue(0);
@@ -76,11 +77,9 @@ void MainWindow::update_list_of_series()
 
         return ;
     }
-    std::vector< std::map< QString, QString > >::iterator seriesDicoIt = _shortDescriptionOfSeries.begin() ;
-    for ( std::vector< std::string >::iterator serieIt = _seriesUID.begin() ;
-            serieIt != _seriesUID.end() ; serieIt++,seriesDicoIt++ )
+    for ( uint iSerie = 0 ; iSerie != _seriesDictionary.size() ; iSerie++ )
     {
-        _ui->listWidget->addItem( serieIt->c_str() );
+        _ui->listWidget->addItem( QString( "serie_%1").arg(iSerie) );
     }
 
 }
@@ -88,15 +87,41 @@ void MainWindow::update_list_of_series()
 void MainWindow::on_actionOpen_folder_triggered()
 {
 
-    QString folderName = QFileDialog::getExistingDirectory(0,tr("select DICOM folder"),QDir::homePath(),QFileDialog::ShowDirsOnly);
+    QString folderName = QFileDialog::getExistingDirectory(0,tr("select DICOM folder (import)"),QDir::homePath(),QFileDialog::ShowDirsOnly);
     if ( !folderName.isEmpty() )
     {
         closeImage();
-        DicomReader::enumerate_dicom_series( folderName, _seriesUID ) ;
+        DicomReader::enumerate_dicom_series( folderName, _seriesDictionary ) ;
         _currentRepository = folderName ;
+        gen_sep_pgm3d( ) ;
         update_list_of_series();
     }
 
+}
+
+void MainWindow::gen_sep_pgm3d( ) {
+    assert( _billon == 0 ) ;
+    fs::path out_directory_path = QDir::homePath().toStdString() ;
+    out_directory_path /= "outputData" ;
+    out_directory_path /= fs::path( _currentRepository.toStdString() ).filename() ;
+    uint iSerie = 0 ;
+    QMap< QString, QMap< QString,QString> >::iterator keyDataIter ;
+    for ( keyDataIter = _seriesDictionary.begin() ; keyDataIter != _seriesDictionary.end() ; keyDataIter++,iSerie++ )
+    {
+		_billon = DicomReader::read(_currentRepository,keyDataIter.key().toStdString() );
+		fs::path filepath = out_directory_path ;
+		filepath /= QString("serie_%1").arg( iSerie ).toStdString() ;
+		if ( !boost::filesystem::exists( filepath ) ) fs::create_directories( filepath ) ;
+		filepath /= "input.pgm3d" ;
+		QString qfilename = QString( "%1" ).arg( filepath.c_str() ) ;
+		IOPgm3d< int32_t, qint32, false >::write( *_billon, qfilename ) ;
+		delete _billon ;
+		filepath = filepath.parent_path() ;
+		filepath /= QString("serie_%1.xml").arg( iSerie ).toStdString() ;
+		AntHillFile file( QString::fromStdString(filepath.c_str()), _currentRepository, keyDataIter.key(), keyDataIter.value() ) ;
+	}
+	_currentRepository = QString::fromStdString( out_directory_path.string() ) ;
+	_billon = 0 ;
 }
 
 void MainWindow::closeImage() {
@@ -266,23 +291,20 @@ void export_segmentation( const std::vector< std::string > &dico, const Billon *
     }
 }
 
-void MainWindow::openNewBillon( const QString &fileName, const std::string &serie )
+void MainWindow::openNewBillon( )
 {
-    //helpmetounderstand() ;
-    if ( fileName.isEmpty() ) return ;
-
     if ( _billon != 0 )	{
         delete _billon;
         _billon = 0;
     }
-    _billon = DicomReader::read(fileName,serie);
+    fs::path filename = _currentRepository.toStdString() ;
+    filename /= QString( "serie_%1" ).arg( _currentSerie ).toStdString() ;
+    filename /= "input.pgm3d" ;
+    std::cout<<"[ Info ] : opening image file "<<filename.c_str()<<std::endl;
+    _billon = IOPgm3d< int32_t, qint32, false>::read( QString( "%1").arg( filename.c_str() ) );
 
     if ( _billon != 0 )
     {
-        _currentSerie = 0 ;
-        while ( serie.compare( _seriesUID[_currentSerie] ) != 0 )
-            _currentSerie++ ;
-
         _mainPix = QImage(_billon->n_cols, _billon->n_rows,QImage::Format_ARGB32);
         //_segmPix = QImage(_billon->n_cols, _billon->n_rows,QImage::Format_ARGB32);
         _currentSlice = 0 ;
@@ -308,7 +330,19 @@ void MainWindow::openNewBillon( const QString &fileName, const std::string &seri
 
 void MainWindow::on_listWidget_itemDoubleClicked(QListWidgetItem *item)
 {
-    openNewBillon( _currentRepository, item->text().toStdString() ) ;
+    QMap< QString, QMap< QString,QString> >::iterator entry = _seriesDictionary.begin() ;
+    uint iItemSerie = item->text().mid( 6 ).toInt() ;
+	std::cout<<"[ Info ] will try to open serie "<<iItemSerie<<std::endl;
+    uint iEntrySerie = 0 ;
+    while ( iEntrySerie != iItemSerie ) {
+		iEntrySerie++ ;
+		entry++ ;
+		assert( entry != _seriesDictionary.end() ) ;
+	}
+	_currentSerie = iItemSerie ;
+    
+    openNewBillon( ) ;
+    if ( !_billon )  return ;
     _ui->spinMinIntensity->setRange( _billon->minValue(), _billon->maxValue() );
     _ui->spinMaxIntensity->setRange( _billon->minValue(), _billon->maxValue() );
 
@@ -359,7 +393,7 @@ void MainWindow::on_sequenceSlider_valueChanged(int value)
 
 void MainWindow::on_binPushButton_clicked()
 {
-    export_segmentation( _seriesUID, _billon, _currentSerie, Interval<int>( _ui->spinMinIntensity->value(), _ui->spinMaxIntensity->value() ), _ui->binSpinBox->value()) ;
+    //export_segmentation( _seriesUID, _billon, _currentSerie, Interval<int>( _ui->spinMinIntensity->value(), _ui->spinMaxIntensity->value() ), _ui->binSpinBox->value()) ;
 }
 
 void MainWindow::on_spinMinIntensity_valueChanged(int arg1)
@@ -386,11 +420,11 @@ void MainWindow::on_binSpinBox_valueChanged(int arg1)
 void MainWindow::on_segmLoadButton_clicked()
 {
   if ( _billon == 0 ) return ;
-  std::string pgmfoldername = set_pgmfoldername(_seriesUID);
+  std::string pgmfoldername ;//= set_pgmfoldername(_seriesUID);
   boost::filesystem::path pathImport = QDir::homePath().toStdString() ;
   pathImport /= "outputData";
   pathImport /= pgmfoldername  +"_pgm" ;
-  pathImport /=_seriesUID[ _currentSerie ].substr( pgmfoldername.size()) ;
+  //pathImport /=_seriesUID[ _currentSerie ].substr( pgmfoldername.size()) ;
   std::cout<<"Trying opening folder "<<QString("%1").arg( pathImport.string().c_str() ).toStdString()<<std::endl;
   QString fileName = QFileDialog::getOpenFileName(0,tr("select pgm3d file"),QString("%1").arg( pathImport.string().c_str() ),tr("3D Image Files (*.pgm *.pgm3d)"));
   if ( !fileName.isEmpty() )
@@ -444,11 +478,11 @@ void MainWindow::on_contentCheckBox_stateChanged(int arg1)
 void MainWindow::on_skelLoadButton_clicked()
 {
   if ( _billon == 0 ) return ;
-  std::string pgmfoldername = set_pgmfoldername(_seriesUID);
+  std::string pgmfoldername ;//= set_pgmfoldername(_seriesUID);
   boost::filesystem::path pathImport = QDir::homePath().toStdString() ;
   pathImport /= "outputData";
   pathImport /= pgmfoldername  +"_pgm" ;
-  pathImport /=_seriesUID[ _currentSerie ].substr( pgmfoldername.size()) ;
+  //pathImport /=_seriesUID[ _currentSerie ].substr( pgmfoldername.size()) ;
   std::cout<<"Trying opening folder "<<QString("%1").arg( pathImport.string().c_str() ).toStdString()<<std::endl;
   QString fileName = QFileDialog::getOpenFileName(0,tr("select pgm3d file"),QString("%1").arg( pathImport.string().c_str() ),tr("3D Image Files (*.pgm *.pgm3d)"));
   if ( !fileName.isEmpty() )

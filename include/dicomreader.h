@@ -5,10 +5,11 @@
 #include <vector>
 #include <string>
 class QString;
+#include <QMap>
 
 namespace DicomReader
 {
-    int enumerate_dicom_series( const QString &repository, std::vector< std::string > &series ) ;
+    int enumerate_dicom_series( const QString &repository, QMap< QString, QMap< QString,QString > > &seriesDico ) ;
     Billon* read( const QString &repository, const std::string &filter );
 }
 

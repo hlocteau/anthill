@@ -25,12 +25,13 @@ public:
     
     void update_list_of_series() ;
 
-    void openNewBillon(const QString &fileName, const std::string &serie);
+    void openNewBillon();
     void drawSlice( bool newContent=true);
     void closeImage();
     bool eventFilter(QObject *obj, QEvent *event);
 protected:
     void on__labelSliceView_customContextMenuRequested(const QPoint &pos);
+    void gen_sep_pgm3d( ) ;
 private slots:
     void on_actionClose_folder_triggered();
 
@@ -87,8 +88,7 @@ private:
     //SliceZoomer _sliceZoomer ;
 
     QString _currentRepository ;
-    std::vector< std::string > _seriesUID ;
-    std::vector< std::map< QString, QString > > _shortDescriptionOfSeries ;
+    QMap< QString, QMap< QString,QString> > _seriesDictionary ;
 
     Billon *_billon ;
     uint _currentSlice;
