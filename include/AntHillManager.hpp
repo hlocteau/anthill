@@ -4,7 +4,7 @@
 #include <io/AntHillFile.hpp>
 #include <QVector>
 #include <def_billon.h>
-
+#include <interval.h>
 #include <boost/filesystem.hpp>
 #include <boost/filesystem/path.hpp>
 
@@ -17,7 +17,7 @@ public:
 	void importDicom( const QString &folderName ) ;
 	bool load( const QString &name ) ;
 	void openInitialInput( Billon ** img ) ;
-	
+	bool binarization( const Billon *data, const Interval<__billon_type__> &range, int th) ;
 	QVector< QString >::ConstIterator series_begin() const {
 		return _series.begin() ;
 	}
@@ -26,6 +26,9 @@ public:
 	}
 	
 	fs::path defaultProjectLocation( ) const ;
+	fs::path projectLocation( ) const {
+		return _projectLocation ;
+	}
 	void setFileName( const QString &filename ) ;
 	AntHillFile * project() {
 		return _project ;

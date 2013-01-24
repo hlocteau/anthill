@@ -3,11 +3,12 @@
 #include <QDir>
 #include "dicomreader.h"
 
-#define EXPORT_ROOT_FOLDER_NAME "outputData"
-#define EXPORT_FOLDER_NAME 		"serie_%1"
-#define INDEX_SERIE_POSITION	6
-#define EXPORT_FILE_NAME		"input.pgm3d"
-#define PROJECT_FILE_NAME		"serie_%1.xml"
+#define EXPORT_ROOT_FOLDER_NAME 			"outputData"
+#define EXPORT_FOLDER_NAME 					"serie_%1"
+#define INDEX_SERIE_POSITION				6
+#define EXPORT_FILE_NAME					"input.pgm3d"
+#define PROJECT_FILE_NAME					"serie_%1.xml"
+#define BINARIZATION_OUTPUT_FILE_NAME		"binary.pgm3d"
 
 void AntHillManager::openInitialInput( Billon ** img ) {
     if ( *img != 0 )	{
@@ -73,7 +74,7 @@ void AntHillManager::importDicom( const QString &folderName ) {
 		if ( !fs::exists( filepath ) ) fs::create_directories( filepath ) ;
 		filepath /= EXPORT_FILE_NAME ;
 		QString qfilename = QString( "%1" ).arg( filepath.c_str() ) ;
-		IOPgm3d< int32_t, qint32, false >::write( *img, qfilename ) ;
+		IOPgm3d< __billon_type__, qint32, false >::write( *img, qfilename ) ;
 		delete img ;
 		filepath = filepath.parent_path() ;
 		filepath /= QString(PROJECT_FILE_NAME).arg( iSerie ).toStdString() ;
@@ -89,6 +90,38 @@ void AntHillManager::importDicom( const QString &folderName ) {
 		#endif
 		_series.push_back( QString(EXPORT_FOLDER_NAME).arg( iSerie ) ) ;
 	}
+}
+
+bool AntHillManager::binarization( const Billon *data, const Interval<__billon_type__> &range, int th) {
+    if ( range.width() == 0 ) return false ;
+    fs::path filepath = _projectLocation ;
+    filepath /= BINARIZATION_OUTPUT_FILE_NAME ;
+    
+    BillonTpl<char> binImage( data->n_rows, data->n_cols, data->n_slices ) ;
+    arma::Cube< __billon_type__ >::const_iterator 	in = data->begin(),
+													in_end = data->end() ;
+    arma::Cube< char >::iterator out = binImage.begin() ;
+    for (  ; in != in_end ; in++,out++ ) {
+		if (  range.containsClosed( *in ) ) {
+			if ( (int)floor( ( ( *in - range.min() ) * (double)255. ) / range.size() ) >= th )
+				*out = 1 ;
+			else
+				*out = 0 ;
+		} else
+			*out = 0 ;
+    }
+    binImage.setMaxValue( 1 ) ;
+    IOPgm3d< char, qint8, false >::write( binImage, QString("%1").arg( filepath.c_str() ) ) ;
+    QMap< QString, QString > details ;
+    details.insert( "minimum", QString("%1").arg( range.min() ) ) ;
+    details.insert( "maximum", QString("%1").arg( range.max() ) ) ;
+    details.insert( "threshold", QString("%1").arg( th ) ) ;
+    details.insert( "result", BINARIZATION_OUTPUT_FILE_NAME ) ;
+    _project->addProcess( "binarisation", details ) ;
+    fs::path filename = _projectLocation ;
+    filename /= _filename ;
+    _project->save( QString("%1").arg( filename.c_str() ) ) ;
+    return true ;
 }
 
 bool AntHillManager::load( const QString &name ) {

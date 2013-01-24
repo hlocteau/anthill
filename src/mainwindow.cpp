@@ -114,30 +114,6 @@ void MainWindow::closeImage() {
     drawSlice();
 }
 
-
-void export_binary_slice_as_pgm( const Slice &slice, const Interval<int> &range, int th, const std::string &filename ) {
-    typedef DGtal::GrayscaleColorMap<unsigned char>                         Gray;
-    typedef DGtal::ImageSelector< DGtal::Z2i::Domain, unsigned char>::Type  GrayImage;
-
-    DGtal::Z2i::Point   pBR ( 1, 1);
-    DGtal::Z2i::Point   pUL ( slice.n_cols, slice.n_rows );
-    GrayImage           image(DGtal::Z2i::Domain(pBR,pUL));
-    if ( range.width() == 0 ) {
-        for ( DGtal::Z2i::Domain::ConstIterator pt2D = image.domain().begin() ; pt2D != image.domain().end() ; pt2D++ )
-            if ( slice.at((*pt2D).at(1),(*pt2D).at(0)) >= range.min() )
-                image.setValue( *pt2D, 255 ) ;
-    } else {
-        for ( DGtal::Z2i::Domain::ConstIterator pt2D = image.domain().begin() ; pt2D != image.domain().end() ; pt2D++ ) {
-            int value = slice.at((*pt2D).at(1),(*pt2D).at(0)) ;
-            if (  range.containsClosed( value ) ) {
-                if ( ( ( ( value - range.min() ) * 255 ) / range.size() ) >= th )
-                    image.setValue( *pt2D, 255 ) ;
-            }
-        }
-    }
-    PNMWriter<GrayImage,Gray>::exportPGM( filename,image,0,255);
-}
-
 void MainWindow::drawSlice( bool newContent ){
 
     if ( _billon != 0 )	{
@@ -184,29 +160,7 @@ std::string set_pgmfoldername( const std::vector< std::string > &dico ) {
     return dico[0].substr( 0, pos ) ;
 }
 
-void export_segmentation( const std::vector< std::string > &dico, const Billon *data, uint id, const Interval<int> &range, int th) {
-    std::string pgmfoldername = set_pgmfoldername( dico ) ;
-    boost::filesystem::path pgmfolderpath = QDir::homePath().toStdString() ;
-    pgmfolderpath /= "outputData";
-    pgmfolderpath /= pgmfoldername + "_pgm" ;
-    std::cout<<"export folder is \""<<pgmfolderpath<<"\""<<std::endl;
-    if ( !boost::filesystem::exists( pgmfolderpath) ) {
-        assert( boost::filesystem::create_directory( pgmfolderpath ) ) ;
-    } else {
-        assert( boost::filesystem::is_directory( pgmfolderpath) ) ;
-    }
-    for ( uint s = 0 ; s < data->n_slices; s++ ) {
-        /// if corresponding segmentation file does not exist
-        boost::filesystem::path p = pgmfolderpath ;
-        p /= dico[ id ].substr( pgmfoldername.size());
-        if ( !boost::filesystem::exists( p) )
-            assert( boost::filesystem::create_directory( p ) ) ;
-        p /= QString("slice-%1.pgm").arg( s, 0, 10).toStdString() ;
-        // do it always as threshold may have changed
-        //if ( !boost::filesystem::exists( p ) )
-            export_binary_slice_as_pgm( data->slice(s), range, th, p.string() ) ;
-    }
-}
+
 
 void MainWindow::showDictionary( ) {
 	if ( antHillMng.project() ) {
@@ -249,13 +203,13 @@ void MainWindow::on_listWidget_itemDoubleClicked(QListWidgetItem *item) {
 	_ui->sequenceSlider->setEnabled(true);
 	_ui->spinMinIntensity->setEnabled(true);
 	_ui->spinMaxIntensity->setEnabled(true);
-	_ui->binSpinBox->setValue( 128 );
 
     _ui->spinMinIntensity->setRange( _billon->minValue(), _billon->maxValue() );
     _ui->spinMaxIntensity->setRange( _billon->minValue(), _billon->maxValue() );
-
-    _ui->spinMinIntensity->setValue( _billon->minValue() );
-    _ui->spinMaxIntensity->setValue( _billon->maxValue() );
+	_ui->spinMinIntensity->setValue( _billon->minValue() );
+	_ui->spinMaxIntensity->setValue( _billon->maxValue() );
+	_ui->binSpinBox->setValue( 128 );
+	
     drawSlice();
     _ui->segmLoadButton->setEnabled(true);
     _ui->skelLoadButton->setEnabled(true);
@@ -303,7 +257,7 @@ void MainWindow::on_sequenceSlider_valueChanged(int value) {
 }
 
 void MainWindow::on_binPushButton_clicked() {
-    //export_segmentation( _seriesUID, _billon, _currentSerie, Interval<int>( _ui->spinMinIntensity->value(), _ui->spinMaxIntensity->value() ), _ui->binSpinBox->value()) ;
+	antHillMng.binarization( _billon, Interval<__billon_type__>(_ui->spinMinIntensity->value(), _ui->spinMaxIntensity->value() ), _ui->binSpinBox->value()) ;
 }
 
 void MainWindow::on_spinMinIntensity_valueChanged(int arg1){
@@ -325,13 +279,8 @@ void MainWindow::on_binSpinBox_valueChanged(int arg1){
 
 void MainWindow::on_segmLoadButton_clicked(){
   if ( _billon == 0 ) return ;
-  std::string pgmfoldername ;//= set_pgmfoldername(_seriesUID);
-  boost::filesystem::path pathImport = QDir::homePath().toStdString() ;
-  pathImport /= "outputData";
-  pathImport /= pgmfoldername  +"_pgm" ;
-  //pathImport /=_seriesUID[ _currentSerie ].substr( pgmfoldername.size()) ;
-  std::cout<<"Trying opening folder "<<QString("%1").arg( pathImport.string().c_str() ).toStdString()<<std::endl;
-  QString fileName = QFileDialog::getOpenFileName(0,tr("select pgm3d file"),QString("%1").arg( pathImport.string().c_str() ),tr("3D Image Files (*.pgm *.pgm3d)"));
+
+  QString fileName = QFileDialog::getOpenFileName(0,tr("select pgm3d file"),QString("%1").arg( antHillMng.projectLocation().c_str() ),tr("3D Image Files (*.pgm *.pgm3d)"));
   if ( !fileName.isEmpty() ) {
       if ( _segmImg ) delete _segmImg ;
       _segmImg = factory.read( fileName ) ;
