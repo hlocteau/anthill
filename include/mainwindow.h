@@ -9,6 +9,8 @@
 #include "sliceview.h"
 
 #include <io/Pgm3dFactory.h>
+#include <AntHillManager.hpp>
+
 namespace Ui {
 class MainWindow;
 }
@@ -32,6 +34,7 @@ public:
 protected:
     void on__labelSliceView_customContextMenuRequested(const QPoint &pos);
     void gen_sep_pgm3d( ) ;
+    void showDictionary( ) ;
 private slots:
     void on_actionClose_folder_triggered();
 
@@ -81,14 +84,14 @@ private slots:
 
 
 
+    void on_actionOpen_project_triggered();
+
 private:
     Ui::MainWindow *_ui;
     QImage _mainPix;
     SliceView *_sliceView;
-    //SliceZoomer _sliceZoomer ;
 
     QString _currentRepository ;
-    QMap< QString, QMap< QString,QString> > _seriesDictionary ;
 
     Billon *_billon ;
     uint _currentSlice;
@@ -99,6 +102,7 @@ private:
 
     bool _bViewSegm ;
     qreal _zoomFactor ;
+	AntHillManager antHillMng ;
 };
 
 #endif // MAINWINDOW_H

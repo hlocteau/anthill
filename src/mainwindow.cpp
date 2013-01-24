@@ -3,15 +3,14 @@
 
 #include "billon.h"
 #include "coordinate.h"
-#include "dicomreader.h"
+
 #include "io/AntHillFile.hpp"
 #include "geom2d.h"
 
 #include <QFileDialog>
 #include <QMouseEvent>
 
-#include <boost/filesystem.hpp>
-#include <boost/filesystem/path.hpp>
+
 #include "DGtal/images/ImageSelector.h"
 #include "DGtal/io/writers/PNMWriter.h"
 #include "DGtal/io/colormaps/GrayscaleColorMap.h"
@@ -20,20 +19,21 @@ namespace fs = boost::filesystem ;
 
 bool USE_SEGM_TOOL = true ;
 
-MainWindow::MainWindow(QWidget *parent) :
-    QMainWindow(parent),
-    _ui(new Ui::MainWindow)
-{
+MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), _ui(new Ui::MainWindow) {
     _currentSlice = 0;
     _currentSerie = -1 ;
     _ui->setupUi(this);
     _bViewSegm = false ;
     _ui->_labelSliceView->installEventFilter(this);
-    //_ui->_labelSliceView->installEventFilter(&_sliceZoomer);
 
     _ui->sequenceSlider->setEnabled(false);
     _ui->spinMinIntensity->setEnabled(false);
     _ui->spinMaxIntensity->setEnabled(false);
+
+	QStringList horLabels ;
+	horLabels.append( "Key" ) ;
+	horLabels.append( "Value" ) ;
+	_ui->tableWidget->setHorizontalHeaderLabels( horLabels ) ;
 
     _billon = 0 ;
     _segmImg = 0 ;
@@ -41,16 +41,13 @@ MainWindow::MainWindow(QWidget *parent) :
     _zoomFactor = 1 ;
 }
 
-MainWindow::~MainWindow()
-{
+MainWindow::~MainWindow() {
     on_actionClose_folder_triggered() ;
     delete _ui;
 }
 
-void MainWindow::on_actionClose_folder_triggered()
-{
+void MainWindow::on_actionClose_folder_triggered() {
     _currentRepository.clear() ;
-    _seriesDictionary.clear() ;
 
     _ui->sequenceSlider->setSliderPosition(0);
     _ui->spinMinIntensity->setValue(0);
@@ -59,88 +56,45 @@ void MainWindow::on_actionClose_folder_triggered()
     _ui->spinMinIntensity->setEnabled(false);
     _ui->spinMaxIntensity->setEnabled(false);
 
+	antHillMng.reset() ;
     update_list_of_series() ;
+    showDictionary() ;
     closeImage();
 }
 
-
-void MainWindow::on_actionExit_triggered()
-{
+void MainWindow::on_actionExit_triggered(){
    close();
 }
 
-void MainWindow::update_list_of_series()
-{
-
+void MainWindow::update_list_of_series() {
     _ui->listWidget->clear();
-    if ( _currentRepository.isNull() ) {
-
-        return ;
+    for ( QVector< QString >::ConstIterator iterSerie = antHillMng.series_begin() ; iterSerie != antHillMng.series_end() ; iterSerie++ ) {
+        _ui->listWidget->addItem( *iterSerie );
     }
-    for ( uint iSerie = 0 ; iSerie != _seriesDictionary.size() ; iSerie++ )
-    {
-        _ui->listWidget->addItem( QString( "serie_%1").arg(iSerie) );
-    }
-
 }
 
-void MainWindow::on_actionOpen_folder_triggered()
-{
-
+void MainWindow::on_actionOpen_folder_triggered() {
     QString folderName = QFileDialog::getExistingDirectory(0,tr("select DICOM folder (import)"),QDir::homePath(),QFileDialog::ShowDirsOnly);
-    if ( !folderName.isEmpty() )
-    {
+    if ( !folderName.isEmpty() ) {
         closeImage();
-        DicomReader::enumerate_dicom_series( folderName, _seriesDictionary ) ;
-        _currentRepository = folderName ;
-        gen_sep_pgm3d( ) ;
+        antHillMng.importDicom( folderName ) ;
         update_list_of_series();
     }
-
-}
-
-void MainWindow::gen_sep_pgm3d( ) {
-    assert( _billon == 0 ) ;
-    fs::path out_directory_path = QDir::homePath().toStdString() ;
-    out_directory_path /= "outputData" ;
-    out_directory_path /= fs::path( _currentRepository.toStdString() ).filename() ;
-    uint iSerie = 0 ;
-    QMap< QString, QMap< QString,QString> >::iterator keyDataIter ;
-    for ( keyDataIter = _seriesDictionary.begin() ; keyDataIter != _seriesDictionary.end() ; keyDataIter++,iSerie++ )
-    {
-		_billon = DicomReader::read(_currentRepository,keyDataIter.key().toStdString() );
-		fs::path filepath = out_directory_path ;
-		filepath /= QString("serie_%1").arg( iSerie ).toStdString() ;
-		if ( !boost::filesystem::exists( filepath ) ) fs::create_directories( filepath ) ;
-		filepath /= "input.pgm3d" ;
-		QString qfilename = QString( "%1" ).arg( filepath.c_str() ) ;
-		IOPgm3d< int32_t, qint32, false >::write( *_billon, qfilename ) ;
-		delete _billon ;
-		filepath = filepath.parent_path() ;
-		filepath /= QString("serie_%1.xml").arg( iSerie ).toStdString() ;
-		AntHillFile file( QString::fromStdString(filepath.c_str()), _currentRepository, keyDataIter.key(), keyDataIter.value() ) ;
-	}
-	_currentRepository = QString::fromStdString( out_directory_path.string() ) ;
-	_billon = 0 ;
 }
 
 void MainWindow::closeImage() {
-
-    if ( _billon != 0 )
-    {
+    if ( _billon != 0 ) {
         delete _billon;
         _billon = 0;
     }
-    if ( _segmImg != 0 )
-      {
+    if ( _segmImg != 0 ) {
         delete _segmImg;
         _segmImg = 0 ;
-      }
-    if ( _skelImg != 0 )
-      {
+    }
+    if ( _skelImg != 0 ) {
         delete _skelImg;
         _skelImg = 0 ;
-      }
+     }
     _ui->segmLoadButton->setEnabled(false);
     _ui->x_shift->setEnabled(false);
     _ui->y_shift->setEnabled(false);
@@ -157,37 +111,29 @@ void MainWindow::closeImage() {
 
     _zoomFactor = 1 ;
     _mainPix = QImage(0,0,QImage::Format_ARGB32);
-    //_segmPix = QImage(0,0,QImage::Format_ARGB32);
     drawSlice();
-
 }
 
 
-void export_binary_slice_as_pgm( const Slice &slice, const Interval<int> &range, int th, const std::string &filename )
-{
+void export_binary_slice_as_pgm( const Slice &slice, const Interval<int> &range, int th, const std::string &filename ) {
     typedef DGtal::GrayscaleColorMap<unsigned char>                         Gray;
     typedef DGtal::ImageSelector< DGtal::Z2i::Domain, unsigned char>::Type  GrayImage;
 
     DGtal::Z2i::Point   pBR ( 1, 1);
     DGtal::Z2i::Point   pUL ( slice.n_cols, slice.n_rows );
     GrayImage           image(DGtal::Z2i::Domain(pBR,pUL));
-    if ( range.width() == 0 )
-    {
+    if ( range.width() == 0 ) {
         for ( DGtal::Z2i::Domain::ConstIterator pt2D = image.domain().begin() ; pt2D != image.domain().end() ; pt2D++ )
             if ( slice.at((*pt2D).at(1),(*pt2D).at(0)) >= range.min() )
                 image.setValue( *pt2D, 255 ) ;
-    }
-    else
-    {
-        for ( DGtal::Z2i::Domain::ConstIterator pt2D = image.domain().begin() ; pt2D != image.domain().end() ; pt2D++ )
-        {
+    } else {
+        for ( DGtal::Z2i::Domain::ConstIterator pt2D = image.domain().begin() ; pt2D != image.domain().end() ; pt2D++ ) {
             int value = slice.at((*pt2D).at(1),(*pt2D).at(0)) ;
             if (  range.containsClosed( value ) ) {
                 if ( ( ( ( value - range.min() ) * 255 ) / range.size() ) >= th )
                     image.setValue( *pt2D, 255 ) ;
             }
         }
-
     }
     PNMWriter<GrayImage,Gray>::exportPGM( filename,image,0,255);
 }
@@ -219,34 +165,6 @@ void MainWindow::drawSlice( bool newContent ){
     _ui->_labelSliceView->setPixmap( QPixmap::fromImage(_mainPix).scaled(_mainPix.width()*_zoomFactor,_mainPix.height()*_zoomFactor,Qt::KeepAspectRatio) );
 }
 
-void helpmetounderstand() {
-    DGtal::Z3i::Point p1( -50, -50, -50 );
-    DGtal::Z3i::Point p2( 50, 50, 50 );
-    DGtal::Z3i::Domain domain( p1, p2 );
-    DGtal::Z3i::Point c( 0, 0 );
-    // diamond of radius 30
-    DGtal::Z3i::DigitalSet diamond_set( domain );
-    for ( DGtal::Z3i::Domain::ConstIterator it = domain.begin(); it != domain.end(); ++it )
-    {
-     if ( (*it - c ).norm1() <= 5 ) diamond_set.insertNew( *it );
-    }
-    DGtal::Z3i::Object6_18 diamond( DGtal::Z3i::dt6_18, diamond_set );
-    // The following line takes almost no time.
-    DGtal::Z3i::Object6_18 diamond_clone( diamond );
-    // Since one of the objects is modified, the set is duplicated at the following line
-    diamond_clone.pointSet().erase( c );
-    DGtal::Z3i::Object6_18 bdiamond = diamond.border(); // one component
-    DGtal::Z3i::Object6_18 bdiamond_clone = diamond_clone.border(); // two components
-    std::cout<<"diamond is"<<std::endl;
-    for ( DGtal::Z3i::DigitalSet::Iterator pt = diamond.begin() ; pt != diamond.end() ; pt++ ) std::cout<<(*pt)<<" ";
-    std::cout<<std::endl<<std::endl;
-
-    std::cout<<"diamond's boundary is"<<std::endl;
-    for ( DGtal::Z3i::DigitalSet::Iterator pt = bdiamond.begin() ; pt != bdiamond.end() ; pt++ ) std::cout<<(*pt)<<" ";
-    std::cout<<std::endl<<std::endl;
-    std::cout<<"diamond : "<<diamond.size()<<" boundary : "<<bdiamond.size()<<" twin boundary : "<<bdiamond_clone.size()<<std::endl;
-}
-
 std::string set_pgmfoldername( const std::vector< std::string > &dico ) {
     assert( !dico.empty() ) ;
 
@@ -256,8 +174,7 @@ std::string set_pgmfoldername( const std::vector< std::string > &dico ) {
     /// identify the largest prefix shared by the distinct series' entry
     uint pos = 0 ;
     uint entry ;
-    while ( pos != dico[0].size() )
-    {
+    while ( pos != dico[0].size() ) {
         for ( entry = 1 ; entry != dico.size() ; entry++ )
             if ( dico[ entry ][ pos ] != dico[0][pos] ) break ;
         if ( entry != dico.size() )
@@ -291,58 +208,49 @@ void export_segmentation( const std::vector< std::string > &dico, const Billon *
     }
 }
 
-void MainWindow::openNewBillon( )
-{
-    if ( _billon != 0 )	{
-        delete _billon;
-        _billon = 0;
-    }
-    fs::path filename = _currentRepository.toStdString() ;
-    filename /= QString( "serie_%1" ).arg( _currentSerie ).toStdString() ;
-    filename /= "input.pgm3d" ;
-    std::cout<<"[ Info ] : opening image file "<<filename.c_str()<<std::endl;
-    _billon = IOPgm3d< int32_t, qint32, false>::read( QString( "%1").arg( filename.c_str() ) );
-
-    if ( _billon != 0 )
-    {
-        _mainPix = QImage(_billon->n_cols, _billon->n_rows,QImage::Format_ARGB32);
-        //_segmPix = QImage(_billon->n_cols, _billon->n_rows,QImage::Format_ARGB32);
-        _currentSlice = 0 ;
-        _ui->sequenceSlider->setMaximum( 0 );
-        _ui->sequenceSlider->setMaximum( _billon->n_slices-1 );
-        _ui->sequenceSlider->setSliderPosition(_currentSlice);
-        _ui->sequenceSlider->setEnabled(true);
-        _ui->spinMinIntensity->setEnabled(true);
-        _ui->spinMaxIntensity->setEnabled(true);
-        _ui->binSpinBox->setValue( 128 );
-        //export_segmentation( _seriesUID, _billon, _currentSerie,_ui->binSpinBox->value()) ;
-
-    }
-    else
-    {
-        _mainPix = QImage(0,0,QImage::Format_ARGB32);
-        //_segmPix = QImage(0,0,QImage::Format_ARGB32);
-        _currentSerie = -1 ;
-    }
-
+void MainWindow::showDictionary( ) {
+	if ( antHillMng.project() ) {
+		const QMap< QString, QString > & dictionary = antHillMng.project()->dictionary() ;
+		QMap< QString,QString>::ConstIterator keyValue ;
+		uint iRow = 0 ;
+		if ( _ui->tableWidget->rowCount() != dictionary.size() )
+			_ui->tableWidget->setRowCount( dictionary.size() ) ;
+		for ( keyValue = dictionary.begin() ; keyValue != dictionary.end() ; keyValue++,iRow++ ) {
+			if ( !_ui->tableWidget->item( iRow, 0) ) {
+				_ui->tableWidget->setItem(iRow,0,new QTableWidgetItem(""));
+				_ui->tableWidget->setItem(iRow,1,new QTableWidgetItem(""));
+			}
+			_ui->tableWidget->item( iRow, 0)->setText( keyValue.key() ) ;
+			_ui->tableWidget->item( iRow, 1)->setText( keyValue.value() ) ;
+		}
+	} else {
+		_ui->tableWidget->setRowCount( 0 ) ;
+	}
 }
 
-
-void MainWindow::on_listWidget_itemDoubleClicked(QListWidgetItem *item)
-{
-    QMap< QString, QMap< QString,QString> >::iterator entry = _seriesDictionary.begin() ;
-    uint iItemSerie = item->text().mid( 6 ).toInt() ;
-	std::cout<<"[ Info ] will try to open serie "<<iItemSerie<<std::endl;
-    uint iEntrySerie = 0 ;
-    while ( iEntrySerie != iItemSerie ) {
-		iEntrySerie++ ;
-		entry++ ;
-		assert( entry != _seriesDictionary.end() ) ;
+void MainWindow::on_listWidget_itemDoubleClicked(QListWidgetItem *item) {
+    if ( !antHillMng.load( item->text() ) ) {
+		if ( _billon ) delete _billon ;
+		_billon = 0 ;
+	} else   
+		antHillMng.openInitialInput( &_billon ) ;
+	
+    if ( !_billon ) {
+		_mainPix = QImage(0,0,QImage::Format_ARGB32);
+        _currentSerie = -1 ;
+		 return ;
 	}
-	_currentSerie = iItemSerie ;
-    
-    openNewBillon( ) ;
-    if ( !_billon )  return ;
+    showDictionary( );
+	_mainPix = QImage(_billon->n_cols, _billon->n_rows,QImage::Format_ARGB32);
+	_currentSlice = 0 ;
+	_ui->sequenceSlider->setMaximum( 0 );
+	_ui->sequenceSlider->setMaximum( _billon->n_slices-1 );
+	_ui->sequenceSlider->setSliderPosition(_currentSlice);
+	_ui->sequenceSlider->setEnabled(true);
+	_ui->spinMinIntensity->setEnabled(true);
+	_ui->spinMaxIntensity->setEnabled(true);
+	_ui->binSpinBox->setValue( 128 );
+
     _ui->spinMinIntensity->setRange( _billon->minValue(), _billon->maxValue() );
     _ui->spinMaxIntensity->setRange( _billon->minValue(), _billon->maxValue() );
 
@@ -353,8 +261,7 @@ void MainWindow::on_listWidget_itemDoubleClicked(QListWidgetItem *item)
     _ui->skelLoadButton->setEnabled(true);
 }
 
-bool MainWindow::eventFilter(QObject *obj, QEvent *event)
-{
+bool MainWindow::eventFilter(QObject *obj, QEvent *event) {
     if ( _billon != 0 ) {
         if ( obj == _ui->_labelSliceView ) {
             if ( event->type() == QEvent::MouseMove) {
@@ -372,53 +279,51 @@ bool MainWindow::eventFilter(QObject *obj, QEvent *event)
                    // emit zoomFactorChanged(_zoomFactor,wheelEvent->globalPos());
                     drawSlice(false);
                 }
-            }
+            } else if ( event->type() == QEvent::KeyPress ) {
+				const QKeyEvent *keyEvent = static_cast< const QKeyEvent*>( event ) ;
+				const int key = keyEvent->key() ;
+				if ( ( key == Qt::Key_Plus || key == Qt::Key_Minus ) && ( keyEvent->modifiers() & Qt::ControlModifier ) ) {
+					_zoomFactor += key == Qt::Key_Plus ? _zoomFactor*0.20 : -_zoomFactor*0.20;
+					drawSlice(false);
+				}
+			}
         }
     }
     return QMainWindow::eventFilter(obj, event);
 }
 
-void MainWindow::on_sequenceSlider_sliderMoved(int position)
-{
+void MainWindow::on_sequenceSlider_sliderMoved(int position) {
     _currentSlice = position ;
     _ui->SlicePosition->setNum(position);
     drawSlice();
 }
 
-void MainWindow::on_sequenceSlider_valueChanged(int value)
-{
+void MainWindow::on_sequenceSlider_valueChanged(int value) {
     on_sequenceSlider_sliderMoved(value);
 }
 
-
-void MainWindow::on_binPushButton_clicked()
-{
+void MainWindow::on_binPushButton_clicked() {
     //export_segmentation( _seriesUID, _billon, _currentSerie, Interval<int>( _ui->spinMinIntensity->value(), _ui->spinMaxIntensity->value() ), _ui->binSpinBox->value()) ;
 }
 
-void MainWindow::on_spinMinIntensity_valueChanged(int arg1)
-{
+void MainWindow::on_spinMinIntensity_valueChanged(int arg1){
     drawSlice();
 }
 
-void MainWindow::on_spinMaxIntensity_valueChanged(int arg1)
-{
+void MainWindow::on_spinMaxIntensity_valueChanged(int arg1){
     drawSlice();
 }
 
-void MainWindow::on_checkBox_stateChanged(int arg1)
-{
+void MainWindow::on_checkBox_stateChanged(int arg1){
     _bViewSegm = !_bViewSegm ;
     drawSlice();
 }
 
-void MainWindow::on_binSpinBox_valueChanged(int arg1)
-{
+void MainWindow::on_binSpinBox_valueChanged(int arg1){
     drawSlice();
 }
 
-void MainWindow::on_segmLoadButton_clicked()
-{
+void MainWindow::on_segmLoadButton_clicked(){
   if ( _billon == 0 ) return ;
   std::string pgmfoldername ;//= set_pgmfoldername(_seriesUID);
   boost::filesystem::path pathImport = QDir::homePath().toStdString() ;
@@ -427,8 +332,7 @@ void MainWindow::on_segmLoadButton_clicked()
   //pathImport /=_seriesUID[ _currentSerie ].substr( pgmfoldername.size()) ;
   std::cout<<"Trying opening folder "<<QString("%1").arg( pathImport.string().c_str() ).toStdString()<<std::endl;
   QString fileName = QFileDialog::getOpenFileName(0,tr("select pgm3d file"),QString("%1").arg( pathImport.string().c_str() ),tr("3D Image Files (*.pgm *.pgm3d)"));
-  if ( !fileName.isEmpty() )
-  {
+  if ( !fileName.isEmpty() ) {
       if ( _segmImg ) delete _segmImg ;
       _segmImg = factory.read( fileName ) ;
       if ( _segmImg != 0 ) {
@@ -446,37 +350,29 @@ void MainWindow::on_segmLoadButton_clicked()
       }
   }
   if ( _ui->segmCheckBox->isChecked() ) drawSlice();
-
 }
 
-void MainWindow::on_segmCheckBox_stateChanged(int arg1)
-{
+void MainWindow::on_segmCheckBox_stateChanged(int arg1){
     drawSlice();
     _ui->contentCheckBox->setEnabled( ( _ui->segmCheckBox->isChecked() ) ) ;
 }
 
-void MainWindow::on_x_shift_valueChanged(int arg1)
-{
+void MainWindow::on_x_shift_valueChanged(int arg1){
     drawSlice();
 }
+void MainWindow::on_y_shift_valueChanged(int arg1){
 
-void MainWindow::on_y_shift_valueChanged(int arg1)
-{
     drawSlice();
 }
+void MainWindow::on_z_shift_valueChanged(int arg1){
 
-void MainWindow::on_z_shift_valueChanged(int arg1)
-{
     drawSlice();
 }
+void MainWindow::on_contentCheckBox_stateChanged(int arg1){
 
-void MainWindow::on_contentCheckBox_stateChanged(int arg1)
-{
     drawSlice();
 }
-
-void MainWindow::on_skelLoadButton_clicked()
-{
+void MainWindow::on_skelLoadButton_clicked(){
   if ( _billon == 0 ) return ;
   std::string pgmfoldername ;//= set_pgmfoldername(_seriesUID);
   boost::filesystem::path pathImport = QDir::homePath().toStdString() ;
@@ -507,34 +403,33 @@ void MainWindow::on_skelLoadButton_clicked()
 
 
 }
-
-void MainWindow::on_y_shift_skel_valueChanged(int arg1)
-{
+void MainWindow::on_y_shift_skel_valueChanged(int arg1){
     drawSlice();
 }
-
-void MainWindow::on_z_shift_skel_valueChanged(int arg1)
-{
+void MainWindow::on_z_shift_skel_valueChanged(int arg1){
     drawSlice();
 }
-
-void MainWindow::on_x_shift_skel_valueChanged(int arg1)
-{
+void MainWindow::on_x_shift_skel_valueChanged(int arg1){
     drawSlice();
 }
-
-void MainWindow::on_contentSkelCheckBox_stateChanged(int arg1)
-{
+void MainWindow::on_contentSkelCheckBox_stateChanged(int arg1){
     drawSlice();
 }
-
-void MainWindow::on_skelCheckBox_stateChanged(int arg1)
-{
+void MainWindow::on_skelCheckBox_stateChanged(int arg1){
     drawSlice();
 }
-
-void MainWindow::on__labelSliceView_customContextMenuRequested(const QPoint &pos)
-{
+void MainWindow::on__labelSliceView_customContextMenuRequested(const QPoint &pos){
     /// apport d'info contextuelle
-    _ui->infoLabel->setText( QString("mouse on %1,%2,%3").arg(pos.x()).arg(pos.y()).arg(_currentSlice) );
+	_ui->infoLabel->setText( QString("mouse on %1,%2,%3").arg(pos.x()).arg(pos.y()).arg(_currentSlice) );
+}
+
+void MainWindow::on_actionOpen_project_triggered() {
+	QString fileName = QFileDialog::getOpenFileName(0,tr("select project file"), QString("%1").arg( antHillMng.defaultProjectLocation().c_str() ),tr("Anthill project Files (*.xml)"));
+	if ( !fileName.isEmpty() ) {
+        closeImage();
+        antHillMng.setFileName( fileName ) ;
+        update_list_of_series();
+        // as we get only one serie...
+        on_listWidget_itemDoubleClicked( _ui->listWidget->item(0) ) ;
+    }
 }

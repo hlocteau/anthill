@@ -23,6 +23,7 @@ SOURCES += src/main.cpp\
     src/globalfunctions.cpp \
     src/segmhouse.cpp \
     src/geom2d.cpp \
+    src/AntHillManager.cpp \
     src/io/AntHillFile.cpp \
     src/io/IOPgm3d.cpp
 
@@ -38,6 +39,7 @@ HEADERS  += include/mainwindow.h \
     include/io/Pgm3dFactory.ih \
     include/io/Pgm3dFactory.h \
     include/io/AntHillFile.hpp \
+    include/AntHillManager.hpp \
     include/io/IOPgm3d.ih
 
 FORMS    += mainwindow.ui
