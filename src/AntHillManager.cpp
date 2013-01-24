@@ -28,7 +28,11 @@ AntHillManager::~AntHillManager() {
 }
 
 void AntHillManager::reset( ) {
+	#if ( QT_MAJOR_VERSION > 4 || ( QT_MAJOR_VERSION == 4 && QT_MINOR_VERSION == 8 ) )
 	QVector<QString>().swap( _series ) ;
+	#else
+	_series.clear() ;
+	#endif
 	_filename = "" ;
 	_currentSeries = -1 ;
 	if ( _project )
@@ -78,7 +82,11 @@ void AntHillManager::importDicom( const QString &folderName ) {
 		prj.setUID( keyDataIter.key() ) ;
 		prj.setDictionary( keyDataIter.value() );
 		prj.save( QString::fromStdString(filepath.c_str()) ) ;
+		#if ( QT_MAJOR_VERSION > 4 || ( QT_MAJOR_VERSION == 4 && QT_MINOR_VERSION == 8 ) )
 		QMap< QString,QString >().swap( keyDataIter.value() ) ;
+		#else
+		keyDataIter.value().clear() ;
+		#endif
 		_series.push_back( QString(EXPORT_FOLDER_NAME).arg( iSerie ) ) ;
 	}
 }
