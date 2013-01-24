@@ -64,29 +64,24 @@ void SliceView::drawOverCurrentSlice( QImage &image, const BillonTpl<char> &segm
 {
 	QRgb * line = (QRgb *) image.bits();
 	int x,y,shift;
-	{
-	  /// if top-down orientation is wrong...
-	  y_shift = image.height() - segm.n_rows - y_shift ;
-	}
 	for ( shift = 0 ; shift < y_shift * image.width() ; shift++ )
-	  line++ ;
-	for ( /*y=0 ; y<segm.n_rows; y++*/ y = segm.n_rows-1 ; y>= 0 ; y-- )
-	{
-	    for ( shift=0;shift<x_shift ; shift++ ) line++ ;
-	    for ( x=0 ; x<segm.n_cols; x++)
-		{
-		  if ( segm(y,x,sliceIndex-z_shift) != 0 ) {
-		      if ( content )
-			*(line) = color;
-		      else {
-			  if ( segm(PROOF_COORD( segm.n_rows,y-1),x,sliceIndex-z_shift) == 0 ||
-			       segm(PROOF_COORD( segm.n_rows,y+1),x,sliceIndex-z_shift) == 0 ||
-			       segm(y,PROOF_COORD( segm.n_cols,x+1),sliceIndex-z_shift) == 0 ||
-			       segm(y,PROOF_COORD( segm.n_cols,x-1),sliceIndex-z_shift) == 0 )
-			    *(line) = color;
+		line++ ;
+	for ( y = 0;y<segm.n_rows;y++ ) {
+	    for ( shift=0;shift<x_shift ; shift++ )
+			line++ ;
+	    for ( x=0 ; x<segm.n_cols; x++) {
+			if ( segm(y,x,sliceIndex-z_shift) != 0 ) {
+				if ( content )
+					*(line) = color;
+				else {
+					if ( segm(PROOF_COORD( segm.n_rows,y-1),x,sliceIndex-z_shift) == 0 ||
+						segm(PROOF_COORD( segm.n_rows,y+1),x,sliceIndex-z_shift) == 0 ||
+						segm(y,PROOF_COORD( segm.n_cols,x+1),sliceIndex-z_shift) == 0 ||
+						segm(y,PROOF_COORD( segm.n_cols,x-1),sliceIndex-z_shift) == 0 )
+						*(line) = color;
+				}
 			}
-		    }
-		  line++ ;
+			line++ ;
 		}
 		for ( shift=0;shift<image.width()-segm.n_cols-x_shift;shift++) line++ ;
 	}
