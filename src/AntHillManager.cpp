@@ -74,7 +74,7 @@ void AntHillManager::importDicom( const QString &folderName ) {
 		if ( !fs::exists( filepath ) ) fs::create_directories( filepath ) ;
 		filepath /= EXPORT_FILE_NAME ;
 		QString qfilename = QString( "%1" ).arg( filepath.c_str() ) ;
-		IOPgm3d< __billon_type__, qint32, false >::write( *img, qfilename ) ;
+		IOPgm3d< __billon_type__, qint16, false >::write( *img, qfilename ) ;
 		delete img ;
 		filepath = filepath.parent_path() ;
 		filepath /= QString(PROJECT_FILE_NAME).arg( iSerie ).toStdString() ;
@@ -82,6 +82,9 @@ void AntHillManager::importDicom( const QString &folderName ) {
 		prj.setDicomFolder( folderName ) ;
 		prj.setUID( keyDataIter.key() ) ;
 		prj.setDictionary( keyDataIter.value() );
+		QMap< QString, QString > details ;
+		prj.addProcess( "import", details ) ;
+		details.insert( "result", QString("%1;16").arg(EXPORT_FILE_NAME) ) ;
 		prj.save( QString::fromStdString(filepath.c_str()) ) ;
 		#if ( QT_MAJOR_VERSION > 4 || ( QT_MAJOR_VERSION == 4 && QT_MINOR_VERSION == 8 ) )
 		QMap< QString,QString >().swap( keyDataIter.value() ) ;
@@ -116,7 +119,7 @@ bool AntHillManager::binarization( const Billon *data, const Interval<__billon_t
     details.insert( "minimum", QString("%1").arg( range.min() ) ) ;
     details.insert( "maximum", QString("%1").arg( range.max() ) ) ;
     details.insert( "threshold", QString("%1").arg( th ) ) ;
-    details.insert( "result", BINARIZATION_OUTPUT_FILE_NAME ) ;
+    details.insert( "result", QString("%1;8").arg(BINARIZATION_OUTPUT_FILE_NAME) ) ;
     _project->addProcess( "binarisation", details ) ;
     fs::path filename = _projectLocation ;
     filename /= _filename ;

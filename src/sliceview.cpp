@@ -2,7 +2,7 @@
 
 #include "billon.h"
 #include "globalfunctions.h"
-#include "slicealgorithm.h"
+//#include "slicealgorithm.h"
 
 #include <QImage>
 #include <QPainter>

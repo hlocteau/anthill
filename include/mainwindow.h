@@ -10,6 +10,8 @@
 
 #include <io/Pgm3dFactory.h>
 #include <AntHillManager.hpp>
+#include <QGroupBox>
+#include <QTableWidget>
 
 namespace Ui {
 class MainWindow;
@@ -34,6 +36,8 @@ public:
 protected:
     void on__labelSliceView_customContextMenuRequested(const QPoint &pos);
     void updateDictionary( ) ;
+    void initRessources( QWidget *parent = 0 ) ;
+    
 private slots:
     void on_actionClose_folder_triggered();
 
@@ -84,10 +88,16 @@ private slots:
 
 
     void on_actionOpen_project_triggered();
-
+	void changeRessourcesConfigView();
+	void updateRessources() ;
+	void resetRessources() ;
 private:
     Ui::MainWindow *_ui;
     QImage _mainPix;
+    
+    QGroupBox *_ressourcesGroupBox ;
+    QTableWidget *_ressourcesTable ;
+    
     SliceView *_sliceView;
 
     QString _currentRepository ;

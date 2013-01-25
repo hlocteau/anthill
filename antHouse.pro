@@ -19,12 +19,11 @@ SOURCES += src/main.cpp\
         src/mainwindow.cpp \
     src/dicomreader.cpp \
     src/sliceview.cpp \
-    src/slicealgorithm.cpp \
     src/globalfunctions.cpp \
-    src/segmhouse.cpp \
     src/geom2d.cpp \
     src/AntHillManager.cpp \
     src/io/AntHillFile.cpp \
+    src/RessourceDelegate.cpp \
     src/io/IOPgm3d.cpp
 
 HEADERS  += include/mainwindow.h \
@@ -34,12 +33,12 @@ HEADERS  += include/mainwindow.h \
     include/billon.h \
     include/define.h \
     include/sliceview.h \
-    include/segmhouse.h \
     include/geom2d.h \
     include/io/Pgm3dFactory.ih \
     include/io/Pgm3dFactory.h \
     include/io/AntHillFile.hpp \
     include/AntHillManager.hpp \
+    include/RessourceDelegate.hpp \
     include/io/IOPgm3d.ih
 
 FORMS    += mainwindow.ui
