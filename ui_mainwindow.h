@@ -1,7 +1,7 @@
 /********************************************************************************
 ** Form generated from reading UI file 'mainwindow.ui'
 **
-** Created: Thu Jan 24 23:17:35 2013
+** Created: Fri Jan 25 01:08:08 2013
 **      by: Qt User Interface Compiler version 4.7.4
 **
 ** WARNING! All changes made in this file will be lost when recompiling UI file!
@@ -30,6 +30,7 @@
 #include <QtGui/QStatusBar>
 #include <QtGui/QTableWidget>
 #include <QtGui/QToolBar>
+#include <QtGui/QToolBox>
 #include <QtGui/QVBoxLayout>
 #include <QtGui/QWidget>
 
@@ -44,6 +45,29 @@ public:
     QAction *actionOpen_project;
     QWidget *centralWidget;
     QGridLayout *gridLayout;
+    QVBoxLayout *verticalLayout_4;
+    QListWidget *listWidget;
+    QToolBox *toolBox;
+    QWidget *dictionary;
+    QHBoxLayout *horizontalLayout_5;
+    QTableWidget *tableWidget;
+    QWidget *ressources;
+    QHBoxLayout *horizontalLayout_4;
+    QLabel *segmLabel;
+    QCheckBox *segmCheckBox;
+    QCheckBox *contentCheckBox;
+    QSpinBox *x_shift;
+    QSpinBox *y_shift;
+    QSpinBox *z_shift;
+    QPushButton *segmLoadButton;
+    QHBoxLayout *horizontalLayout_6;
+    QLabel *label_2;
+    QCheckBox *skelCheckBox;
+    QCheckBox *contentSkelCheckBox;
+    QSpinBox *x_shift_skel;
+    QSpinBox *y_shift_skel;
+    QSpinBox *z_shift_skel;
+    QPushButton *skelLoadButton;
     QHBoxLayout *horizontalLayout;
     QVBoxLayout *verticalLayout;
     QHBoxLayout *horizontalLayout_3;
@@ -64,25 +88,6 @@ public:
     QWidget *scrollAreaWidgetContents;
     QVBoxLayout *verticalLayout_6;
     QLabel *_labelSliceView;
-    QVBoxLayout *verticalLayout_4;
-    QListWidget *listWidget;
-    QTableWidget *tableWidget;
-    QHBoxLayout *horizontalLayout_4;
-    QLabel *segmLabel;
-    QCheckBox *segmCheckBox;
-    QCheckBox *contentCheckBox;
-    QSpinBox *x_shift;
-    QSpinBox *y_shift;
-    QSpinBox *z_shift;
-    QPushButton *segmLoadButton;
-    QHBoxLayout *horizontalLayout_6;
-    QLabel *label_2;
-    QCheckBox *skelCheckBox;
-    QCheckBox *contentSkelCheckBox;
-    QSpinBox *x_shift_skel;
-    QSpinBox *y_shift_skel;
-    QSpinBox *z_shift_skel;
-    QPushButton *skelLoadButton;
     QMenuBar *menuBar;
     QMenu *menuFile;
     QToolBar *mainToolBar;
@@ -109,6 +114,144 @@ public:
         gridLayout->setContentsMargins(11, 11, 11, 11);
         gridLayout->setObjectName(QString::fromUtf8("gridLayout"));
         gridLayout->setSizeConstraint(QLayout::SetMaximumSize);
+        verticalLayout_4 = new QVBoxLayout();
+        verticalLayout_4->setSpacing(6);
+        verticalLayout_4->setObjectName(QString::fromUtf8("verticalLayout_4"));
+        listWidget = new QListWidget(centralWidget);
+        listWidget->setObjectName(QString::fromUtf8("listWidget"));
+
+        verticalLayout_4->addWidget(listWidget);
+
+        toolBox = new QToolBox(centralWidget);
+        toolBox->setObjectName(QString::fromUtf8("toolBox"));
+        dictionary = new QWidget();
+        dictionary->setObjectName(QString::fromUtf8("dictionary"));
+        dictionary->setGeometry(QRect(0, 0, 284, 184));
+        horizontalLayout_5 = new QHBoxLayout(dictionary);
+        horizontalLayout_5->setSpacing(6);
+        horizontalLayout_5->setContentsMargins(11, 11, 11, 11);
+        horizontalLayout_5->setObjectName(QString::fromUtf8("horizontalLayout_5"));
+        tableWidget = new QTableWidget(dictionary);
+        if (tableWidget->columnCount() < 2)
+            tableWidget->setColumnCount(2);
+        if (tableWidget->rowCount() < 2)
+            tableWidget->setRowCount(2);
+        tableWidget->setObjectName(QString::fromUtf8("tableWidget"));
+        tableWidget->setAlternatingRowColors(true);
+        tableWidget->setRowCount(2);
+        tableWidget->setColumnCount(2);
+        tableWidget->verticalHeader()->setVisible(false);
+
+        horizontalLayout_5->addWidget(tableWidget);
+
+        toolBox->addItem(dictionary, QString::fromUtf8("Dictionary"));
+        ressources = new QWidget();
+        ressources->setObjectName(QString::fromUtf8("ressources"));
+        ressources->setGeometry(QRect(0, 0, 284, 143));
+        toolBox->addItem(ressources, QString::fromUtf8("Ressources"));
+
+        verticalLayout_4->addWidget(toolBox);
+
+        horizontalLayout_4 = new QHBoxLayout();
+        horizontalLayout_4->setSpacing(6);
+        horizontalLayout_4->setObjectName(QString::fromUtf8("horizontalLayout_4"));
+        segmLabel = new QLabel(centralWidget);
+        segmLabel->setObjectName(QString::fromUtf8("segmLabel"));
+
+        horizontalLayout_4->addWidget(segmLabel);
+
+        segmCheckBox = new QCheckBox(centralWidget);
+        segmCheckBox->setObjectName(QString::fromUtf8("segmCheckBox"));
+        segmCheckBox->setEnabled(false);
+        segmCheckBox->setCheckable(true);
+        segmCheckBox->setChecked(false);
+
+        horizontalLayout_4->addWidget(segmCheckBox);
+
+        contentCheckBox = new QCheckBox(centralWidget);
+        contentCheckBox->setObjectName(QString::fromUtf8("contentCheckBox"));
+        contentCheckBox->setEnabled(false);
+        contentCheckBox->setTristate(false);
+
+        horizontalLayout_4->addWidget(contentCheckBox);
+
+        x_shift = new QSpinBox(centralWidget);
+        x_shift->setObjectName(QString::fromUtf8("x_shift"));
+        x_shift->setEnabled(false);
+
+        horizontalLayout_4->addWidget(x_shift);
+
+        y_shift = new QSpinBox(centralWidget);
+        y_shift->setObjectName(QString::fromUtf8("y_shift"));
+        y_shift->setEnabled(false);
+
+        horizontalLayout_4->addWidget(y_shift);
+
+        z_shift = new QSpinBox(centralWidget);
+        z_shift->setObjectName(QString::fromUtf8("z_shift"));
+        z_shift->setEnabled(false);
+
+        horizontalLayout_4->addWidget(z_shift);
+
+        segmLoadButton = new QPushButton(centralWidget);
+        segmLoadButton->setObjectName(QString::fromUtf8("segmLoadButton"));
+        segmLoadButton->setEnabled(false);
+
+        horizontalLayout_4->addWidget(segmLoadButton);
+
+
+        verticalLayout_4->addLayout(horizontalLayout_4);
+
+        horizontalLayout_6 = new QHBoxLayout();
+        horizontalLayout_6->setSpacing(6);
+        horizontalLayout_6->setObjectName(QString::fromUtf8("horizontalLayout_6"));
+        label_2 = new QLabel(centralWidget);
+        label_2->setObjectName(QString::fromUtf8("label_2"));
+
+        horizontalLayout_6->addWidget(label_2);
+
+        skelCheckBox = new QCheckBox(centralWidget);
+        skelCheckBox->setObjectName(QString::fromUtf8("skelCheckBox"));
+        skelCheckBox->setEnabled(false);
+
+        horizontalLayout_6->addWidget(skelCheckBox);
+
+        contentSkelCheckBox = new QCheckBox(centralWidget);
+        contentSkelCheckBox->setObjectName(QString::fromUtf8("contentSkelCheckBox"));
+        contentSkelCheckBox->setEnabled(false);
+
+        horizontalLayout_6->addWidget(contentSkelCheckBox);
+
+        x_shift_skel = new QSpinBox(centralWidget);
+        x_shift_skel->setObjectName(QString::fromUtf8("x_shift_skel"));
+        x_shift_skel->setEnabled(false);
+
+        horizontalLayout_6->addWidget(x_shift_skel);
+
+        y_shift_skel = new QSpinBox(centralWidget);
+        y_shift_skel->setObjectName(QString::fromUtf8("y_shift_skel"));
+        y_shift_skel->setEnabled(false);
+
+        horizontalLayout_6->addWidget(y_shift_skel);
+
+        z_shift_skel = new QSpinBox(centralWidget);
+        z_shift_skel->setObjectName(QString::fromUtf8("z_shift_skel"));
+        z_shift_skel->setEnabled(false);
+
+        horizontalLayout_6->addWidget(z_shift_skel);
+
+        skelLoadButton = new QPushButton(centralWidget);
+        skelLoadButton->setObjectName(QString::fromUtf8("skelLoadButton"));
+        skelLoadButton->setEnabled(false);
+
+        horizontalLayout_6->addWidget(skelLoadButton);
+
+
+        verticalLayout_4->addLayout(horizontalLayout_6);
+
+
+        gridLayout->addLayout(verticalLayout_4, 4, 0, 1, 1);
+
         horizontalLayout = new QHBoxLayout();
         horizontalLayout->setSpacing(6);
         horizontalLayout->setObjectName(QString::fromUtf8("horizontalLayout"));
@@ -232,127 +375,6 @@ public:
 
         gridLayout->addLayout(horizontalLayout, 4, 1, 1, 1);
 
-        verticalLayout_4 = new QVBoxLayout();
-        verticalLayout_4->setSpacing(6);
-        verticalLayout_4->setObjectName(QString::fromUtf8("verticalLayout_4"));
-        listWidget = new QListWidget(centralWidget);
-        listWidget->setObjectName(QString::fromUtf8("listWidget"));
-
-        verticalLayout_4->addWidget(listWidget);
-
-        tableWidget = new QTableWidget(centralWidget);
-        if (tableWidget->columnCount() < 2)
-            tableWidget->setColumnCount(2);
-        if (tableWidget->rowCount() < 2)
-            tableWidget->setRowCount(2);
-        tableWidget->setObjectName(QString::fromUtf8("tableWidget"));
-        tableWidget->setAlternatingRowColors(true);
-        tableWidget->setRowCount(2);
-        tableWidget->setColumnCount(2);
-        tableWidget->verticalHeader()->setVisible(false);
-
-        verticalLayout_4->addWidget(tableWidget);
-
-        horizontalLayout_4 = new QHBoxLayout();
-        horizontalLayout_4->setSpacing(6);
-        horizontalLayout_4->setObjectName(QString::fromUtf8("horizontalLayout_4"));
-        segmLabel = new QLabel(centralWidget);
-        segmLabel->setObjectName(QString::fromUtf8("segmLabel"));
-
-        horizontalLayout_4->addWidget(segmLabel);
-
-        segmCheckBox = new QCheckBox(centralWidget);
-        segmCheckBox->setObjectName(QString::fromUtf8("segmCheckBox"));
-        segmCheckBox->setEnabled(false);
-        segmCheckBox->setCheckable(true);
-        segmCheckBox->setChecked(false);
-
-        horizontalLayout_4->addWidget(segmCheckBox);
-
-        contentCheckBox = new QCheckBox(centralWidget);
-        contentCheckBox->setObjectName(QString::fromUtf8("contentCheckBox"));
-        contentCheckBox->setEnabled(false);
-        contentCheckBox->setTristate(false);
-
-        horizontalLayout_4->addWidget(contentCheckBox);
-
-        x_shift = new QSpinBox(centralWidget);
-        x_shift->setObjectName(QString::fromUtf8("x_shift"));
-        x_shift->setEnabled(false);
-
-        horizontalLayout_4->addWidget(x_shift);
-
-        y_shift = new QSpinBox(centralWidget);
-        y_shift->setObjectName(QString::fromUtf8("y_shift"));
-        y_shift->setEnabled(false);
-
-        horizontalLayout_4->addWidget(y_shift);
-
-        z_shift = new QSpinBox(centralWidget);
-        z_shift->setObjectName(QString::fromUtf8("z_shift"));
-        z_shift->setEnabled(false);
-
-        horizontalLayout_4->addWidget(z_shift);
-
-        segmLoadButton = new QPushButton(centralWidget);
-        segmLoadButton->setObjectName(QString::fromUtf8("segmLoadButton"));
-        segmLoadButton->setEnabled(false);
-
-        horizontalLayout_4->addWidget(segmLoadButton);
-
-
-        verticalLayout_4->addLayout(horizontalLayout_4);
-
-        horizontalLayout_6 = new QHBoxLayout();
-        horizontalLayout_6->setSpacing(6);
-        horizontalLayout_6->setObjectName(QString::fromUtf8("horizontalLayout_6"));
-        label_2 = new QLabel(centralWidget);
-        label_2->setObjectName(QString::fromUtf8("label_2"));
-
-        horizontalLayout_6->addWidget(label_2);
-
-        skelCheckBox = new QCheckBox(centralWidget);
-        skelCheckBox->setObjectName(QString::fromUtf8("skelCheckBox"));
-        skelCheckBox->setEnabled(false);
-
-        horizontalLayout_6->addWidget(skelCheckBox);
-
-        contentSkelCheckBox = new QCheckBox(centralWidget);
-        contentSkelCheckBox->setObjectName(QString::fromUtf8("contentSkelCheckBox"));
-        contentSkelCheckBox->setEnabled(false);
-
-        horizontalLayout_6->addWidget(contentSkelCheckBox);
-
-        x_shift_skel = new QSpinBox(centralWidget);
-        x_shift_skel->setObjectName(QString::fromUtf8("x_shift_skel"));
-        x_shift_skel->setEnabled(false);
-
-        horizontalLayout_6->addWidget(x_shift_skel);
-
-        y_shift_skel = new QSpinBox(centralWidget);
-        y_shift_skel->setObjectName(QString::fromUtf8("y_shift_skel"));
-        y_shift_skel->setEnabled(false);
-
-        horizontalLayout_6->addWidget(y_shift_skel);
-
-        z_shift_skel = new QSpinBox(centralWidget);
-        z_shift_skel->setObjectName(QString::fromUtf8("z_shift_skel"));
-        z_shift_skel->setEnabled(false);
-
-        horizontalLayout_6->addWidget(z_shift_skel);
-
-        skelLoadButton = new QPushButton(centralWidget);
-        skelLoadButton->setObjectName(QString::fromUtf8("skelLoadButton"));
-        skelLoadButton->setEnabled(false);
-
-        horizontalLayout_6->addWidget(skelLoadButton);
-
-
-        verticalLayout_4->addLayout(horizontalLayout_6);
-
-
-        gridLayout->addLayout(verticalLayout_4, 4, 0, 1, 1);
-
         MainWindow->setCentralWidget(centralWidget);
         menuBar = new QMenuBar(MainWindow);
         menuBar->setObjectName(QString::fromUtf8("menuBar"));
@@ -380,6 +402,9 @@ public:
 
         retranslateUi(MainWindow);
 
+        toolBox->setCurrentIndex(0);
+
+
         QMetaObject::connectSlotsByName(MainWindow);
     } // setupUi
 
@@ -394,12 +419,8 @@ public:
         actionExit->setShortcut(QApplication::translate("MainWindow", "Ctrl+X", 0, QApplication::UnicodeUTF8));
         actionOpen_project->setText(QApplication::translate("MainWindow", "Open project", 0, QApplication::UnicodeUTF8));
         actionOpen_project->setShortcut(QApplication::translate("MainWindow", "Ctrl+O, Ctrl+S", 0, QApplication::UnicodeUTF8));
-        SlicePosition->setText(QApplication::translate("MainWindow", "Position", 0, QApplication::UnicodeUTF8));
-        label->setText(QApplication::translate("MainWindow", "Intensity", 0, QApplication::UnicodeUTF8));
-        checkBox->setText(QApplication::translate("MainWindow", "Threshold", 0, QApplication::UnicodeUTF8));
-        binPushButton->setText(QApplication::translate("MainWindow", "Run", 0, QApplication::UnicodeUTF8));
-        infoLabel->setText(QApplication::translate("MainWindow", "Info", 0, QApplication::UnicodeUTF8));
-        _labelSliceView->setText(QString());
+        toolBox->setItemText(toolBox->indexOf(dictionary), QApplication::translate("MainWindow", "Dictionary", 0, QApplication::UnicodeUTF8));
+        toolBox->setItemText(toolBox->indexOf(ressources), QApplication::translate("MainWindow", "Ressources", 0, QApplication::UnicodeUTF8));
         segmLabel->setText(QApplication::translate("MainWindow", "Segm.", 0, QApplication::UnicodeUTF8));
         segmCheckBox->setText(QApplication::translate("MainWindow", "View", 0, QApplication::UnicodeUTF8));
         contentCheckBox->setText(QApplication::translate("MainWindow", "content", 0, QApplication::UnicodeUTF8));
@@ -408,6 +429,12 @@ public:
         skelCheckBox->setText(QApplication::translate("MainWindow", "View", 0, QApplication::UnicodeUTF8));
         contentSkelCheckBox->setText(QApplication::translate("MainWindow", "content", 0, QApplication::UnicodeUTF8));
         skelLoadButton->setText(QApplication::translate("MainWindow", "Load", 0, QApplication::UnicodeUTF8));
+        SlicePosition->setText(QApplication::translate("MainWindow", "Position", 0, QApplication::UnicodeUTF8));
+        label->setText(QApplication::translate("MainWindow", "Intensity", 0, QApplication::UnicodeUTF8));
+        checkBox->setText(QApplication::translate("MainWindow", "Threshold", 0, QApplication::UnicodeUTF8));
+        binPushButton->setText(QApplication::translate("MainWindow", "Run", 0, QApplication::UnicodeUTF8));
+        infoLabel->setText(QApplication::translate("MainWindow", "Info", 0, QApplication::UnicodeUTF8));
+        _labelSliceView->setText(QString());
         menuFile->setTitle(QApplication::translate("MainWindow", "File", 0, QApplication::UnicodeUTF8));
     } // retranslateUi
 
