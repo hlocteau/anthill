@@ -25,7 +25,7 @@ public:
     explicit MainWindow(QWidget *parent = 0);
     ~MainWindow();
     
-    void update_list_of_series() ;
+    void updateProjectsList() ;
 
     void openNewBillon();
     void drawSlice( bool newContent=true);
@@ -33,8 +33,7 @@ public:
     bool eventFilter(QObject *obj, QEvent *event);
 protected:
     void on__labelSliceView_customContextMenuRequested(const QPoint &pos);
-    void gen_sep_pgm3d( ) ;
-    void showDictionary( ) ;
+    void updateDictionary( ) ;
 private slots:
     void on_actionClose_folder_triggered();
 

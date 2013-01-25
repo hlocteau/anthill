@@ -57,8 +57,8 @@ void MainWindow::on_actionClose_folder_triggered() {
     _ui->spinMaxIntensity->setEnabled(false);
 
 	antHillMng.reset() ;
-    update_list_of_series() ;
-    showDictionary() ;
+    updateProjectsList() ;
+    updateDictionary() ;
     closeImage();
 }
 
@@ -66,7 +66,7 @@ void MainWindow::on_actionExit_triggered(){
    close();
 }
 
-void MainWindow::update_list_of_series() {
+void MainWindow::updateProjectsList() {
     _ui->listWidget->clear();
     for ( QVector< QString >::ConstIterator iterSerie = antHillMng.series_begin() ; iterSerie != antHillMng.series_end() ; iterSerie++ ) {
         _ui->listWidget->addItem( *iterSerie );
@@ -78,7 +78,7 @@ void MainWindow::on_actionOpen_folder_triggered() {
     if ( !folderName.isEmpty() ) {
         closeImage();
         antHillMng.importDicom( folderName ) ;
-        update_list_of_series();
+        updateProjectsList();
     }
 }
 
@@ -141,28 +141,7 @@ void MainWindow::drawSlice( bool newContent ){
     _ui->_labelSliceView->setPixmap( QPixmap::fromImage(_mainPix).scaled(_mainPix.width()*_zoomFactor,_mainPix.height()*_zoomFactor,Qt::KeepAspectRatio) );
 }
 
-std::string set_pgmfoldername( const std::vector< std::string > &dico ) {
-    assert( !dico.empty() ) ;
-
-    if ( dico.size() == 1 )
-        return dico[0] ;
-
-    /// identify the largest prefix shared by the distinct series' entry
-    uint pos = 0 ;
-    uint entry ;
-    while ( pos != dico[0].size() ) {
-        for ( entry = 1 ; entry != dico.size() ; entry++ )
-            if ( dico[ entry ][ pos ] != dico[0][pos] ) break ;
-        if ( entry != dico.size() )
-            break ;
-        pos++ ;
-    }
-    return dico[0].substr( 0, pos ) ;
-}
-
-
-
-void MainWindow::showDictionary( ) {
+void MainWindow::updateDictionary( ) {
 	if ( antHillMng.project() ) {
 		const QMap< QString, QString > & dictionary = antHillMng.project()->dictionary() ;
 		QMap< QString,QString>::ConstIterator keyValue ;
@@ -194,7 +173,7 @@ void MainWindow::on_listWidget_itemDoubleClicked(QListWidgetItem *item) {
         _currentSerie = -1 ;
 		 return ;
 	}
-    showDictionary( );
+    updateDictionary( );
 	_mainPix = QImage(_billon->n_cols, _billon->n_rows,QImage::Format_ARGB32);
 	_currentSlice = 0 ;
 	_ui->sequenceSlider->setMaximum( 0 );
@@ -322,35 +301,26 @@ void MainWindow::on_contentCheckBox_stateChanged(int arg1){
     drawSlice();
 }
 void MainWindow::on_skelLoadButton_clicked(){
-  if ( _billon == 0 ) return ;
-  std::string pgmfoldername ;//= set_pgmfoldername(_seriesUID);
-  boost::filesystem::path pathImport = QDir::homePath().toStdString() ;
-  pathImport /= "outputData";
-  pathImport /= pgmfoldername  +"_pgm" ;
-  //pathImport /=_seriesUID[ _currentSerie ].substr( pgmfoldername.size()) ;
-  std::cout<<"Trying opening folder "<<QString("%1").arg( pathImport.string().c_str() ).toStdString()<<std::endl;
-  QString fileName = QFileDialog::getOpenFileName(0,tr("select pgm3d file"),QString("%1").arg( pathImport.string().c_str() ),tr("3D Image Files (*.pgm *.pgm3d)"));
-  if ( !fileName.isEmpty() )
-  {
-      if ( _skelImg ) delete _skelImg ;
-      _skelImg = factory.read( fileName ) ;
-      if ( _skelImg != 0 ) {
-          _ui->skelCheckBox->setEnabled(true);
-          _ui->x_shift_skel->setMaximum( _billon->n_rows - _skelImg->n_rows);
-          _ui->y_shift_skel->setMaximum( _billon->n_cols - _skelImg->n_cols);
-          _ui->z_shift_skel->setMaximum( _billon->n_slices - _skelImg->n_slices);
-          _ui->x_shift_skel->setValue(0);
-          _ui->y_shift_skel->setValue(0);
-          _ui->z_shift_skel->setValue(0);
-          _ui->x_shift_skel->setEnabled(true);
-          _ui->y_shift_skel->setEnabled(true);
-          _ui->z_shift_skel->setEnabled(true);
-          _ui->contentSkelCheckBox->setEnabled(true);
-      }
-  }
-  if ( _ui->skelCheckBox->isChecked() ) drawSlice();
-
-
+	if ( _billon == 0 ) return ;
+	QString fileName = QFileDialog::getOpenFileName(0,tr("select pgm3d file"),QString("%1").arg( antHillMng.projectLocation().c_str() ),tr("3D Image Files (*.pgm *.pgm3d)"));
+	if ( !fileName.isEmpty() ) {
+		if ( _skelImg ) delete _skelImg ;
+		_skelImg = factory.read( fileName ) ;
+		if ( _skelImg != 0 ) {
+			_ui->skelCheckBox->setEnabled(true);
+			_ui->x_shift_skel->setMaximum( _billon->n_rows - _skelImg->n_rows);
+			_ui->y_shift_skel->setMaximum( _billon->n_cols - _skelImg->n_cols);
+			_ui->z_shift_skel->setMaximum( _billon->n_slices - _skelImg->n_slices);
+			_ui->x_shift_skel->setValue(0);
+			_ui->y_shift_skel->setValue(0);
+			_ui->z_shift_skel->setValue(0);
+			_ui->x_shift_skel->setEnabled(true);
+			_ui->y_shift_skel->setEnabled(true);
+			_ui->z_shift_skel->setEnabled(true);
+			_ui->contentSkelCheckBox->setEnabled(true);
+		}
+	}
+	if ( _ui->skelCheckBox->isChecked() ) drawSlice();
 }
 void MainWindow::on_y_shift_skel_valueChanged(int arg1){
     drawSlice();
@@ -377,7 +347,7 @@ void MainWindow::on_actionOpen_project_triggered() {
 	if ( !fileName.isEmpty() ) {
         closeImage();
         antHillMng.setFileName( fileName ) ;
-        update_list_of_series();
+        updateProjectsList();
         // as we get only one serie...
         on_listWidget_itemDoubleClicked( _ui->listWidget->item(0) ) ;
     }
