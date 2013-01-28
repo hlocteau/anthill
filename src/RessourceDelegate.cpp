@@ -45,26 +45,24 @@ RessourceDelegate::RessourceDelegate(QObject *parent) : QItemDelegate(parent) {
 }
 
 QWidget *RessourceDelegate::createEditor(QWidget *parent, const QStyleOptionViewItem & /* option */, const QModelIndex &index) const {
-	QComboBox *comboBox = new QComboBox(parent) ;
+	
 	if (index.column() == 1) {
-		comboBox->addItem(tr("Normal")) ;
-		comboBox->addItem(tr("Active")) ;
-		comboBox->addItem(tr("Disabled")) ;
-		comboBox->addItem(tr("Selected")) ;
-	} else if (index.column() == 2) {
-		comboBox->addItem(tr("Off")) ;
-		comboBox->addItem(tr("On")) ;
+		QComboBox *comboBox = new QComboBox(parent) ;
+		comboBox->addItem(tr("Content")) ;
+		comboBox->addItem(tr("Boundary")) ;
+		connect(comboBox, SIGNAL(activated(int)), this, SLOT(emitCommitData())) ;
+		return comboBox ;
 	}
-	connect(comboBox, SIGNAL(activated(int)), this, SLOT(emitCommitData())) ;
-	return comboBox ;
+	/// should not appear. Do not call "openPersistentEditor" with this item.
+	return 0 ;
 }
 
 void RessourceDelegate::setEditorData(QWidget *editor, const QModelIndex &index) const {
 	QComboBox *comboBox = qobject_cast<QComboBox *>(editor) ;
-	if (!comboBox) return ;
-
-	int pos = comboBox->findText(index.model()->data(index).toString(), Qt::MatchExactly) ;
-	comboBox->setCurrentIndex(pos) ;
+	if (comboBox) {
+		int pos = comboBox->findText(index.model()->data(index).toString(), Qt::MatchExactly) ;
+		comboBox->setCurrentIndex(pos) ;
+	}
 }
 
 void RessourceDelegate::setModelData(QWidget *editor, QAbstractItemModel *model, const QModelIndex &index) const {
@@ -77,3 +75,4 @@ void RessourceDelegate::setModelData(QWidget *editor, QAbstractItemModel *model,
 void RessourceDelegate::emitCommitData() {
 	emit commitData(qobject_cast<QWidget *>(sender()));
 }
+
