@@ -27,7 +27,7 @@
 			std::cerr<<"Error : unknown pgm format ["<<desc[ PGM_HEADER_TYPE ].toStdString()[1]<<"]"<<std::endl;
 			return 0 ;
 		}
-		if ( false && desc[ PGM_HEADER_NUMBER_OF_COLORS ].toInt() > std::numeric_limits<T>::max() ) {
+		if ( false && (uint32_t)desc[ PGM_HEADER_NUMBER_OF_COLORS ].toInt() > std::numeric_limits<T>::max() ) {
 			std::cerr<<"Error : encoding type of the image object is smaller than the maximum value of the file data."<<std::endl;
 			return 0 ;
 		}
