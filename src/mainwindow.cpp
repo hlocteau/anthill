@@ -34,11 +34,10 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), _ui(new Ui::MainW
 	QStringList horLabels ;
 	horLabels << "Key" << "Value" ;
 	_ui->tableWidget->setHorizontalHeaderLabels( horLabels ) ;
-
-	_ui->axisSelection->addItem(tr("XY")) ;
 	_ui->axisSelection->addItem(tr("YZ")) ;
-	_ui->axisSelection->addItem(tr("XZ")) ;
-
+	_ui->axisSelection->addItem(tr("ZX")) ;
+	_ui->axisSelection->addItem(tr("XY")) ;
+	connect( _ui->axisSelection, SIGNAL(currentIndexChanged(int)), this, SLOT(onChangeAxis(int)));
 	_ui->ressources->setMinimumWidth ( 150*3 ) ;
 	initRessources(_ui->ressources) ;
 
@@ -46,6 +45,20 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), _ui(new Ui::MainW
 	_segmImg = 0 ;
 	_skelImg = 0 ;
 	_zoomFactor = 1 ;
+}
+
+void MainWindow::onChangeAxis( int idx ) {
+	if ( _billon == 0 ) return ;
+	uint16_t dims[] = { _billon->n_rows, _billon->n_cols, _billon->n_slices } ;
+	_mainPix = QImage( dims[ (idx+1)%3], dims[ (idx+2)%3], QImage::Format_ARGB32);
+	std::cout<<"[ Info ] : image's dimensions are "<<dims[0]<<" x "<<dims[1]<<" x "<<dims[2]<<std::endl
+	         <<"           pixmap's size is "<<_mainPix.width()<<" x "<<_mainPix.height()<<std::endl
+	         <<"           slicing between 0 and "<<dims[idx]<<std::endl;
+	_currentSlice = 0 ;
+	_ui->sequenceSlider->setMaximum( 0 );
+	_ui->sequenceSlider->setMaximum( dims[idx]-1 );
+	_ui->sequenceSlider->setSliderPosition(_currentSlice);
+	drawSlice( true ) ;
 }
 
 MainWindow::~MainWindow() {
@@ -128,6 +141,19 @@ void MainWindow::drawSlice( bool newContent ){
 		if ( newContent ) {
 			Interval<int> range_img (_ui->spinMinIntensity->value(),_ui->spinMaxIntensity->value());
 			_mainPix.fill(0xff0000CC);
+			arma::Mat<uint8_t> arma_mainPix( _mainPix.height(), _mainPix.width() ) ;
+			
+			antHillMng.draw( _billon, arma_mainPix, _ui->axisSelection->currentIndex(), _currentSlice, range_img ) ;
+			if ( _ui->axisSelection->currentIndex() != 0 )
+				arma_mainPix = arma_mainPix.t() ;
+			QRgb * writeIter = (QRgb *) _mainPix.bits() ;
+			for ( arma::Mat<uint8_t>::iterator readIter = arma_mainPix.begin() ; readIter != arma_mainPix.end() ; readIter++ ) {
+				* writeIter = qRgb( *readIter,*readIter,*readIter) ;
+				writeIter++ ;
+			}
+			
+			
+			/*
 			if ( !_bViewSegm )
 			   _sliceView->drawSlice(_mainPix,*_billon,_currentSlice, range_img, range_img.max());
 			else
@@ -135,12 +161,12 @@ void MainWindow::drawSlice( bool newContent ){
 
 
 			if ( _segmImg && _ui->segmCheckBox->isChecked() ) {
-			 _sliceView->drawOverSlice(_mainPix,*_segmImg, _currentSlice, _ui->x_shift->value(), _ui->y_shift->value(),_ui->z_shift->value(), _ui->contentCheckBox->isChecked(), qRgb(255,255,0));
+				_sliceView->drawOverSlice(_mainPix,*_segmImg, _currentSlice, _ui->x_shift->value(), _ui->y_shift->value(),_ui->z_shift->value(), _ui->contentCheckBox->isChecked(), qRgb(255,255,0));
 			}
 
 			if ( _skelImg && _ui->skelCheckBox->isChecked() ) {
 			 _sliceView->drawOverSlice(_mainPix,*_skelImg, _currentSlice, _ui->x_shift_skel->value(), _ui->y_shift_skel->value(),_ui->z_shift_skel->value(), _ui->contentSkelCheckBox->isChecked(),qRgb(0,0,255));
-			}
+			}*/
 		}
 	}else{
 		_ui->SlicePosition->setText(tr("Position"));
@@ -321,11 +347,13 @@ void MainWindow::on_listWidget_itemDoubleClicked(QListWidgetItem *item) {
 	}
 	updateDictionary( );
 	updateRessources( ) ;
-	_mainPix = QImage(_billon->n_cols, _billon->n_rows,QImage::Format_ARGB32);
+	
+	_mainPix = QImage(_billon->n_slices, _billon->n_rows,QImage::Format_ARGB32);
 	_currentSlice = 0 ;
 	_ui->sequenceSlider->setMaximum( 0 );
-	_ui->sequenceSlider->setMaximum( _billon->n_slices-1 );
+	_ui->sequenceSlider->setMaximum( _billon->n_cols-1 );
 	_ui->sequenceSlider->setSliderPosition(_currentSlice);
+	
 	_ui->sequenceSlider->setEnabled(true);
 	_ui->spinMinIntensity->setEnabled(true);
 	_ui->spinMaxIntensity->setEnabled(true);

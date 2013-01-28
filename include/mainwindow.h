@@ -92,6 +92,7 @@ private slots:
 	void updateRessources() ;
 	void resetRessources() ;
 	void changeRessourceColor(int row,int column) ;
+	void onChangeAxis( int ) ;
 private:
     Ui::MainWindow *_ui;
     QImage _mainPix;

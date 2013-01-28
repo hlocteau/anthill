@@ -10,6 +10,8 @@
 #define PROJECT_FILE_NAME					"serie_%1.xml"
 #define BINARIZATION_OUTPUT_FILE_NAME		"binary.pgm3d"
 
+
+
 void AntHillManager::openInitialInput( Billon ** img ) {
     if ( *img != 0 )	{
         delete *img;
