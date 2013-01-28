@@ -8,6 +8,7 @@
 #include "geom2d.h"
 
 #include <QFileDialog>
+#include <QColorDialog>
 #include <QMouseEvent>
 #include <RessourceDelegate.hpp>
 
@@ -31,9 +32,12 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), _ui(new Ui::MainW
 	_ui->spinMaxIntensity->setEnabled(false);
 
 	QStringList horLabels ;
-	horLabels.append( "Key" ) ;
-	horLabels.append( "Value" ) ;
+	horLabels << "Key" << "Value" ;
 	_ui->tableWidget->setHorizontalHeaderLabels( horLabels ) ;
+
+	_ui->axisSelection->addItem(tr("XY")) ;
+	_ui->axisSelection->addItem(tr("YZ")) ;
+	_ui->axisSelection->addItem(tr("XZ")) ;
 
 	_ui->ressources->setMinimumWidth ( 150*3 ) ;
 	initRessources(_ui->ressources) ;
@@ -145,14 +149,20 @@ void MainWindow::drawSlice( bool newContent ){
 	_ui->_labelSliceView->setPixmap( QPixmap::fromImage(_mainPix).scaled(_mainPix.width()*_zoomFactor,_mainPix.height()*_zoomFactor,Qt::KeepAspectRatio) );
 }
 
-void MainWindow::changeRessourcesConfigView() {
+void MainWindow::changeRessourcesConfigView(int row, int col) {
 	QIcon icon;
 
-	for (int row = 0; row < _ressourcesTable->rowCount(); ++row) {
+	//for (int row = 0; row < _ressourcesTable->rowCount(); ++row) {
 		QTableWidgetItem *item0 = _ressourcesTable->item(row, 0);
+		if ( item0 == 0 ) return ;
+		
 		QTableWidgetItem *item1 = _ressourcesTable->item(row, 1);
 		QTableWidgetItem *item2 = _ressourcesTable->item(row, 2);
+		QTableWidgetItem *item3 = _ressourcesTable->item(row, 3);
 
+		std::cout<<__FUNCTION__<<" @ line "<<__LINE__<<std::endl;	
+		_ressourcesTable->cellWidget(row, 1)->setEnabled( item0->checkState() == Qt::Checked ) ;
+		
 		if (item0->checkState() == Qt::Checked) {
 			QIcon::Mode mode;
 			if (item1->text() == tr("Normal")) {
@@ -165,26 +175,26 @@ void MainWindow::changeRessourcesConfigView() {
 				mode = QIcon::Selected;
 			}
 
-			QIcon::State state;
-			if (item2->text() == tr("On")) {
-				state = QIcon::On;
-			} else {
-				state = QIcon::Off;
-			}
-
 			QString fileName = item0->data(Qt::UserRole).toString();
-			QImage image(fileName);
-			if (!image.isNull())
-				icon.addPixmap(QPixmap::fromImage(image), mode, state);
-			std::cout<<"image "<<fileName.toStdString()<<" has to be drawn "<<item1->text().toStdString()<<" / "<<item2->text().toStdString()<<std::endl;
+			if ( ! findChild<QPushButton*>( "autoRefresh" )->isChecked() )
+				std::cout<<"image "<<fileName.toStdString()<<" has to be drawn "<<item1->text().toStdString()<<(item3->checkState() == Qt::Checked?" and ":" but not ")<<"tracked / color "<<item2->background().color().red()<<":"<<item2->background().color().green()<<":"<<item2->background().color().blue()<<std::endl;
 		}
-	}
+	//}
 	//previewArea->setIcon(icon);
+	std::cout<<__FUNCTION__<<" @ line "<<__LINE__<<std::endl;
 }
 
+void MainWindow::toggled_config_view(bool checked ) {
+	QPushButton* autoRefresh = findChild<QPushButton*>( "autoRefresh") ;
+	if ( checked ) {
+		autoRefresh->setText( "Freeze" ) ;
+	} else {
+		autoRefresh->setText( "Refresh" ) ;
+	}
+}
 
 void MainWindow::initRessources( QWidget *parent ) {
-	_ressourcesGroupBox = new QGroupBox(tr("Availables ressources"),parent);
+	_ressourcesGroupBox = new QGroupBox(tr("Available ressources"),parent);
 
 	_ressourcesTable = new QTableWidget;
 	_ressourcesTable->setMinimumWidth( parent->minimumWidth()*0.9 ) ;
@@ -192,59 +202,89 @@ void MainWindow::initRessources( QWidget *parent ) {
 	_ressourcesTable->setItemDelegate(new RessourceDelegate(this));
 
 	QStringList labels;
-	labels << tr("Image") << tr("Mode") << tr("State");
+	labels << tr("Image") << tr("Mode") << tr("Color") << tr("Tracked");
 
-	_ressourcesTable->horizontalHeader()->setDefaultSectionSize(_ressourcesTable->minimumWidth()/3);
-	_ressourcesTable->setColumnCount(3);
+	_ressourcesTable->horizontalHeader()->setResizeMode(QHeaderView::Interactive);
+	_ressourcesTable->setColumnCount(4);
 	_ressourcesTable->setHorizontalHeaderLabels(labels);
-	_ressourcesTable->horizontalHeader()->setResizeMode(0, QHeaderView::Stretch);
+/*	_ressourcesTable->horizontalHeader()->setResizeMode(0, QHeaderView::Stretch);
 	_ressourcesTable->horizontalHeader()->setResizeMode(1, QHeaderView::Stretch);
 	_ressourcesTable->horizontalHeader()->setResizeMode(2, QHeaderView::Stretch);
+	_ressourcesTable->horizontalHeader()->setResizeMode(3, QHeaderView::Stretch);*/
 	_ressourcesTable->verticalHeader()->hide();
 
-	connect(_ressourcesTable, SIGNAL(itemChanged(QTableWidgetItem*)), this, SLOT(changeRessourcesConfigView()));
-
+	connect(_ressourcesTable, SIGNAL(cellChanged(int,int)), this, SLOT(changeRessourcesConfigView(int,int)));
+	connect( _ressourcesTable, SIGNAL(cellDoubleClicked(int,int)), this, SLOT(changeRessourceColor(int,int)) ) ;
 	QVBoxLayout *layout = new QVBoxLayout;
+	
+	QPushButton *autoRefresh = new QPushButton(tr("Freeze"));
+	autoRefresh->setObjectName( "autoRefresh") ;
+	autoRefresh->setCheckable(true);
+	autoRefresh->setChecked ( true ) ;
+	connect( autoRefresh, SIGNAL(toggled(bool)), this, SLOT(toggled_config_view(bool)));
+	layout->addWidget(autoRefresh);
 	layout->addWidget(_ressourcesTable);
 	_ressourcesGroupBox->setLayout(layout);
 }
 
+void MainWindow::changeRessourceColor(int row,int column) {
+	if ( column != 2 ) return ;
+	if ( _ressourcesTable->item( row, 0 )->checkState() != Qt::Checked ) return ;
+	QColor new_color = QColorDialog::getColor( _ressourcesTable->item( row, column )->background().color(),
+												this, tr("Pick a new color"), QColorDialog::DontUseNativeDialog ) ;
+	if ( new_color.isValid() && new_color != Qt::black )
+		_ressourcesTable->item( row, column )->setBackground( QBrush(new_color) ) ;
+}
+
+const double golden_ratio_conjugate = 0.618033988749895 ;
+QColor makeRgbColor( double &hue ) {
+  hue += golden_ratio_conjugate ;
+  if ( hue > 1. ) hue -= 1. ;
+  return  QColor::fromHsv( (int)floor(hue*359), 76, 252) ;
+}
+
 void MainWindow::updateRessources( ) {
+	std::cout<<__FUNCTION__<<" @ line "<<__LINE__<<std::endl;
 	if ( antHillMng.project() ) {
 		_ressourcesTable->setRowCount(0) ;
 		QMap< QString, QMap< QString,QString > >::const_iterator resultIter = antHillMng.project()->process_begin(),
 																	resultEnd = antHillMng.project()->process_end();
+		double hue=( rand() % 1000 ) / 1000. ;
 		for ( ; resultIter != resultEnd ; resultIter++ ) {
 			int row = _ressourcesTable->rowCount();
 			_ressourcesTable->setRowCount(row + 1);
 
-			QString imageName = resultIter.key();
-			QTableWidgetItem *item0 = new QTableWidgetItem(imageName);
+			QTableWidgetItem *item0 = new QTableWidgetItem( resultIter.key() );
 			item0->setData(Qt::UserRole, resultIter.value().value( "result" ) );
 			item0->setFlags(item0->flags() & ~Qt::ItemIsEditable);
 
-			QTableWidgetItem *item1 = new QTableWidgetItem(tr("Normal"));
-			QTableWidgetItem *item2 = new QTableWidgetItem(tr("Off"));
+			QTableWidgetItem *item1 = new QTableWidgetItem(tr("Content"));
+			QTableWidgetItem *item2 = new QTableWidgetItem();
+			item2->setBackground ( QBrush( makeRgbColor( hue ) ) ) ;
+			
+			QTableWidgetItem *item3 = new QTableWidgetItem();
+			item3->setCheckState(Qt::Unchecked);
+			item3->setTextAlignment( Qt::AlignCenter ) ;
 
-			//item1->setText(tr("Active"));
-			//item1->setText(tr("Disabled"));
-			//item1->setText(tr("Selected"));
-			//item2->setText(tr("On"));
-
-			_ressourcesTable->setItem(row, 0, item0);
+			/** \warning the item0 is the last one to be inserted in the current row
+			 *           wrt the slot devoted to signal cellChanged
+			 **/
 			_ressourcesTable->setItem(row, 1, item1);
-			_ressourcesTable->setItem(row, 2, item2);
 			_ressourcesTable->openPersistentEditor(item1);
-			_ressourcesTable->openPersistentEditor(item2);
-
-			item0->setCheckState(Qt::Checked);
+			_ressourcesTable->setItem(row, 2, item2);
+			_ressourcesTable->setItem(row, 3, item3);
+			item0->setCheckState(Qt::Unchecked);
+			_ressourcesTable->setItem(row, 0, item0);
+			
 		}
+		_ressourcesTable->resizeRowsToContents () ;
 	}
+	std::cout<<__FUNCTION__<<" @ line "<<__LINE__<<std::endl;
 }
 
 void MainWindow::resetRessources() {
 	_ressourcesTable->setRowCount(0) ;
-	changeRessourcesConfigView() ;
+	//changeRessourcesConfigView() ;
 }
  
 void MainWindow::updateDictionary( ) {

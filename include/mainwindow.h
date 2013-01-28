@@ -86,11 +86,12 @@ private slots:
     void on_z_shift_skel_valueChanged(int arg1);
 
 
-
+	void toggled_config_view(bool checked ) ;
     void on_actionOpen_project_triggered();
-	void changeRessourcesConfigView();
+	void changeRessourcesConfigView(int,int);
 	void updateRessources() ;
 	void resetRessources() ;
+	void changeRessourceColor(int row,int column) ;
 private:
     Ui::MainWindow *_ui;
     QImage _mainPix;
@@ -108,7 +109,6 @@ private:
     BillonTpl<char> *_segmImg ;
     BillonTpl<char> *_skelImg ;
     Pgm3dFactory<char> factory ;
-
     bool _bViewSegm ;
     qreal _zoomFactor ;
 	AntHillManager antHillMng ;

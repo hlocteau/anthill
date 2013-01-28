@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>602</width>
+    <width>807</width>
     <height>573</height>
    </rect>
   </property>
@@ -16,7 +16,7 @@
   <widget class="QWidget" name="centralWidget">
    <property name="maximumSize">
     <size>
-     <width>596</width>
+     <width>805</width>
      <height>507</height>
     </size>
    </property>
@@ -39,8 +39,8 @@
           <rect>
            <x>0</x>
            <y>0</y>
-           <width>284</width>
-           <height>184</height>
+           <width>98</width>
+           <height>96</height>
           </rect>
          </property>
          <attribute name="label">
@@ -74,7 +74,7 @@
           <rect>
            <x>0</x>
            <y>0</y>
-           <width>284</width>
+           <width>447</width>
            <height>143</height>
           </rect>
          </property>
@@ -237,6 +237,9 @@
           <item>
            <layout class="QVBoxLayout" name="verticalLayout_2">
             <item>
+             <widget class="QComboBox" name="axisSelection"/>
+            </item>
+            <item>
              <widget class="QLabel" name="SlicePosition">
               <property name="text">
                <string>Position</string>
@@ -350,7 +353,7 @@
             <rect>
              <x>0</x>
              <y>0</y>
-             <width>269</width>
+             <width>315</width>
              <height>351</height>
             </rect>
            </property>
@@ -395,7 +398,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>602</width>
+     <width>807</width>
      <height>25</height>
     </rect>
    </property>
