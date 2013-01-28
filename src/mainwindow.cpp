@@ -135,6 +135,22 @@ void MainWindow::closeImage() {
 	drawSlice();
 }
 
+QColor MainWindow::getColorOf( const QString & search ) {
+	QMap< QString, QMap<QString,QString> >::ConstIterator processIter = antHillMng.project()->process_begin() ;
+	QMap< QString, QMap<QString,QString> >::ConstIterator processEnd = antHillMng.project()->process_end() ;
+	uint rowProcess = 0 ;
+	while ( processIter != processEnd ) {
+		if ( processIter.value().value( "result" ).startsWith( search ) ) break ;
+		rowProcess++ ;
+		processIter ++ ;
+	}
+	if ( processIter == processEnd ) {
+		std::cerr<<"[ Warning ] : can not retrieve color for ressource "<<search.toStdString()<<std::endl;
+		return QColor( 0,0,0 ) ;
+	}
+	return _ressourcesTable->item( rowProcess, 2 )->background().color() ;
+}
+
 void MainWindow::drawSlice( bool newContent ){
 
 	if ( _billon != 0 )	{
@@ -143,12 +159,28 @@ void MainWindow::drawSlice( bool newContent ){
 			_mainPix.fill(0xff0000CC);
 			arma::Mat<uint8_t> arma_mainPix( _mainPix.height(), _mainPix.width() ) ;
 			
-			antHillMng.draw( _billon, arma_mainPix, _ui->axisSelection->currentIndex(), _currentSlice, range_img ) ;
+			
+			antHillMng.draw( "input.pgm3d", arma_mainPix, _ui->axisSelection->currentIndex(), _currentSlice, range_img ) ;
 			if ( _ui->axisSelection->currentIndex() != 0 )
 				arma_mainPix = arma_mainPix.t() ;
 			QRgb * writeIter = (QRgb *) _mainPix.bits() ;
 			for ( arma::Mat<uint8_t>::iterator readIter = arma_mainPix.begin() ; readIter != arma_mainPix.end() ; readIter++ ) {
 				* writeIter = qRgb( *readIter,*readIter,*readIter) ;
+				writeIter++ ;
+			}
+			
+			//antHillMng.draw( _billon, arma_mainPix, _ui->axisSelection->currentIndex(), _currentSlice, range_img ) ;
+			//antHillMng.draw( "input.pgm3d", arma_mainPix, _ui->axisSelection->currentIndex(), _currentSlice, range_img ) ;
+
+			if ( _ui->axisSelection->currentIndex() != 0 )
+				arma_mainPix = arma_mainPix.t() ;
+			antHillMng.draw( "binary.pgm3d", arma_mainPix, _ui->axisSelection->currentIndex(), _currentSlice, Interval<int>(0,1) ) ;
+			if ( _ui->axisSelection->currentIndex() != 0 )
+				arma_mainPix = arma_mainPix.t() ;
+			writeIter = (QRgb *) _mainPix.bits() ;
+			for ( arma::Mat<uint8_t>::iterator readIter = arma_mainPix.begin() ; readIter != arma_mainPix.end() ; readIter++ ) {
+				if ( *readIter )
+					* writeIter = getColorOf( "binary.pgm3d" ).rgb() ; /// depending on whether we draw or we draw OVER
 				writeIter++ ;
 			}
 			
@@ -258,8 +290,10 @@ void MainWindow::changeRessourceColor(int row,int column) {
 	if ( _ressourcesTable->item( row, 0 )->checkState() != Qt::Checked ) return ;
 	QColor new_color = QColorDialog::getColor( _ressourcesTable->item( row, column )->background().color(),
 												this, tr("Pick a new color"), QColorDialog::DontUseNativeDialog ) ;
-	if ( new_color.isValid() && new_color != Qt::black )
+	if ( new_color.isValid() && new_color != Qt::black ) {
 		_ressourcesTable->item( row, column )->setBackground( QBrush(new_color) ) ;
+		drawSlice( true ) ;
+	}
 }
 
 const double golden_ratio_conjugate = 0.618033988749895 ;
@@ -285,8 +319,17 @@ void MainWindow::updateRessources( ) {
 			item0->setFlags(item0->flags() & ~Qt::ItemIsEditable);
 
 			QTableWidgetItem *item1 = new QTableWidgetItem(tr("Content"));
+			/**
+			 * \brief it makes no sense to define a boundary on feature images
+			 */
+			item1->setData( Qt::UserRole, antHillMng.isContentOnly( resultIter ) ) ;
 			QTableWidgetItem *item2 = new QTableWidgetItem();
-			item2->setBackground ( QBrush( makeRgbColor( hue ) ) ) ;
+			/**
+			 * \brief we only define new color(s) for bilevel/labelled images
+			 */
+			item2->setData( Qt::UserRole, antHillMng.isColorSelectionAllowed( resultIter ) ) ;
+			if ( antHillMng.isColorSelectionAllowed( resultIter ) )
+				item2->setBackground ( QBrush( makeRgbColor( hue ) ) ) ;
 			
 			QTableWidgetItem *item3 = new QTableWidgetItem();
 			item3->setCheckState(Qt::Unchecked);
@@ -347,11 +390,11 @@ void MainWindow::on_listWidget_itemDoubleClicked(QListWidgetItem *item) {
 	}
 	updateDictionary( );
 	updateRessources( ) ;
-	
-	_mainPix = QImage(_billon->n_slices, _billon->n_rows,QImage::Format_ARGB32);
-	_currentSlice = 0 ;
+	uint idx = _ui->axisSelection->currentIndex();
+	uint16_t dims[] = { _billon->n_rows, _billon->n_cols, _billon->n_slices } ;
+	_mainPix = QImage( dims[ (idx+1)%3], dims[ (idx+2)%3], QImage::Format_ARGB32);
 	_ui->sequenceSlider->setMaximum( 0 );
-	_ui->sequenceSlider->setMaximum( _billon->n_cols-1 );
+	_ui->sequenceSlider->setMaximum( dims[idx]-1 );
 	_ui->sequenceSlider->setSliderPosition(_currentSlice);
 	
 	_ui->sequenceSlider->setEnabled(true);
@@ -376,7 +419,7 @@ bool MainWindow::eventFilter(QObject *obj, QEvent *event) {
 				   const QMouseEvent *mouseEvent = static_cast<const QMouseEvent*>(event);
 				   QPoint curPixel = mouseEvent->pos() ;
 				   curPixel /= _zoomFactor ;
-				   if ( curPixel.x() < _billon->n_cols && curPixel.y() < _billon->n_rows )
+				   if ( curPixel.x() < /*_billon->n_cols*/ _mainPix.width() && curPixel.y() < /*_billon->n_rows*/ _mainPix.height() )
 					   on__labelSliceView_customContextMenuRequested( curPixel ) ;
 			} else if ( event->type() == QEvent::Wheel ) {
 			   const QWheelEvent *wheelEvent = static_cast<const QWheelEvent*>(event);
@@ -387,6 +430,18 @@ bool MainWindow::eventFilter(QObject *obj, QEvent *event) {
 				  // emit zoomFactorChanged(_zoomFactor,wheelEvent->globalPos());
 				   drawSlice(false);
 			   }
+			} else if ( event->type() == QEvent::MouseButtonPress ) {
+				const QMouseEvent *mouseEvent = static_cast<const QMouseEvent*>(event);
+				if ( mouseEvent->button() == Qt::RightButton ) {
+					QPoint curPixel = mouseEvent->pos() ;
+					curPixel /= _zoomFactor ;
+					if ( curPixel.x() < /*_billon->n_cols*/ _mainPix.width() && curPixel.y() < /*_billon->n_rows*/ _mainPix.height() ) {
+						/// cyclic rotation of axis selection
+						_ui->axisSelection->setCurrentIndex( (_ui->axisSelection->currentIndex() + 1 ) % 3 ) ;
+						std::cout<<"[ Info ] : set slice position"<<std::endl;
+						on_sequenceSlider_sliderMoved( curPixel.x() );
+					}
+				}
 			} else if ( event->type() == QEvent::KeyPress ) {
 				const QKeyEvent *keyEvent = static_cast< const QKeyEvent*>( event ) ;
 				const int key = keyEvent->key() ;
@@ -402,6 +457,8 @@ bool MainWindow::eventFilter(QObject *obj, QEvent *event) {
 
 void MainWindow::on_sequenceSlider_sliderMoved(int position) {
 	_currentSlice = position ;
+	if ( position != _ui->sequenceSlider->value() )
+		_ui->sequenceSlider->setValue( position ) ;
 	_ui->SlicePosition->setNum(position);
 	drawSlice();
 }
@@ -515,7 +572,13 @@ void MainWindow::on_skelCheckBox_stateChanged(int arg1){
 }
 void MainWindow::on__labelSliceView_customContextMenuRequested(const QPoint &pos){
 	/// apport d'info contextuelle
-	_ui->infoLabel->setText( QString("mouse on %1,%2,%3").arg(pos.x()).arg(pos.y()).arg(_currentSlice) );
+	uint16_t location[3] ;
+	uint8_t idx = _ui->axisSelection->currentIndex() ;
+	location[ (idx-1+3)%3 ] = pos.y() ;
+	location[ (idx-2+3)%3 ] = pos.x() ;
+
+	location[ idx ] = _currentSlice ;
+	_ui->infoLabel->setText( QString("mouse on %1,%2,%3").arg(location[0]).arg(location[1]).arg(location[2]) );
 }
 
 void MainWindow::on_actionOpen_project_triggered() {

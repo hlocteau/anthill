@@ -94,6 +94,9 @@ private slots:
 	void changeRessourceColor(int row,int column) ;
 	void onChangeAxis( int ) ;
 private:
+
+	QColor getColorOf( const QString & search ) ;
+	
     Ui::MainWindow *_ui;
     QImage _mainPix;
     
