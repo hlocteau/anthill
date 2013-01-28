@@ -50,17 +50,17 @@ template <typename To, typename T, bool tAscii> bool IOPgm3d<To,T,tAscii>::write
 	out << QString("%1").arg( (T)img.maxValue() ) << endl;
 	if ( !tAscii ) {
 		QDataStream dout(&file);
-		for ( int k=0 ; k< depth ; k++ ) {
-			for ( int i=0 ; i< height ; i++ ) {
-				for ( int j=0 ; j< width ; j++ ) {
+		for ( uint k=0 ; k< depth ; k++ ) {
+			for ( uint i=0 ; i< height ; i++ ) {
+				for ( uint j=0 ; j< width ; j++ ) {
 					dout << (T) img(i,j,k);
 				}
 			}
 		}
 	} else {
-		for ( int k=0 ; k< depth ; k++ ) {
-			for ( int i=0 ; i< height ; i++ ) {
-				for ( int j=0 ; j< width ; j++ ) {
+		for ( uint k=0 ; k< depth ; k++ ) {
+			for ( uint i=0 ; i< height ; i++ ) {
+				for ( uint j=0 ; j< width ; j++ ) {
 					out << (T) img(i,j,k);
 				}
 			}
@@ -89,17 +89,17 @@ template <typename To, typename T, bool tAscii> bool IOPgm3d<To,T,tAscii>::write
 	out << QString("%1").arg( (T)img.max() ) << endl;
 	if ( !tAscii ) {
 		QDataStream dout(&file);
-		for ( int k=0 ; k< depth ; k++ ) {
-			for ( int i=0 ; i< height ; i++ ) {
-				for ( int j=0 ; j< width ; j++ ) {
+		for ( uint k=0 ; k< depth ; k++ ) {
+			for ( uint i=0 ; i< height ; i++ ) {
+				for ( uint j=0 ; j< width ; j++ ) {
 					dout << (T) img(i,j,k);
 				}
 			}
 		}
 	} else {
-		for ( int k=0 ; k< depth ; k++ ) {
-			for ( int i=0 ; i< height ; i++ ) {
-				for ( int j=0 ; j< width ; j++ ) {
+		for ( uint k=0 ; k< depth ; k++ ) {
+			for ( uint i=0 ; i< height ; i++ ) {
+				for ( uint j=0 ; j< width ; j++ ) {
 					out << (T) img(i,j,k);
 				}
 			}
@@ -121,9 +121,9 @@ template< typename To, typename T, bool tAscii> void IOPgm3d<To,T,tAscii>::readA
 	QTextStream data( &imageFile ) ;
 	T curVal ;
 	char curChar ;
-	for ( int k=0 ; k<img->n_slices ; k++ ) {
-		for ( int i=0 ; i<img->n_rows ; i++ ) {
-			for ( int j=0 ; j<img->n_cols ; j++ ) {
+	for ( uint k=0 ; k<img->n_slices ; k++ ) {
+		for ( uint i=0 ; i<img->n_rows ; i++ ) {
+			for ( uint j=0 ; j<img->n_cols ; j++ ) {
 				if ( sizeof(T) == sizeof(char) )
 					data >> curChar ;
 				else
@@ -142,9 +142,9 @@ template< typename To, typename T, bool tAscii> void IOPgm3d<To,T,tAscii>::readB
 	//Lecture de l'image en binaire
 	QDataStream data(&imageFile);
 	T curVal;
-	for ( int k=0 ; k<img->n_slices ; k++ ) {
-		for ( int i=0 ; i<img->n_rows ; i++ ) {
-			for ( int j=0 ; j<img->n_cols ; j++ ) {
+	for ( uint k=0 ; k<img->n_slices ; k++ ) {
+		for ( uint i=0 ; i<img->n_rows ; i++ ) {
+			for ( uint j=0 ; j<img->n_cols ; j++ ) {
 				data >> curVal;
 				//Construction de l'image entière en binaire
 				if ( curVal != 0 ) {
