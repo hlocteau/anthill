@@ -34,10 +34,10 @@ public:
 	}
 	
 	bool addProcess( const QString &, const QMap< QString, QString > & ) ;
-	QMap< QString, QMap< QString,QString > >::const_iterator process_begin() const {
+	QMap< QString, QMap< QString,QString > >::ConstIterator process_begin() const {
 		return _process.begin() ;
 	}
-	QMap< QString, QMap< QString,QString > >::const_iterator process_end() const {
+	QMap< QString, QMap< QString,QString > >::ConstIterator process_end() const {
 		return _process.end() ;
 	}
 private:
