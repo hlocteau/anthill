@@ -1,6 +1,6 @@
 #ifndef ANT_HILL_PROJECT_MANAGER_HEADER
 #define ANT_HILL_PROJECT_MANAGER_HEADER
-
+#include <stdint.h>
 #include <io/AntHillFile.hpp>
 #include <QVector>
 #include <def_billon.h>
@@ -8,6 +8,7 @@
 #include <interval.h>
 #include <boost/filesystem.hpp>
 #include <boost/filesystem/path.hpp>
+
 
 namespace fs = boost::filesystem ;
 
@@ -35,18 +36,32 @@ public:
 	AntHillFile * project() {
 		return _project ;
 	}
-	
+	bool draw( const QString &resname, arma::Mat<uint8_t> &image, uint8_t axis, uint16_t coordinate, const Interval<int32_t> &range,bool normalize=true ) ;
 	template <typename T> void draw( const BillonTpl< T > *data, arma::Mat<uint8_t> &image, uint8_t axis, uint16_t coordinate, const Interval<T> &range,bool normalize=true ) ;
 	
 	void reset() ;
+	
+	bool isContentOnly           ( QMap< QString, QMap< QString, QString > >::ConstIterator &res ) const ;
+	bool isColorSelectionAllowed ( QMap< QString, QMap< QString, QString > >::ConstIterator &res ) const ;
+	
 private:
+	typedef struct _TImageProperty {
+		void*	_adr ;
+		uint8_t _type ;
+		uint8_t _meaning ;
+	} TImageProperty ;
+	
 	fs::path _projectLocation ;
 	fs::path _filename ;
 	QVector< QString > _series ;
 	uint _currentSeries ;
-	QList< BillonTpl< char > * > 	_im_s8 ;
-	QList< BillonTpl< qint16 > * > 	_im_s16 ;
-	QList< BillonTpl< quint16 > * > _im_u16 ;
+	QList< BillonTpl< arma::s8 > * >  _im_8s ;
+	QList< BillonTpl< arma::u8 > * >  _im_8u ;
+	QList< BillonTpl< arma::s16 > * > _im_16s ;
+	QList< BillonTpl< arma::u16 > * > _im_16u ;
+	QList< BillonTpl< arma::s32 > * > _im_32s ;
+	QList< BillonTpl< arma::u32 > * > _im_32u ;
+	QMap< QString, TImageProperty >   _prop ;
     AntHillFile *_project ;
 } ;
 
