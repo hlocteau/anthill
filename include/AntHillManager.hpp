@@ -4,6 +4,7 @@
 #include <io/AntHillFile.hpp>
 #include <QVector>
 #include <def_billon.h>
+#include <billon.h>
 #include <interval.h>
 #include <boost/filesystem.hpp>
 #include <boost/filesystem/path.hpp>
@@ -40,7 +41,9 @@ private:
 	fs::path _filename ;
 	QVector< QString > _series ;
 	uint _currentSeries ;
-	    
+	QList< BillonTpl< char > * > 	_im_s8 ;
+	QList< BillonTpl< qint16 > * > 	_im_s16 ;
+	QList< BillonTpl< quint16 > * > _im_u16 ;
     AntHillFile *_project ;
 } ;
 
