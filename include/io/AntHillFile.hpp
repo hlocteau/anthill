@@ -8,6 +8,9 @@
 #define ANTHILL_TAG_FEATURE "feature"
 #define ANTHILL_TAG_LABEL   "label"
 
+#define ANTHILL_OVERALL_INPUT_PROCESS_NAME "import"
+#define ANTHILL_DEFAULT_OUTPUT_NAME        "result"
+
 class AntHillFile {
 public:
 	AntHillFile( ) { _error = false ;}

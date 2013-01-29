@@ -11,12 +11,7 @@
 #define PROJECT_FILE_NAME					"serie_%1.xml"
 #define BINARIZATION_OUTPUT_FILE_NAME		"binary.pgm3d"
 
-#define SIGNED_TINY_INT		1
-#define UNSIGNED_TINY_INT	2
-#define SIGNED_SHORT_INT	3
-#define UNSIGNED_SHORT_INT	4
-#define SIGNED_INT			5
-#define UNSIGNED_INT		6
+
 
 #define MEANING_BILEVEL		1
 #define MEANING_FEATURE		2
@@ -28,6 +23,7 @@
 #define ANTHILL_INDEX_DIMENSION 3
 #define ANTHILL_INDEX_OFFSET    4
 
+
 //template <> QString IOPgm3d<arma::s32,qint32,true>::_header = QString( "PB" ) ;
 //template <> QString IOPgm3d<arma::s32,qint32,false>::_header = QString( "P8" ) ;
 template <> QString IOPgm3d<arma::u32,qint32,true>::_header = QString( "PB" ) ;
@@ -38,25 +34,25 @@ template <> QString IOPgm3d<arma::u32,qint32,false>::_header = QString( "P8" ) ;
 template <> QString IOPgm3d<arma::u8,char,true>::_header = QString( "P2" ) ;
 template <> QString IOPgm3d<arma::u8,qint8,false>::_header = QString( "P5" ) ;
 
-template <> QString IOPgm3d<arma::s16,qint32,false>::_header = QString( "P8" ) ;
-template <> QString IOPgm3d<arma::s16,qint32,true>::_header = QString( "PB" ) ;
-template <> QString IOPgm3d<arma::u16,qint32,false>::_header = QString( "P8" ) ;
-template <> QString IOPgm3d<arma::u16,qint32,true>::_header = QString( "PB" ) ;
+template <> QString IOPgm3d<arma::s16,qint16,false>::_header = QString( "P8" ) ;
+template <> QString IOPgm3d<arma::s16,qint16,true>::_header = QString( "PB" ) ;
+template <> QString IOPgm3d<arma::u16,qint16,false>::_header = QString( "P8" ) ;
+template <> QString IOPgm3d<arma::u16,qint16,true>::_header = QString( "PB" ) ;
 
 bool AntHillManager::isContentOnly( QMap< QString, QString >::ConstIterator &res ) const {
-	assert( res.key().startsWith("result") ) ;
-	assert( res.value().count(";") == 4 ) ;
+	assert( res.key().startsWith(ANTHILL_DEFAULT_OUTPUT_NAME) ) ;
+	assert( res.value().count(";") > ANTHILL_INDEX_MEANING ) ;
 	return ( res.value().split(";").at(ANTHILL_INDEX_MEANING) == ANTHILL_TAG_FEATURE ) ;
 }
 
 bool AntHillManager::isColorSelectionAllowed( QMap< QString, QString >::ConstIterator &res ) const {
-	assert( res.key().startsWith("result") ) ;
-	assert( res.value().count(";") == 4 ) ;
+	assert( res.key().startsWith(ANTHILL_DEFAULT_OUTPUT_NAME) ) ;
+	assert( res.value().count(";") > ANTHILL_INDEX_MEANING ) ;
 	return !( res.value().split(";").at(ANTHILL_INDEX_MEANING) == ANTHILL_TAG_FEATURE ) ;
 }
 
 void AntHillManager::getSize( QMap< QString, QString >::ConstIterator &res, uint &n_rows, uint &n_cols, uint &n_slices ) const {
-	assert( res.key().startsWith("result") ) ;
+	assert( res.key().startsWith(ANTHILL_DEFAULT_OUTPUT_NAME) ) ;
 	assert( res.value().count(";") == 4 ) ;
 	
 	QStringList dims = res.value().split(";").at(ANTHILL_INDEX_DIMENSION).split(" ") ;
@@ -66,7 +62,7 @@ void AntHillManager::getSize( QMap< QString, QString >::ConstIterator &res, uint
 }
 
 void AntHillManager::getOffset( QMap< QString, QString >::ConstIterator &res, uint &row, uint &col, uint &slice ) const {
-	assert( res.key().startsWith("result") ) ;
+	assert( res.key().startsWith(ANTHILL_DEFAULT_OUTPUT_NAME) ) ;
 	assert( res.value().count(";") == 4 ) ;
 	
 	QStringList dims = res.value().split(";").at(ANTHILL_INDEX_OFFSET).split(" ") ;
@@ -75,7 +71,67 @@ void AntHillManager::getOffset( QMap< QString, QString >::ConstIterator &res, ui
 	slice = dims.at(2).toInt() ;
 }
 
-bool AntHillManager::draw( const QString &resname, arma::Mat<uint8_t> &image, uint8_t axis, uint16_t coordinate, const Interval<int32_t> &range,bool normalize ) {
+bool AntHillManager::getSize( uint &n_rows, uint &n_cols, uint &n_slices ) {
+	QString main_input_name = QString("%1:%2").arg( ANTHILL_OVERALL_INPUT_PROCESS_NAME ).arg( ANTHILL_DEFAULT_OUTPUT_NAME ) ;
+	assert( load_ressource( main_input_name ) ) ;
+	
+	switch ( _prop[ main_input_name ]._type ) {
+	case SIGNED_TINY_INT :
+		{
+			BillonTpl< arma::s8 > *img = (BillonTpl< arma::s8 >*) _prop[ main_input_name ]._adr ;
+			n_rows = img->n_rows ;
+			n_cols = img->n_cols ;
+			n_slices = img->n_slices ;
+		}
+		break;
+	case UNSIGNED_TINY_INT :
+		{
+			BillonTpl< arma::u8 >  *img = (BillonTpl< arma::u8>*) _prop[ main_input_name ]._adr ;
+			n_rows = img->n_rows ;
+			n_cols = img->n_cols ;
+			n_slices = img->n_slices ;
+		}
+		break;
+	case SIGNED_SHORT_INT :
+		{
+			BillonTpl< arma::s16 > *img = (BillonTpl< arma::s16>*) _prop[ main_input_name ]._adr ;
+			n_rows = img->n_rows ;
+			n_cols = img->n_cols ;
+			n_slices = img->n_slices ;
+		}
+		break;
+	case UNSIGNED_SHORT_INT :
+		{
+			BillonTpl< arma::u16 >  *img = (BillonTpl< arma::u16>*) _prop[ main_input_name ]._adr ;
+			n_rows = img->n_rows ;
+			n_cols = img->n_cols ;
+			n_slices = img->n_slices ;
+		}
+		break;
+	case SIGNED_INT :
+		{
+			BillonTpl< arma::s32 >  *img = (BillonTpl< arma::s32>*) _prop[ main_input_name ]._adr ;
+			n_rows = img->n_rows ;
+			n_cols = img->n_cols ;
+			n_slices = img->n_slices ;
+		}
+		break;
+	case UNSIGNED_INT :
+		{
+			BillonTpl< arma::u32 >  *img = (BillonTpl< arma::u32>*) _prop[ main_input_name ]._adr ;
+			n_rows = img->n_rows ;
+			n_cols = img->n_cols ;
+			n_slices = img->n_slices ;
+		}
+		break;
+	default:
+		std::cerr<<"[ Error ] : unmanaged type "<< _prop[ main_input_name ]._type <<" for the project file wrt the ressource "<<main_input_name.toStdString()<<" Function "<<__FUNCTION__<<" @ line "<<__LINE__<<std::endl;
+		return false;
+	}
+	return true ;
+}
+
+bool AntHillManager::load_ressource( const QString &resname ) {
 	QStringList info ;
 	if ( !_prop.contains( resname ) ) {
 		/// retrieve from _project the encoding
@@ -86,7 +142,7 @@ bool AntHillManager::draw( const QString &resname, arma::Mat<uint8_t> &image, ui
 			paramIter = resIter.value().begin() ;
 			paramEnd = resIter.value().end() ;
 			for ( ; paramIter != paramEnd ; paramIter++ )
-				if ( paramIter.key().startsWith("result") )
+				if ( paramIter.key().startsWith(ANTHILL_DEFAULT_OUTPUT_NAME) )
 					if ( uid( resIter, paramIter ) == resname ) {
 						info = paramIter.value().split( ";" ) ;
 						break ;
@@ -98,7 +154,7 @@ bool AntHillManager::draw( const QString &resname, arma::Mat<uint8_t> &image, ui
 			std::cerr<<"[ Error ] : none of the project's ressources is named "<<resname.toStdString()<<" Function "<<__FUNCTION__<<" @ line "<<__LINE__<<std::endl;
 			return false;
 		}
-		if ( info.size() != 3 ) {
+		if ( info.size() < 3 ) {
 			std::cerr<<"[ Error ] : wrong syntax for the project file wrt the ressource "<<resname.toStdString()<<" Function "<<__FUNCTION__<<" @ line "<<__LINE__<<std::endl;
 			return false;
 		}
@@ -148,6 +204,14 @@ bool AntHillManager::draw( const QString &resname, arma::Mat<uint8_t> &image, ui
 			return false;
 		}
 		_prop[ resname ]._type = type ;
+	}
+	return true ;
+}
+
+bool AntHillManager::draw( const QString &resname, arma::Mat<uint8_t> &image, uint8_t axis, uint16_t coordinate, const Interval<int32_t> &range,bool normalize ) {
+	QStringList info ;
+	if ( !_prop.contains( resname ) ) {
+		if ( !load_ressource( resname ) ) return false ;
 	}
 	
 	if ( _prop[ resname ]._type == SIGNED_TINY_INT ) {
@@ -232,15 +296,15 @@ void AntHillManager::importDicom( const QString &folderName ) {
 	reset() ;
 	
 	QMap< QString, QMap< QString, QString > > dictionary_series ;
-	DicomReader::enumerate_dicom_series( folderName, dictionary_series ) ;
-
+	DicomReader Dicom( folderName ) ;
+	
     fs::path out_directory_path = defaultProjectLocation() ;
     out_directory_path /= fs::path( folderName.toStdString() ).filename() ;
     _projectLocation = out_directory_path ;
     uint iSerie = 0 ;
-    QMap< QString, QMap< QString,QString> >::iterator keyDataIter ;
-    for ( keyDataIter = dictionary_series.begin() ; keyDataIter != dictionary_series.end() ; keyDataIter++,iSerie++ ) {
-		Billon *img = DicomReader::read(folderName,keyDataIter.key().toStdString() );
+    QMap< QString, QMap< QString,QString> >::ConstIterator keyDataIter ;
+    for ( keyDataIter = Dicom.begin() ; keyDataIter != Dicom.end() ; keyDataIter++,iSerie++ ) {
+		BillonTpl<arma::s16> *img = Dicom.get<arma::s16>( keyDataIter );
 		int n_rows = img->n_rows ;
 		int n_cols = img->n_cols ;
 		int n_slices = img->n_slices ;
@@ -249,7 +313,7 @@ void AntHillManager::importDicom( const QString &folderName ) {
 		if ( !fs::exists( filepath ) ) fs::create_directories( filepath ) ;
 		filepath /= EXPORT_FILE_NAME ;
 		QString qfilename = QString( "%1" ).arg( filepath.c_str() ) ;
-		IOPgm3d< __billon_type__, qint16, false >::write( *img, qfilename ) ;
+		IOPgm3d< arma::s16, qint16, false >::write( *img, qfilename ) ;
 		delete img ;
 		filepath = filepath.parent_path() ;
 		filepath /= QString(PROJECT_FILE_NAME).arg( iSerie ).toStdString() ;
@@ -258,28 +322,28 @@ void AntHillManager::importDicom( const QString &folderName ) {
 		prj.setUID( keyDataIter.key() ) ;
 		prj.setDictionary( keyDataIter.value() );
 		QMap< QString, QString > details ;
-		prj.addProcess( "import", details ) ;
-		details.insert( "size", QString("%1;%2;%3").arg(n_rows).arg(n_cols).arg(n_slices) ) ;
-		details.insert( "result", QString("%1;%2;16u").arg(EXPORT_FILE_NAME).arg(ANTHILL_TAG_FEATURE) ) ;
+		details.insert( ANTHILL_DEFAULT_OUTPUT_NAME, QString("%1;%2;16s;%3 %4 %5").arg(EXPORT_FILE_NAME).arg(ANTHILL_TAG_FEATURE).arg(n_rows).arg(n_cols).arg(n_slices) ) ;
+		prj.addProcess( ANTHILL_OVERALL_INPUT_PROCESS_NAME, details ) ;
 		prj.save( QString::fromStdString(filepath.c_str()) ) ;
-		#if ( QT_MAJOR_VERSION > 4 || ( QT_MAJOR_VERSION == 4 && QT_MINOR_VERSION == 8 ) )
-		QMap< QString,QString >().swap( keyDataIter.value() ) ;
-		#else
-		keyDataIter.value().clear() ;
-		#endif
 		_series.push_back( QString(EXPORT_FOLDER_NAME).arg( iSerie ) ) ;
 	}
 }
 
-bool AntHillManager::binarization( const Billon *data, const Interval<__billon_type__> &range, int th) {
+bool AntHillManager::binarization( const Interval<arma::s16> &range, int th) {
     if ( range.width() == 0 ) return false ;
     fs::path filepath = _projectLocation ;
     filepath /= BINARIZATION_OUTPUT_FILE_NAME ;
     
-    BillonTpl<uint8_t> binImage( data->n_rows, data->n_cols, data->n_slices ) ;
-    arma::Cube< __billon_type__ >::const_iterator 	in = data->begin(),
-													in_end = data->end() ;
-    arma::Cube< uint8_t >::iterator out = binImage.begin() ;
+    uint n_rows, n_cols, n_slices ;
+    getSize(n_rows, n_cols, n_slices ) ;
+    
+    BillonTpl<arma::u8> binImage( n_rows, n_cols, n_slices ) ;
+    bool valid ;
+    BillonTpl<arma::s16> *data = getRessourceByUID<arma::s16>( QString("%1:%1").arg( ANTHILL_OVERALL_INPUT_PROCESS_NAME ).arg( ANTHILL_DEFAULT_OUTPUT_NAME ), valid ) ;
+    assert( valid ) ;
+    arma::Cube< arma::s16 >::const_iterator 	in = data->begin(),
+												in_end = data->end() ;
+    arma::Cube< arma::u8 >::iterator out = binImage.begin() ;
     for (  ; in != in_end ; in++,out++ ) {
 		if (  range.containsClosed( *in ) ) {
 			if ( (int)floor( ( ( *in - range.min() ) * (double)255. ) / range.size() ) >= th )
@@ -290,13 +354,12 @@ bool AntHillManager::binarization( const Billon *data, const Interval<__billon_t
 			*out = 0 ;
     }
     binImage.setMaxValue( 1 ) ;
-    IOPgm3d< uint8_t, qint8, false >::write( binImage, QString("%1").arg( filepath.c_str() ) ) ;
+    IOPgm3d< arma::u8, qint8, false >::write( binImage, QString("%1").arg( filepath.c_str() ) ) ;
     QMap< QString, QString > details ;
     details.insert( "minimum", QString("%1").arg( range.min() ) ) ;
     details.insert( "maximum", QString("%1").arg( range.max() ) ) ;
     details.insert( "threshold", QString("%1").arg( th ) ) ;
-    details.insert( "size", QString("%1;%2;%3").arg(data->n_rows).arg(data->n_cols).arg(data->n_slices) ) ;
-    details.insert( "result", QString("%1;%2;8u").arg(BINARIZATION_OUTPUT_FILE_NAME).arg(ANTHILL_TAG_BILEVEL) ) ;
+    details.insert( ANTHILL_DEFAULT_OUTPUT_NAME, QString("%1;%2;8u;%3 %4 %5").arg(BINARIZATION_OUTPUT_FILE_NAME).arg(ANTHILL_TAG_BILEVEL).arg(data->n_rows).arg(data->n_cols).arg(data->n_slices) ) ;
     _project->addProcess( "binarisation", details ) ;
     fs::path filename = _projectLocation ;
     filename /= _filename ;
