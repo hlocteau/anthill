@@ -22,6 +22,12 @@
 #define MEANING_FEATURE		2
 #define MEANING_LABEL		3
 
+#define ANTHILL_INDEX_FILENAME  0
+#define ANTHILL_INDEX_MEANING   1
+#define ANTHILL_INDEX_ENCODING  2
+#define ANTHILL_INDEX_DIMENSION 3
+#define ANTHILL_INDEX_OFFSET    4
+
 //template <> QString IOPgm3d<arma::s32,qint32,true>::_header = QString( "PB" ) ;
 //template <> QString IOPgm3d<arma::s32,qint32,false>::_header = QString( "P8" ) ;
 template <> QString IOPgm3d<arma::u32,qint32,true>::_header = QString( "PB" ) ;
@@ -37,17 +43,55 @@ template <> QString IOPgm3d<arma::s16,qint32,true>::_header = QString( "PB" ) ;
 template <> QString IOPgm3d<arma::u16,qint32,false>::_header = QString( "P8" ) ;
 template <> QString IOPgm3d<arma::u16,qint32,true>::_header = QString( "PB" ) ;
 
+bool AntHillManager::isContentOnly( QMap< QString, QString >::ConstIterator &res ) const {
+	assert( res.key().startsWith("result") ) ;
+	assert( res.value().count(";") == 4 ) ;
+	return ( res.value().split(";").at(ANTHILL_INDEX_MEANING) == ANTHILL_TAG_FEATURE ) ;
+}
+
+bool AntHillManager::isColorSelectionAllowed( QMap< QString, QString >::ConstIterator &res ) const {
+	assert( res.key().startsWith("result") ) ;
+	assert( res.value().count(";") == 4 ) ;
+	return !( res.value().split(";").at(ANTHILL_INDEX_MEANING) == ANTHILL_TAG_FEATURE ) ;
+}
+
+void AntHillManager::getSize( QMap< QString, QString >::ConstIterator &res, uint &n_rows, uint &n_cols, uint &n_slices ) const {
+	assert( res.key().startsWith("result") ) ;
+	assert( res.value().count(";") == 4 ) ;
+	
+	QStringList dims = res.value().split(";").at(ANTHILL_INDEX_DIMENSION).split(" ") ;
+	n_rows = dims.at(0).toInt() ;
+	n_cols = dims.at(1).toInt() ;
+	n_slices = dims.at(2).toInt() ;
+}
+
+void AntHillManager::getOffset( QMap< QString, QString >::ConstIterator &res, uint &row, uint &col, uint &slice ) const {
+	assert( res.key().startsWith("result") ) ;
+	assert( res.value().count(";") == 4 ) ;
+	
+	QStringList dims = res.value().split(";").at(ANTHILL_INDEX_OFFSET).split(" ") ;
+	row = dims.at(0).toInt() ;
+	col = dims.at(1).toInt() ;
+	slice = dims.at(2).toInt() ;
+}
+
 bool AntHillManager::draw( const QString &resname, arma::Mat<uint8_t> &image, uint8_t axis, uint16_t coordinate, const Interval<int32_t> &range,bool normalize ) {
 	QStringList info ;
 	if ( !_prop.contains( resname ) ) {
 		/// retrieve from _project the encoding
 		QMap< QString, QMap<QString,QString> >::ConstIterator resIter = _project->process_begin(),
 		                                                      resEnd = _project->process_end() ;
+		QMap<QString,QString>::ConstIterator paramIter, paramEnd ;
 		while ( resIter != resEnd ) {
-			if ( resIter.value().value( "result" ).startsWith( resname ) ) {
-				info = resIter.value().value( "result" ).split( ";" ) ;
-				break ;
-			}
+			paramIter = resIter.value().begin() ;
+			paramEnd = resIter.value().end() ;
+			for ( ; paramIter != paramEnd ; paramIter++ )
+				if ( paramIter.key().startsWith("result") )
+					if ( uid( resIter, paramIter ) == resname ) {
+						info = paramIter.value().split( ";" ) ;
+						break ;
+					}
+			if ( !info.isEmpty() ) break ;
 			resIter++ ;
 		}
 		if ( resIter == resEnd ) {
@@ -61,9 +105,9 @@ bool AntHillManager::draw( const QString &resname, arma::Mat<uint8_t> &image, ui
 		fs::path respath = _projectLocation ;
 		respath /= info.at(0).toStdString() ;
 
-		if ( info.at(1) == "bilevel" ) _prop[ resname ]._meaning = MEANING_BILEVEL ;
-		else if ( info.at(1) == "label" ) _prop[ resname ]._meaning = MEANING_LABEL ;
-		else if ( info.at(1) == "feature" ) _prop[ resname ]._meaning = MEANING_FEATURE ;
+		if ( info.at(1) == ANTHILL_TAG_BILEVEL ) _prop[ resname ]._meaning = MEANING_BILEVEL ;
+		else if ( info.at(1) == ANTHILL_TAG_LABEL ) _prop[ resname ]._meaning = MEANING_LABEL ;
+		else if ( info.at(1) == ANTHILL_TAG_FEATURE ) _prop[ resname ]._meaning = MEANING_FEATURE ;
 		else {
 			std::cerr<<"[ Error ] : unknown meaning "<< info.at(1).toStdString()<<" for the project file wrt the ressource "<<resname.toStdString()<<" Function "<<__FUNCTION__<<" @ line "<<__LINE__<<std::endl;
 		}
@@ -125,7 +169,7 @@ bool AntHillManager::draw( const QString &resname, arma::Mat<uint8_t> &image, ui
 		Interval<arma::u32> cast_range( range.min(), range.max() ) ;
 		draw( (BillonTpl<arma::u32>*) _prop[ resname ]._adr, image, axis, coordinate, cast_range, normalize ) ;
 	}
-	std::cerr<<"[ Info ] : "<<__FUNCTION__<<" @ line "<<__LINE__<<std::endl;
+	//std::cerr<<"[ Info ] : "<<__FUNCTION__<<" @ line "<<__LINE__<<std::endl;
 	return true ;
 }
 
@@ -216,7 +260,7 @@ void AntHillManager::importDicom( const QString &folderName ) {
 		QMap< QString, QString > details ;
 		prj.addProcess( "import", details ) ;
 		details.insert( "size", QString("%1;%2;%3").arg(n_rows).arg(n_cols).arg(n_slices) ) ;
-		details.insert( "result", QString("%1;feature;16u").arg(EXPORT_FILE_NAME) ) ;
+		details.insert( "result", QString("%1;%2;16u").arg(EXPORT_FILE_NAME).arg(ANTHILL_TAG_FEATURE) ) ;
 		prj.save( QString::fromStdString(filepath.c_str()) ) ;
 		#if ( QT_MAJOR_VERSION > 4 || ( QT_MAJOR_VERSION == 4 && QT_MINOR_VERSION == 8 ) )
 		QMap< QString,QString >().swap( keyDataIter.value() ) ;
@@ -252,7 +296,7 @@ bool AntHillManager::binarization( const Billon *data, const Interval<__billon_t
     details.insert( "maximum", QString("%1").arg( range.max() ) ) ;
     details.insert( "threshold", QString("%1").arg( th ) ) ;
     details.insert( "size", QString("%1;%2;%3").arg(data->n_rows).arg(data->n_cols).arg(data->n_slices) ) ;
-    details.insert( "result", QString("%1;bilevel;8u").arg(BINARIZATION_OUTPUT_FILE_NAME) ) ;
+    details.insert( "result", QString("%1;%2;8u").arg(BINARIZATION_OUTPUT_FILE_NAME).arg(ANTHILL_TAG_BILEVEL) ) ;
     _project->addProcess( "binarisation", details ) ;
     fs::path filename = _projectLocation ;
     filename /= _filename ;

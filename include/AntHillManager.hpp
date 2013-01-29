@@ -41,9 +41,18 @@ public:
 	
 	void reset() ;
 	
-	bool isContentOnly           ( QMap< QString, QMap< QString, QString > >::ConstIterator &res ) const ;
-	bool isColorSelectionAllowed ( QMap< QString, QMap< QString, QString > >::ConstIterator &res ) const ;
+	bool isContentOnly           ( QMap< QString, QString >::ConstIterator &res ) const ;
+	bool isColorSelectionAllowed ( QMap< QString, QString >::ConstIterator &res ) const ;
 	
+	QString uid ( QMap< QString, QMap< QString, QString> >::ConstIterator process,
+					QMap< QString, QString >::ConstIterator param ) const {
+		return QString("%1:%2").arg(process.key()).arg(param.key()) ;
+	}
+	void getOffset( QMap< QString, QString >::ConstIterator &res, uint &row, uint &col, uint &slice ) const ;
+	void getSize( QMap< QString, QString >::ConstIterator &res, uint &n_rows, uint &n_cols, uint &n_slices ) const ;
+	
+	void getSize( uint &n_rows, uint &n_cols, uint &n_slices ) const ;
+	void getRange( Interval< arma::u16 > &range ) const ;
 private:
 	typedef struct _TImageProperty {
 		void*	_adr ;
@@ -101,6 +110,6 @@ void AntHillManager::draw( const BillonTpl< T > *data, arma::Mat<uint8_t> &image
 		readIter++ ;
 		writeIter++;
 	}
-	std::cout<<"[ Info ] : finish drawing view "<<coordinate<<" on axis "<<(axis==0?"x":(axis==1?"y":"z"))<<std::endl;
+	//std::cout<<"[ Info ] : finish drawing view "<<coordinate<<" on axis "<<(axis==0?"x":(axis==1?"y":"z"))<<std::endl;
 }
 #endif

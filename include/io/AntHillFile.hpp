@@ -4,6 +4,10 @@
 #include <QString>
 #include <QMap>
 
+#define ANTHILL_TAG_BILEVEL "bilevel"
+#define ANTHILL_TAG_FEATURE "feature"
+#define ANTHILL_TAG_LABEL   "label"
+
 class AntHillFile {
 public:
 	AntHillFile( ) { _error = false ;}
