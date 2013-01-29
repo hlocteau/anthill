@@ -20,7 +20,15 @@ namespace fs = boost::filesystem ;
 
 bool USE_SEGM_TOOL = true ;
 
+void MainWindow::onChangeBoolParameter(bool v) {
+	drawSlice(v==v);
+}
+void MainWindow::onChangeIntParameter(int v) {
+	drawSlice(v==v);
+}
+
 MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), _ui(new Ui::MainWindow) {
+	
 	_currentSlice = 0;
 	_currentSerie = -1 ;
 	_ui->setupUi(this);
@@ -37,19 +45,36 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), _ui(new Ui::MainW
 	_ui->axisSelection->addItem(tr("YZ")) ;
 	_ui->axisSelection->addItem(tr("ZX")) ;
 	_ui->axisSelection->addItem(tr("XY")) ;
-	connect( _ui->axisSelection, SIGNAL(currentIndexChanged(int)), this, SLOT(onChangeAxis(int)));
 	_ui->ressources->setMinimumWidth ( 150*3 ) ;
 	initRessources(_ui->ressources) ;
 
-	_billon = 0 ;
 	_segmImg = 0 ;
 	_skelImg = 0 ;
 	_zoomFactor = 1 ;
+
+	connect( _ui->spinMinIntensity, SIGNAL(valueChanged(int)), this, SLOT( onChangeIntParameter(int) ) ) ;
+	connect( _ui->spinMaxIntensity, SIGNAL(valueChanged(int)), this, SLOT( onChangeIntParameter(int) ) ) ;
+	connect( _ui->binSpinBox,       SIGNAL(valueChanged(int)), this, SLOT( onChangeIntParameter(int) ) ) ;
+	connect( _ui->x_shift,          SIGNAL(valueChanged(int)), this, SLOT( onChangeIntParameter(int) ) ) ;
+	connect( _ui->y_shift,          SIGNAL(valueChanged(int)), this, SLOT( onChangeIntParameter(int) ) ) ;
+	connect( _ui->z_shift,          SIGNAL(valueChanged(int)), this, SLOT( onChangeIntParameter(int) ) ) ;
+	connect( _ui->x_shift_skel,     SIGNAL(valueChanged(int)), this, SLOT( onChangeIntParameter(int) ) ) ;
+	connect( _ui->y_shift_skel,     SIGNAL(valueChanged(int)), this, SLOT( onChangeIntParameter(int) ) ) ;
+	connect( _ui->z_shift_skel,     SIGNAL(valueChanged(int)), this, SLOT( onChangeIntParameter(int) ) ) ;
+	
+	connect( _ui->segmCheckBox,     SIGNAL(toggled(bool)), this, SLOT( onChangeBoolParameter(bool) ) ) ;
+	connect( _ui->contentCheckBox,  SIGNAL(toggled(bool)), this, SLOT( onChangeBoolParameter(bool) ) ) ;
+	connect( _ui->checkBox,         SIGNAL(toggled(bool)), this, SLOT( onChangeBoolParameter(bool) ) ) ;
+
+	connect( _ui->axisSelection, SIGNAL(currentIndexChanged(int)), this, SLOT(onChangeAxis(int)));
+
 }
 
 void MainWindow::onChangeAxis( int idx ) {
-	if ( _billon == 0 ) return ;
-	uint16_t dims[] = { _billon->n_rows, _billon->n_cols, _billon->n_slices } ;
+	if ( antHillMng.project() == 0 ) return ;
+	uint dims[3] ;
+	antHillMng.getSize( dims[0], dims[1], dims[2] ) ;
+	
 	_mainPix = QImage( dims[ (idx+1)%3], dims[ (idx+2)%3], QImage::Format_ARGB32);
 	std::cout<<"[ Info ] : image's dimensions are "<<dims[0]<<" x "<<dims[1]<<" x "<<dims[2]<<std::endl
 	         <<"           pixmap's size is "<<_mainPix.width()<<" x "<<_mainPix.height()<<std::endl
@@ -67,7 +92,6 @@ MainWindow::~MainWindow() {
 }
 
 void MainWindow::on_actionClose_folder_triggered() {
-	_currentRepository.clear() ;
 
 	_ui->sequenceSlider->setSliderPosition(0);
 	_ui->spinMinIntensity->setValue(0);
@@ -104,10 +128,6 @@ void MainWindow::on_actionOpen_folder_triggered() {
 }
 
 void MainWindow::closeImage() {
-	if ( _billon != 0 ) {
-		delete _billon;
-		_billon = 0;
-	}
 	if ( _segmImg != 0 ) {
 		delete _segmImg;
 		_segmImg = 0 ;
@@ -131,36 +151,40 @@ void MainWindow::closeImage() {
 	_ui->skelCheckBox->setEnabled(false);
 
 	_zoomFactor = 1 ;
-	_mainPix = QImage(0,0,QImage::Format_ARGB32);
+	_mainPix = QImage(1,1,QImage::Format_ARGB32);
 	drawSlice();
 }
 
 QColor MainWindow::getColorOf( const QString & search ) {
-	QMap< QString, QMap<QString,QString> >::ConstIterator processIter = antHillMng.project()->process_begin() ;
-	QMap< QString, QMap<QString,QString> >::ConstIterator processEnd = antHillMng.project()->process_end() ;
-	uint rowProcess = 0 ;
-	while ( processIter != processEnd ) {
-		if ( processIter.value().value( "result" ).startsWith( search ) ) break ;
-		rowProcess++ ;
-		processIter ++ ;
+	uint row ;
+	QTableWidgetItem *item = 0 ;
+	for ( row = 0 ; row < (uint)_ressourcesTable->rowCount() ; row++ ) {
+		item = _ressourcesTable->item( row, 0 ) ;
+		if ( item->text() == search ) {
+			item = _ressourcesTable->item( row, 2 ) ;
+			return item->background().color() ;
+		}
 	}
-	if ( processIter == processEnd ) {
-		std::cerr<<"[ Warning ] : can not retrieve color for ressource "<<search.toStdString()<<std::endl;
-		return QColor( 0,0,0 ) ;
-	}
-	return _ressourcesTable->item( rowProcess, 2 )->background().color() ;
+	std::cerr<<"[ Warning ] : can not retrieve color for ressource "<<search.toStdString()<<std::endl;
+	return QColor( 0,0,0 ) ;
+}
+
+QColor MainWindow::getColorOf( uint row ) {
+	assert( row < (uint)_ressourcesTable->rowCount() ) ;
+	QTableWidgetItem *item = _ressourcesTable->item( row, 2 ) ;
+	return item->background().color() ;
 }
 
 void MainWindow::drawSlice( bool newContent ){
 
-	if ( _billon != 0 )	{
+	if ( antHillMng.project() != 0 )	{
 		if ( newContent ) {
 			Interval<int> range_img (_ui->spinMinIntensity->value(),_ui->spinMaxIntensity->value());
 			_mainPix.fill(0xff0000CC);
 			arma::Mat<uint8_t> arma_mainPix( _mainPix.height(), _mainPix.width() ) ;
 			
 			
-			antHillMng.draw( "input.pgm3d", arma_mainPix, _ui->axisSelection->currentIndex(), _currentSlice, range_img ) ;
+			antHillMng.draw( "import:result", arma_mainPix, _ui->axisSelection->currentIndex(), _currentSlice, range_img ) ;
 			if ( _ui->axisSelection->currentIndex() != 0 )
 				arma_mainPix = arma_mainPix.t() ;
 			QRgb * writeIter = (QRgb *) _mainPix.bits() ;
@@ -168,22 +192,18 @@ void MainWindow::drawSlice( bool newContent ){
 				* writeIter = qRgb( *readIter,*readIter,*readIter) ;
 				writeIter++ ;
 			}
-			
-			//antHillMng.draw( _billon, arma_mainPix, _ui->axisSelection->currentIndex(), _currentSlice, range_img ) ;
-			//antHillMng.draw( "input.pgm3d", arma_mainPix, _ui->axisSelection->currentIndex(), _currentSlice, range_img ) ;
-
 			if ( _ui->axisSelection->currentIndex() != 0 )
 				arma_mainPix = arma_mainPix.t() ;
-			antHillMng.draw( "binary.pgm3d", arma_mainPix, _ui->axisSelection->currentIndex(), _currentSlice, Interval<int>(0,1) ) ;
+			antHillMng.draw( "binarisation:result", arma_mainPix, _ui->axisSelection->currentIndex(), _currentSlice, Interval<int>(0,1) ) ;
 			if ( _ui->axisSelection->currentIndex() != 0 )
 				arma_mainPix = arma_mainPix.t() ;
 			writeIter = (QRgb *) _mainPix.bits() ;
+			std::cout<<"Draw with color : "<<getColorOf( "binarisation:result" ).red()<<"|"<<getColorOf( "binarisation:result" ).green()<<"|"<<getColorOf( "binarisation:result" ).blue()<<std::endl;
 			for ( arma::Mat<uint8_t>::iterator readIter = arma_mainPix.begin() ; readIter != arma_mainPix.end() ; readIter++ ) {
 				if ( *readIter )
-					* writeIter = getColorOf( "binary.pgm3d" ).rgb() ; /// depending on whether we draw or we draw OVER
+					* writeIter = getColorOf( "binarisation:result" ).rgb() ; /// depending on whether we draw or we draw OVER
 				writeIter++ ;
 			}
-			
 			
 			/*
 			if ( !_bViewSegm )
@@ -219,20 +239,9 @@ void MainWindow::changeRessourcesConfigView(int row, int col) {
 		QTableWidgetItem *item3 = _ressourcesTable->item(row, 3);
 
 		std::cout<<__FUNCTION__<<" @ line "<<__LINE__<<std::endl;	
-		_ressourcesTable->cellWidget(row, 1)->setEnabled( item0->checkState() == Qt::Checked ) ;
+		_ressourcesTable->cellWidget(row, 1)->setEnabled( item0->checkState() == Qt::Checked && !item1->data(Qt::UserRole).toBool() ) ;
 		
 		if (item0->checkState() == Qt::Checked) {
-			QIcon::Mode mode;
-			if (item1->text() == tr("Normal")) {
-				mode = QIcon::Normal;
-			} else if (item1->text() == tr("Active")) {
-				mode = QIcon::Active;
-			} else if (item1->text() == tr("Disabled")) {
-				mode = QIcon::Disabled;
-			} else {
-				mode = QIcon::Selected;
-			}
-
 			QString fileName = item0->data(Qt::UserRole).toString();
 			if ( ! findChild<QPushButton*>( "autoRefresh" )->isChecked() )
 				std::cout<<"image "<<fileName.toStdString()<<" has to be drawn "<<item1->text().toStdString()<<(item3->checkState() == Qt::Checked?" and ":" but not ")<<"tracked / color "<<item2->background().color().red()<<":"<<item2->background().color().green()<<":"<<item2->background().color().blue()<<std::endl;
@@ -265,10 +274,6 @@ void MainWindow::initRessources( QWidget *parent ) {
 	_ressourcesTable->horizontalHeader()->setResizeMode(QHeaderView::Interactive);
 	_ressourcesTable->setColumnCount(4);
 	_ressourcesTable->setHorizontalHeaderLabels(labels);
-/*	_ressourcesTable->horizontalHeader()->setResizeMode(0, QHeaderView::Stretch);
-	_ressourcesTable->horizontalHeader()->setResizeMode(1, QHeaderView::Stretch);
-	_ressourcesTable->horizontalHeader()->setResizeMode(2, QHeaderView::Stretch);
-	_ressourcesTable->horizontalHeader()->setResizeMode(3, QHeaderView::Stretch);*/
 	_ressourcesTable->verticalHeader()->hide();
 
 	connect(_ressourcesTable, SIGNAL(cellChanged(int,int)), this, SLOT(changeRessourcesConfigView(int,int)));
@@ -288,6 +293,7 @@ void MainWindow::initRessources( QWidget *parent ) {
 void MainWindow::changeRessourceColor(int row,int column) {
 	if ( column != 2 ) return ;
 	if ( _ressourcesTable->item( row, 0 )->checkState() != Qt::Checked ) return ;
+	if ( ! _ressourcesTable->item( row, 2 )->data( Qt::UserRole).toBool() ) return ;
 	QColor new_color = QColorDialog::getColor( _ressourcesTable->item( row, column )->background().color(),
 												this, tr("Pick a new color"), QColorDialog::DontUseNativeDialog ) ;
 	if ( new_color.isValid() && new_color != Qt::black ) {
@@ -307,44 +313,55 @@ void MainWindow::updateRessources( ) {
 	std::cout<<__FUNCTION__<<" @ line "<<__LINE__<<std::endl;
 	if ( antHillMng.project() ) {
 		_ressourcesTable->setRowCount(0) ;
-		QMap< QString, QMap< QString,QString > >::const_iterator resultIter = antHillMng.project()->process_begin(),
-																	resultEnd = antHillMng.project()->process_end();
+		QMap< QString, QMap< QString,QString > >::ConstIterator resultIter = antHillMng.project()->process_begin(),
+																resultEnd = antHillMng.project()->process_end();
+		QMap< QString,QString >::ConstIterator fieldIter, fieldEnd ;
 		double hue=( rand() % 1000 ) / 1000. ;
 		for ( ; resultIter != resultEnd ; resultIter++ ) {
-			int row = _ressourcesTable->rowCount();
-			_ressourcesTable->setRowCount(row + 1);
+			fieldIter = resultIter.value().begin();
+			fieldEnd = resultIter.value().end();
+			for ( ; fieldIter != fieldEnd ; fieldIter ++ ) {
+				if ( !fieldIter.key().startsWith("result") ) continue ;
+std::cout<<"[ Info ] : process ("<<resultIter.key().toStdString()<<" ( "<<fieldIter.key().toStdString()<<" : "<<fieldIter.value().toStdString()<<" ) )"<<std::endl;
+				int row = _ressourcesTable->rowCount();
+				_ressourcesTable->setRowCount(row + 1);
 
-			QTableWidgetItem *item0 = new QTableWidgetItem( resultIter.key() );
-			item0->setData(Qt::UserRole, resultIter.value().value( "result" ) );
-			item0->setFlags(item0->flags() & ~Qt::ItemIsEditable);
+				QTableWidgetItem *item0 = new QTableWidgetItem( antHillMng.uid( resultIter, fieldIter ) );
+				item0->setData(Qt::UserRole, fieldIter.value() );
+				item0->setFlags(item0->flags() & ~Qt::ItemIsEditable);
+std::cout<<"[ Debug ] : "<<__FUNCTION__<<" @ line "<<__LINE__<<std::endl;
+				QTableWidgetItem *item1 = new QTableWidgetItem(tr("Content"));
+				/**
+				 * \brief it makes no sense to define a boundary on feature images
+				 */
+				item1->setData( Qt::UserRole, antHillMng.isContentOnly( fieldIter ) ) ;
+std::cout<<"[ Debug ] : "<<__FUNCTION__<<" @ line "<<__LINE__<<std::endl;
+				QTableWidgetItem *item2 = new QTableWidgetItem();
+				/**
+				 * \brief we only define new color(s) for bilevel/labelled images
+				 */
+				item2->setData( Qt::UserRole, antHillMng.isColorSelectionAllowed( fieldIter ) ) ;
+				if ( antHillMng.isColorSelectionAllowed( fieldIter ) ) {
+					item2->setBackground ( QBrush( makeRgbColor( hue ) ) ) ;
+std::cout<<"[ Debug ] : set color for "<<fieldIter.key().toStdString()<<" : "<<fieldIter.value().toStdString()<<std::endl;
+				}
+std::cout<<"[ Debug ] : "<<__FUNCTION__<<" @ line "<<__LINE__<<std::endl;
+				QTableWidgetItem *item3 = new QTableWidgetItem();
+				item3->setCheckState(Qt::Unchecked);
+				item3->setTextAlignment( Qt::AlignCenter ) ;
 
-			QTableWidgetItem *item1 = new QTableWidgetItem(tr("Content"));
-			/**
-			 * \brief it makes no sense to define a boundary on feature images
-			 */
-			item1->setData( Qt::UserRole, antHillMng.isContentOnly( resultIter ) ) ;
-			QTableWidgetItem *item2 = new QTableWidgetItem();
-			/**
-			 * \brief we only define new color(s) for bilevel/labelled images
-			 */
-			item2->setData( Qt::UserRole, antHillMng.isColorSelectionAllowed( resultIter ) ) ;
-			if ( antHillMng.isColorSelectionAllowed( resultIter ) )
-				item2->setBackground ( QBrush( makeRgbColor( hue ) ) ) ;
-			
-			QTableWidgetItem *item3 = new QTableWidgetItem();
-			item3->setCheckState(Qt::Unchecked);
-			item3->setTextAlignment( Qt::AlignCenter ) ;
-
-			/** \warning the item0 is the last one to be inserted in the current row
-			 *           wrt the slot devoted to signal cellChanged
-			 **/
-			_ressourcesTable->setItem(row, 1, item1);
-			_ressourcesTable->openPersistentEditor(item1);
-			_ressourcesTable->setItem(row, 2, item2);
-			_ressourcesTable->setItem(row, 3, item3);
-			item0->setCheckState(Qt::Unchecked);
-			_ressourcesTable->setItem(row, 0, item0);
-			
+				/** \warning the item0 is the last one to be inserted in the current row
+				 *           wrt the slot devoted to signal cellChanged
+				 */
+std::cout<<"[ Debug ] : "<<__FUNCTION__<<" @ line "<<__LINE__<<std::endl;
+				_ressourcesTable->setItem(row, 1, item1);
+				_ressourcesTable->openPersistentEditor(item1);
+				_ressourcesTable->setItem(row, 2, item2);
+				_ressourcesTable->setItem(row, 3, item3);
+				item0->setCheckState(Qt::Unchecked);
+std::cout<<"           will trigger slot..."<<std::endl;
+				_ressourcesTable->setItem(row, 0, item0);
+			}
 		}
 		_ressourcesTable->resizeRowsToContents () ;
 	}
@@ -378,20 +395,15 @@ void MainWindow::updateDictionary( ) {
 
 void MainWindow::on_listWidget_itemDoubleClicked(QListWidgetItem *item) {
 	if ( !antHillMng.load( item->text() ) ) {
-		if ( _billon ) delete _billon ;
-		_billon = 0 ;
-	} else   
-		antHillMng.openInitialInput( &_billon ) ;
-	
-	if ( !_billon ) {
-		_mainPix = QImage(0,0,QImage::Format_ARGB32);
+		_mainPix = QImage(1,1,QImage::Format_ARGB32);
 		_currentSerie = -1 ;
-		 return ;
+		return ;
 	}
 	updateDictionary( );
 	updateRessources( ) ;
 	uint idx = _ui->axisSelection->currentIndex();
-	uint16_t dims[] = { _billon->n_rows, _billon->n_cols, _billon->n_slices } ;
+	uint dims[3] ;
+	antHillMng.getSize( dims[0], dims[1],dims[2] ) ;
 	_mainPix = QImage( dims[ (idx+1)%3], dims[ (idx+2)%3], QImage::Format_ARGB32);
 	_ui->sequenceSlider->setMaximum( 0 );
 	_ui->sequenceSlider->setMaximum( dims[idx]-1 );
@@ -401,10 +413,13 @@ void MainWindow::on_listWidget_itemDoubleClicked(QListWidgetItem *item) {
 	_ui->spinMinIntensity->setEnabled(true);
 	_ui->spinMaxIntensity->setEnabled(true);
 
-	_ui->spinMinIntensity->setRange( _billon->minValue(), _billon->maxValue() );
-	_ui->spinMaxIntensity->setRange( _billon->minValue(), _billon->maxValue() );
-	_ui->spinMinIntensity->setValue( _billon->minValue() );
-	_ui->spinMaxIntensity->setValue( _billon->maxValue() );
+	Interval<arma::u16> range ;
+	antHillMng.getRange( range ) ;
+	_ui->spinMinIntensity->setRange( range.min(), range.max() );
+	_ui->spinMaxIntensity->setRange( range.min(), range.max() );
+	_ui->spinMinIntensity->setValue( range.min() );
+	_ui->spinMaxIntensity->setValue( range.max() );
+	
 	_ui->binSpinBox->setValue( 128 );
 	
 	drawSlice();
@@ -413,13 +428,13 @@ void MainWindow::on_listWidget_itemDoubleClicked(QListWidgetItem *item) {
 }
 
 bool MainWindow::eventFilter(QObject *obj, QEvent *event) {
-	if ( _billon != 0 ) {
+	if ( antHillMng.project() != 0 ) {
 		if ( obj == _ui->_labelSliceView ) {
 			if ( event->type() == QEvent::MouseMove) {
 				   const QMouseEvent *mouseEvent = static_cast<const QMouseEvent*>(event);
 				   QPoint curPixel = mouseEvent->pos() ;
 				   curPixel /= _zoomFactor ;
-				   if ( curPixel.x() < /*_billon->n_cols*/ _mainPix.width() && curPixel.y() < /*_billon->n_rows*/ _mainPix.height() )
+				   if ( curPixel.x() < _mainPix.width() && curPixel.y() < _mainPix.height() )
 					   on__labelSliceView_customContextMenuRequested( curPixel ) ;
 			} else if ( event->type() == QEvent::Wheel ) {
 			   const QWheelEvent *wheelEvent = static_cast<const QWheelEvent*>(event);
@@ -435,7 +450,7 @@ bool MainWindow::eventFilter(QObject *obj, QEvent *event) {
 				if ( mouseEvent->button() == Qt::RightButton ) {
 					QPoint curPixel = mouseEvent->pos() ;
 					curPixel /= _zoomFactor ;
-					if ( curPixel.x() < /*_billon->n_cols*/ _mainPix.width() && curPixel.y() < /*_billon->n_rows*/ _mainPix.height() ) {
+					if ( curPixel.x() < _mainPix.width() && curPixel.y() < _mainPix.height() ) {
 						/// cyclic rotation of axis selection
 						_ui->axisSelection->setCurrentIndex( (_ui->axisSelection->currentIndex() + 1 ) % 3 ) ;
 						std::cout<<"[ Info ] : set slice position"<<std::endl;
@@ -468,49 +483,38 @@ void MainWindow::on_sequenceSlider_valueChanged(int value) {
 }
 
 void MainWindow::on_binPushButton_clicked() {
-	antHillMng.binarization( _billon, Interval<__billon_type__>(_ui->spinMinIntensity->value(), _ui->spinMaxIntensity->value() ), _ui->binSpinBox->value()) ;
+	antHillMng.binarization( Interval<arma::s16>(_ui->spinMinIntensity->value(), _ui->spinMaxIntensity->value() ), _ui->binSpinBox->value()) ;
 	updateRessources() ;
-}
-
-void MainWindow::on_spinMinIntensity_valueChanged(int arg1){
-	drawSlice();
-}
-
-void MainWindow::on_spinMaxIntensity_valueChanged(int arg1){
-	drawSlice();
 }
 
 void MainWindow::on_checkBox_stateChanged(int arg1){
 	_bViewSegm = !_bViewSegm ;
 	drawSlice();
 }
-
-void MainWindow::on_binSpinBox_valueChanged(int arg1){
-	drawSlice();
-}
-
 void MainWindow::on_segmLoadButton_clicked(){
-  if ( _billon == 0 ) return ;
+	if ( antHillMng.project() == 0 ) return ;
 
-  QString fileName = QFileDialog::getOpenFileName(0,tr("select pgm3d file"),QString("%1").arg( antHillMng.projectLocation().c_str() ),tr("3D Image Files (*.pgm *.pgm3d)"));
-  if ( !fileName.isEmpty() ) {
-	  if ( _segmImg ) delete _segmImg ;
-	  _segmImg = factory.read( fileName ) ;
-	  if ( _segmImg != 0 ) {
-		  _ui->segmCheckBox->setEnabled(true);
-		  _ui->x_shift->setMaximum( _billon->n_rows - _segmImg->n_rows);
-		  _ui->y_shift->setMaximum( _billon->n_cols - _segmImg->n_cols);
-		  _ui->z_shift->setMaximum( _billon->n_slices - _segmImg->n_slices);
-		  _ui->x_shift->setValue(0);
-		  _ui->y_shift->setValue(0);
-		  _ui->z_shift->setValue(0);
-		  _ui->x_shift->setEnabled(true);
-		  _ui->y_shift->setEnabled(true);
-		  _ui->z_shift->setEnabled(true);
-		  _ui->contentCheckBox->setEnabled(true);
-	  }
-  }
-  if ( _ui->segmCheckBox->isChecked() ) drawSlice();
+	QString fileName = QFileDialog::getOpenFileName(0,tr("select pgm3d file"),QString("%1").arg( antHillMng.projectLocation().c_str() ),tr("3D Image Files (*.pgm *.pgm3d)"));
+	if ( !fileName.isEmpty() ) {
+		if ( _segmImg ) delete _segmImg ;
+		_segmImg = factory.read( fileName ) ;
+		if ( _segmImg != 0 ) {
+			uint dims[3] ;
+			antHillMng.getSize( dims[0], dims[1], dims[2] ) ;
+			_ui->segmCheckBox->setEnabled(true);
+			_ui->x_shift->setMaximum( dims[0] - _segmImg->n_rows);
+			_ui->y_shift->setMaximum( dims[1] - _segmImg->n_cols);
+			_ui->z_shift->setMaximum( dims[2] - _segmImg->n_slices);
+			_ui->x_shift->setValue(0);
+			_ui->y_shift->setValue(0);
+			_ui->z_shift->setValue(0);
+			_ui->x_shift->setEnabled(true);
+			_ui->y_shift->setEnabled(true);
+			_ui->z_shift->setEnabled(true);
+			_ui->contentCheckBox->setEnabled(true);
+		}
+	}
+	if ( _ui->segmCheckBox->isChecked() ) drawSlice();
 }
 
 void MainWindow::on_segmCheckBox_stateChanged(int arg1){
@@ -518,32 +522,19 @@ void MainWindow::on_segmCheckBox_stateChanged(int arg1){
 	_ui->contentCheckBox->setEnabled( ( _ui->segmCheckBox->isChecked() ) ) ;
 }
 
-void MainWindow::on_x_shift_valueChanged(int arg1){
-	drawSlice();
-}
-void MainWindow::on_y_shift_valueChanged(int arg1){
-
-	drawSlice();
-}
-void MainWindow::on_z_shift_valueChanged(int arg1){
-
-	drawSlice();
-}
-void MainWindow::on_contentCheckBox_stateChanged(int arg1){
-
-	drawSlice();
-}
 void MainWindow::on_skelLoadButton_clicked(){
-	if ( _billon == 0 ) return ;
+	if ( antHillMng.project() == 0 ) return ;
 	QString fileName = QFileDialog::getOpenFileName(0,tr("select pgm3d file"),QString("%1").arg( antHillMng.projectLocation().c_str() ),tr("3D Image Files (*.pgm *.pgm3d)"));
 	if ( !fileName.isEmpty() ) {
 		if ( _skelImg ) delete _skelImg ;
 		_skelImg = factory.read( fileName ) ;
 		if ( _skelImg != 0 ) {
+			uint dims[3] ;
+			antHillMng.getSize( dims[0], dims[1], dims[2] ) ;
 			_ui->skelCheckBox->setEnabled(true);
-			_ui->x_shift_skel->setMaximum( _billon->n_rows - _skelImg->n_rows);
-			_ui->y_shift_skel->setMaximum( _billon->n_cols - _skelImg->n_cols);
-			_ui->z_shift_skel->setMaximum( _billon->n_slices - _skelImg->n_slices);
+			_ui->x_shift_skel->setMaximum( dims[0] - _skelImg->n_rows);
+			_ui->y_shift_skel->setMaximum( dims[1] - _skelImg->n_cols);
+			_ui->z_shift_skel->setMaximum( dims[2] - _skelImg->n_slices);
 			_ui->x_shift_skel->setValue(0);
 			_ui->y_shift_skel->setValue(0);
 			_ui->z_shift_skel->setValue(0);
@@ -554,21 +545,6 @@ void MainWindow::on_skelLoadButton_clicked(){
 		}
 	}
 	if ( _ui->skelCheckBox->isChecked() ) drawSlice();
-}
-void MainWindow::on_y_shift_skel_valueChanged(int arg1){
-	drawSlice();
-}
-void MainWindow::on_z_shift_skel_valueChanged(int arg1){
-	drawSlice();
-}
-void MainWindow::on_x_shift_skel_valueChanged(int arg1){
-	drawSlice();
-}
-void MainWindow::on_contentSkelCheckBox_stateChanged(int arg1){
-	drawSlice();
-}
-void MainWindow::on_skelCheckBox_stateChanged(int arg1){
-	drawSlice();
 }
 void MainWindow::on__labelSliceView_customContextMenuRequested(const QPoint &pos){
 	/// apport d'info contextuelle

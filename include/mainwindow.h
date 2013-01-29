@@ -47,44 +47,11 @@ private slots:
 
     void on_listWidget_itemDoubleClicked(QListWidgetItem *item);
 
-    void on_sequenceSlider_sliderMoved(int position);
-
-    void on_sequenceSlider_valueChanged(int value);
 
     void on_binPushButton_clicked();
 
-    void on_spinMinIntensity_valueChanged(int arg1);
-
-    void on_spinMaxIntensity_valueChanged(int arg1);
-
-    void on_checkBox_stateChanged(int arg1);
-
-    void on_binSpinBox_valueChanged(int arg1);
-
     void on_segmLoadButton_clicked();
-
-    void on_segmCheckBox_stateChanged(int arg1);
-
-    void on_x_shift_valueChanged(int arg1);
-
-    void on_y_shift_valueChanged(int arg1);
-
-    void on_z_shift_valueChanged(int arg1);
-
-    void on_contentCheckBox_stateChanged(int arg1);
-
     void on_skelLoadButton_clicked();
-
-    void on_y_shift_skel_valueChanged(int arg1);
-
-    void on_x_shift_skel_valueChanged(int arg1);
-
-    void on_contentSkelCheckBox_stateChanged(int arg1);
-
-    void on_skelCheckBox_stateChanged(int arg1);
-
-    void on_z_shift_skel_valueChanged(int arg1);
-
 
 	void toggled_config_view(bool checked ) ;
     void on_actionOpen_project_triggered();
@@ -93,8 +60,17 @@ private slots:
 	void resetRessources() ;
 	void changeRessourceColor(int row,int column) ;
 	void onChangeAxis( int ) ;
-private:
+	
+	void onChangeBoolParameter(bool v) ;
+	void onChangeIntParameter(int v) ;
 
+    void on_segmCheckBox_stateChanged(int arg1);
+    void on_sequenceSlider_sliderMoved(int position);
+    void on_sequenceSlider_valueChanged(int value);
+    void on_checkBox_stateChanged(int arg1);
+	
+private:
+	QColor getColorOf( uint row ) ;
 	QColor getColorOf( const QString & search ) ;
 	
     Ui::MainWindow *_ui;
@@ -105,9 +81,6 @@ private:
     
     SliceView *_sliceView;
 
-    QString _currentRepository ;
-
-    Billon *_billon ;
     uint _currentSlice;
     uint _currentSerie ;
     BillonTpl<char> *_segmImg ;
