@@ -76,9 +76,9 @@ void MainWindow::onChangeAxis( int idx ) {
 	antHillMng.getSize( dims[0], dims[1], dims[2] ) ;
 	
 	_mainPix = QImage( dims[ (idx+1)%3], dims[ (idx+2)%3], QImage::Format_ARGB32);
-	std::cout<<"[ Info ] : image's dimensions are "<<dims[0]<<" x "<<dims[1]<<" x "<<dims[2]<<std::endl
-	         <<"           pixmap's size is "<<_mainPix.width()<<" x "<<_mainPix.height()<<std::endl
-	         <<"           slicing between 0 and "<<dims[idx]<<std::endl;
+	//std::cout<<"[ Info ] : image's dimensions are "<<dims[0]<<" x "<<dims[1]<<" x "<<dims[2]<<std::endl
+	//         <<"           pixmap's size is "<<_mainPix.width()<<" x "<<_mainPix.height()<<std::endl
+	//         <<"           slicing between 0 and "<<dims[idx]<<std::endl;
 	_currentSlice = 0 ;
 	_ui->sequenceSlider->setMaximum( 0 );
 	_ui->sequenceSlider->setMaximum( dims[idx]-1 );
@@ -180,31 +180,49 @@ void MainWindow::drawSlice( bool newContent ){
 	if ( antHillMng.project() != 0 )	{
 		if ( newContent ) {
 			Interval<int> range_img (_ui->spinMinIntensity->value(),_ui->spinMaxIntensity->value());
-			_mainPix.fill(0xff0000CC);
+			Interval<int> range_bin (0,255);
+			_mainPix.fill(0xff000000);
 			arma::Mat<uint8_t> arma_mainPix( _mainPix.height(), _mainPix.width() ) ;
-			
-			
-			antHillMng.draw( "import:result", arma_mainPix, _ui->axisSelection->currentIndex(), _currentSlice, range_img ) ;
-			if ( _ui->axisSelection->currentIndex() != 0 )
-				arma_mainPix = arma_mainPix.t() ;
-			QRgb * writeIter = (QRgb *) _mainPix.bits() ;
-			for ( arma::Mat<uint8_t>::iterator readIter = arma_mainPix.begin() ; readIter != arma_mainPix.end() ; readIter++ ) {
-				* writeIter = qRgb( *readIter,*readIter,*readIter) ;
-				writeIter++ ;
-			}
-			if ( _ui->axisSelection->currentIndex() != 0 )
-				arma_mainPix = arma_mainPix.t() ;
-			antHillMng.draw( "binarisation:result", arma_mainPix, _ui->axisSelection->currentIndex(), _currentSlice, Interval<int>(0,1) ) ;
-			if ( _ui->axisSelection->currentIndex() != 0 )
-				arma_mainPix = arma_mainPix.t() ;
-			writeIter = (QRgb *) _mainPix.bits() ;
-			std::cout<<"Draw with color : "<<getColorOf( "binarisation:result" ).red()<<"|"<<getColorOf( "binarisation:result" ).green()<<"|"<<getColorOf( "binarisation:result" ).blue()<<std::endl;
-			for ( arma::Mat<uint8_t>::iterator readIter = arma_mainPix.begin() ; readIter != arma_mainPix.end() ; readIter++ ) {
-				if ( *readIter )
-					* writeIter = getColorOf( "binarisation:result" ).rgb() ; /// depending on whether we draw or we draw OVER
-				writeIter++ ;
-			}
-			
+			bool is_first_layer = true ;
+			for ( uint row = 0 ; row < _ressourcesTable->rowCount() ; row++ ) {
+				QString resname = _ressourcesTable->item(row,0)->text() ;
+				if ( _ressourcesTable->item(row,0)->checkState() != Qt::Checked ) {
+					//std::cerr<<"[ info ] : do not draw ressource "<<resname.toStdString()<<" ( == "<< _ressourcesTable->item(row,0)->data( Qt::UserRole ).toString().toStdString() <<" )"<<std::endl;
+					continue ;
+				}
+				if ( !_ressourcesTable->item(row,2)->data( Qt::UserRole ).toBool() )
+					antHillMng.draw( resname, arma_mainPix, _ui->axisSelection->currentIndex(), _currentSlice, range_img ) ;
+				else
+					antHillMng.draw( resname, arma_mainPix, _ui->axisSelection->currentIndex(), _currentSlice, range_bin ) ;
+				resname = _ressourcesTable->item(row,0)->text() ;
+				if ( _ui->axisSelection->currentIndex() != 0 )
+					arma_mainPix = arma_mainPix.t() ;
+				QRgb * writeIter = (QRgb *) _mainPix.bits() ;
+				if ( !_ressourcesTable->item(row,2)->data( Qt::UserRole ).toBool() ) {
+					for ( arma::Mat<uint8_t>::iterator readIter = arma_mainPix.begin() ; readIter != arma_mainPix.end() ; readIter++ ) {
+						if ( is_first_layer ) /// depending on whether we draw or we draw OVER
+							* writeIter = qRgb( *readIter,*readIter,*readIter) ;
+						else {
+							if ( *readIter )
+								*writeIter = qRgb( *readIter,*readIter,*readIter) ;
+						}
+						writeIter++ ;
+					}
+				} else {
+					for ( arma::Mat<uint8_t>::iterator readIter = arma_mainPix.begin() ; readIter != arma_mainPix.end() ; readIter++ ) {
+						if ( is_first_layer ) /// depending on whether we draw or we draw OVER
+							* writeIter = *readIter ? getColorOf( resname ).rgb() : qRgb(0,0,0) ;
+						else {
+							if ( *readIter )
+								* writeIter = getColorOf( resname ).rgb() ;
+						}
+						writeIter++ ;
+					}
+				}
+				is_first_layer = false ;
+				if ( _ui->axisSelection->currentIndex() != 0 )
+					arma_mainPix = arma_mainPix.t() ;
+			}			
 			/*
 			if ( !_bViewSegm )
 			   _sliceView->drawSlice(_mainPix,*_billon,_currentSlice, range_img, range_img.max());
@@ -327,7 +345,7 @@ std::cout<<"[ Info ] : process ("<<resultIter.key().toStdString()<<" ( "<<fieldI
 				_ressourcesTable->setRowCount(row + 1);
 
 				QTableWidgetItem *item0 = new QTableWidgetItem( antHillMng.uid( resultIter, fieldIter ) );
-				item0->setData(Qt::UserRole, fieldIter.value() );
+				item0->setData(Qt::UserRole, fieldIter.value().split(";").at(0) );
 				item0->setFlags(item0->flags() & ~Qt::ItemIsEditable);
 std::cout<<"[ Debug ] : "<<__FUNCTION__<<" @ line "<<__LINE__<<std::endl;
 				QTableWidgetItem *item1 = new QTableWidgetItem(tr("Content"));
@@ -413,8 +431,8 @@ void MainWindow::on_listWidget_itemDoubleClicked(QListWidgetItem *item) {
 	_ui->spinMinIntensity->setEnabled(true);
 	_ui->spinMaxIntensity->setEnabled(true);
 
-	Interval<arma::u16> range ;
-	antHillMng.getRange( range ) ;
+	Interval<arma::s16> range ;
+	antHillMng.getRange<arma::s16>( range ) ;
 	_ui->spinMinIntensity->setRange( range.min(), range.max() );
 	_ui->spinMaxIntensity->setRange( range.min(), range.max() );
 	_ui->spinMinIntensity->setValue( range.min() );
