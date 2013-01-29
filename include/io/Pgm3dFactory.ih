@@ -56,7 +56,23 @@
 			IOPgm3d< T, qint32, true >::readAscii( imageFile, img ) ;
 			break;
 		case BINARY_INT:
-			IOPgm3d< T, qint32, false >::readBinary( imageFile, img ) ;
+			{
+				qint64 current_position = imageFile.pos() ;
+				qint64 endfile_position = imageFile.size() ;
+				qint64 remaining_content = img->n_rows ;
+				remaining_content *= img->n_cols ;
+				remaining_content *= img->n_slices ;
+				remaining_content *= sizeof( qint16) ;
+				if ( ( endfile_position - current_position ) == remaining_content ) {
+					std::cout<<__FILE__<<" expecting "<<remaining_content<<" = "<<( endfile_position - current_position )<<" read 16 bits"<<std::endl;
+					IOPgm3d< T, qint16, false >::readBinary( imageFile, img ) ;
+				} else {
+					remaining_content /= sizeof( qint16) ;
+					remaining_content *= sizeof( qint32) ;
+					std::cout<<__FILE__<<" expecting "<<remaining_content<<" ... "<<( endfile_position - current_position )<<" read 32 bits"<<std::endl;
+					IOPgm3d< T, qint32, false >::readBinary( imageFile, img ) ;
+				}
+			}
 			break;
 		case BINARY_FLOAT:
 			IOPgm3d< T, float, true >::readBinary( imageFile, img ) ;
