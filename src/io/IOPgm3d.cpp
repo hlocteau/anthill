@@ -27,10 +27,12 @@ template <> QString IOPgm3d<int32_t,qint8,false>::_header = QString( "P5" ) ;
 template <> QString IOPgm3d<char,qint16,true>::_header = QString( "PB" ) ;
 template <> QString IOPgm3d<int32_t,qint16,true>::_header = QString( "PB" ) ;
 template <> QString IOPgm3d<char,qint16,false>::_header = QString( "P8" ) ;
-template <> QString IOPgm3d<short,qint16,false>::_header = QString( "P8" ) ;
+
 template <> QString IOPgm3d<int32_t,qint16,false>::_header = QString( "P8" ) ;
 
-
+/*
+template <> QString IOPgm3d<short,qint16,false>::_header = QString( "P8" ) ;
+*/
 template <typename To,typename T, bool tAscii> QString IOPgm3d<To,T,tAscii>::_header = "";
 
 bool pgmheader( QFile &imageFile, std::map<int,QString> &description ) {
