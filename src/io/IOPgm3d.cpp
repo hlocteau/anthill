@@ -30,6 +30,22 @@ template <> QString IOPgm3d<char,qint16,false>::_header = QString( "P8" ) ;
 
 template <> QString IOPgm3d<int32_t,qint16,false>::_header = QString( "P8" ) ;
 
+
+//template <> QString IOPgm3d<arma::s32,qint32,true>::_header = QString( "PB" ) ;
+//template <> QString IOPgm3d<arma::s32,qint32,false>::_header = QString( "P8" ) ;
+template <> QString IOPgm3d<arma::u32,qint32,true>::_header = QString( "PB" ) ;
+template <> QString IOPgm3d<arma::u32,qint32,false>::_header = QString( "P8" ) ;
+
+//template <> QString IOPgm3d<arma::s8,char,true>::_header = QString( "P2" ) ;
+//template <> QString IOPgm3d<arma::s8,qint8,false>::_header = QString( "P5" ) ;
+template <> QString IOPgm3d<arma::u8,char,true>::_header = QString( "P2" ) ;
+template <> QString IOPgm3d<arma::u8,qint8,false>::_header = QString( "P5" ) ;
+
+template <> QString IOPgm3d<arma::s16,qint16,false>::_header = QString( "P8" ) ;
+template <> QString IOPgm3d<arma::s16,qint16,true>::_header = QString( "PB" ) ;
+template <> QString IOPgm3d<arma::u16,qint16,false>::_header = QString( "P8" ) ;
+template <> QString IOPgm3d<arma::u16,qint16,true>::_header = QString( "PB" ) ;
+
 /*
 template <> QString IOPgm3d<short,qint16,false>::_header = QString( "P8" ) ;
 */
