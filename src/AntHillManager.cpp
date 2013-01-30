@@ -24,20 +24,6 @@
 #define ANTHILL_INDEX_OFFSET    4
 
 
-//template <> QString IOPgm3d<arma::s32,qint32,true>::_header = QString( "PB" ) ;
-//template <> QString IOPgm3d<arma::s32,qint32,false>::_header = QString( "P8" ) ;
-template <> QString IOPgm3d<arma::u32,qint32,true>::_header = QString( "PB" ) ;
-template <> QString IOPgm3d<arma::u32,qint32,false>::_header = QString( "P8" ) ;
-
-//template <> QString IOPgm3d<arma::s8,char,true>::_header = QString( "P2" ) ;
-//template <> QString IOPgm3d<arma::s8,qint8,false>::_header = QString( "P5" ) ;
-template <> QString IOPgm3d<arma::u8,char,true>::_header = QString( "P2" ) ;
-template <> QString IOPgm3d<arma::u8,qint8,false>::_header = QString( "P5" ) ;
-
-template <> QString IOPgm3d<arma::s16,qint16,false>::_header = QString( "P8" ) ;
-template <> QString IOPgm3d<arma::s16,qint16,true>::_header = QString( "PB" ) ;
-template <> QString IOPgm3d<arma::u16,qint16,false>::_header = QString( "P8" ) ;
-template <> QString IOPgm3d<arma::u16,qint16,true>::_header = QString( "PB" ) ;
 
 bool AntHillManager::isContentOnly( QMap< QString, QString >::ConstIterator &res ) const {
 	assert( res.key().startsWith(ANTHILL_DEFAULT_OUTPUT_NAME) ) ;
@@ -172,11 +158,19 @@ bool AntHillManager::load_ressource( const QString &resname ) {
 		if ( info.at(2) == "8s" ) {
 			Pgm3dFactory< arma::s8 > factory ;
 			_im_8s.append( factory.read( respath.c_str() ) ) ;
+			if ( _prop[ resname ]._meaning == MEANING_BILEVEL ) {
+				if ( _im_8s.back()->max() != 1 )
+					*_im_8s.back() /= _im_8s.back()->max() ;
+			}
 			_prop[ resname ]._adr = (void*) _im_8s.back() ;
 			type = SIGNED_TINY_INT ;
 		} else if ( info.at(2) == "8u" ) {
 			Pgm3dFactory< arma::u8 > factory ;
 			_im_8u.append( factory.read( respath.c_str() ) ) ;
+			if ( _prop[ resname ]._meaning == MEANING_BILEVEL ) {
+				if ( _im_8u.back()->max() != 1 )
+					*_im_8u.back() /= _im_8u.back()->max() ;
+			}
 			_prop[ resname ]._adr = (void*) _im_8u.back() ;
 			type = UNSIGNED_TINY_INT ;
 		} else if ( info.at(2) == "16s" ) {
@@ -204,6 +198,32 @@ bool AntHillManager::load_ressource( const QString &resname ) {
 			return false;
 		}
 		_prop[ resname ]._type = type ;
+		
+		_prop[ resname ]._size = new uint[ 3 ] ;
+		_prop[ resname ]._size[ 0 ] = _prop[ resname ]._size[ 1 ] = _prop[ resname ]._size[ 2 ] = 0 ;
+		if ( info.size() > ANTHILL_INDEX_DIMENSION ) {
+			QStringList dims = info.at(ANTHILL_INDEX_DIMENSION).split(" ") ;
+			if ( dims.size() != 3 ) {
+				std::cerr<<"[ Warning ] : can not read dimension field (buffer : "<<info.at(ANTHILL_INDEX_DIMENSION).toStdString()<<") for ressource "<<resname.toStdString()<<" Function "<<__FUNCTION__<<" @ line "<<__LINE__<<std::endl;
+			} else {
+				_prop[ resname ]._size[ 0 ] = dims.at(0).toInt();
+				_prop[ resname ]._size[ 1 ] = dims.at(1).toInt();
+				_prop[ resname ]._size[ 2 ] = dims.at(2).toInt();
+			}
+		}
+
+		_prop[ resname ]._offset = new uint[ 3 ] ;
+		_prop[ resname ]._offset[ 0 ] = _prop[ resname ]._offset[ 1 ] = _prop[ resname ]._offset[ 2 ] = 0 ;
+		if ( info.size() > ANTHILL_INDEX_OFFSET ) {
+			QStringList dims = info.at(ANTHILL_INDEX_OFFSET).split(" ") ;
+			if ( dims.size() != 3 ) {
+				std::cerr<<"[ Warning ] : can not read offset field (buffer : "<<info.at(ANTHILL_INDEX_OFFSET).toStdString()<<") for ressource "<<resname.toStdString()<<" Function "<<__FUNCTION__<<" @ line "<<__LINE__<<std::endl;
+			} else {
+				_prop[ resname ]._offset[ 0 ] = dims.at(0).toInt();
+				_prop[ resname ]._offset[ 1 ] = dims.at(1).toInt();
+				_prop[ resname ]._offset[ 2 ] = dims.at(2).toInt();
+			}
+		}
 	}
 	return true ;
 }
@@ -215,29 +235,45 @@ bool AntHillManager::draw( const QString &resname, arma::Mat<uint8_t> &image, ui
 	}
 	
 	/** \todo define a field offset in _prop and create a view on image :
-	 *  \code      arma::Mat<uint8_t> subimage = image( , ) ;
-	 *        call draw() on subimage
+	 *  \code      arma::Mat<uint8_t> subimage =
+	 * image( arma::span( _prop[ resname ]._offset[ (axis+1)%3 ],_prop[ resname ]._offset[ (axis+1)%3 ]+_prop[ resname ]._size[ (axis+1)%3 ] ),
+	 *        arma::span( _prop[ resname ]._offset[ (axis+2)%3 ],_prop[ resname ]._offset[ (axis+2)%3 ]+_prop[ resname ]._size[ (axis+2)%3 ] ) ) ;
+	 *             draw() on subimage
 	 */
-	
-	if ( _prop[ resname ]._type == SIGNED_TINY_INT ) {
-		Interval<arma::s8> cast_range( range.min(), range.max() ) ;
-		draw( (BillonTpl<arma::s8>*) _prop[ resname ]._adr, image, axis, coordinate, cast_range, normalize ) ;
-	} else if ( _prop[ resname ]._type == UNSIGNED_TINY_INT ) {
-		Interval<arma::u8> cast_range( range.min(), range.max() ) ;
-		draw( (BillonTpl<arma::u8>*) _prop[ resname ]._adr, image, axis, coordinate, cast_range, normalize ) ;
-	} else if ( _prop[ resname ]._type == SIGNED_SHORT_INT ) {
-		Interval<arma::s16> cast_range( range.min(), range.max() ) ;
-		draw( (BillonTpl<arma::s16>*) _prop[ resname ]._adr, image, axis, coordinate, cast_range, normalize ) ;
-	} else if ( _prop[ resname ]._type == UNSIGNED_SHORT_INT ) {
-		Interval<arma::u16> cast_range( range.min(), range.max() ) ;
-		draw( (BillonTpl<arma::u16>*) _prop[ resname ]._adr, image, axis, coordinate, cast_range, normalize ) ;
-	} else if ( _prop[ resname ]._type == SIGNED_INT ) {
-		Interval<arma::s32> cast_range( range.min(), range.max() ) ;
-		draw( (BillonTpl<arma::s32>*) _prop[ resname ]._adr, image, axis, coordinate, cast_range, normalize ) ;
-	} else if ( _prop[ resname ]._type == UNSIGNED_INT ) {
-		Interval<arma::u32> cast_range( range.min(), range.max() ) ;
-		draw( (BillonTpl<arma::u32>*) _prop[ resname ]._adr, image, axis, coordinate, cast_range, normalize ) ;
+	TImageProperty storage = _prop.find( resname ).value() ;
+	arma::span  cols = arma::span( storage._offset[ (axis+1)%3 ],storage._offset[ (axis+1)%3 ]+storage._size[ (axis+1)%3 ]-1 ),
+				rows = arma::span( storage._offset[ (axis+2)%3 ],storage._offset[ (axis+2)%3 ]+storage._size[ (axis+2)%3 ]-1 ) ;
+	if ( true || rows.b >= image.n_rows || cols.b >= image.n_cols ) {
+		std::cerr<<"[ Info ] : offset "<<storage._offset[0]<<","<<storage._offset[1]<<","<<storage._offset[2]
+		                      <<" size "<<storage._size[0]<<","<<storage._size[1]<<","<<storage._size[2]<<" wrt axis "<<(int)axis<<" leading to "<<rows.a<<":"<<rows.b<<" x "<<cols.a<<":"<<cols.b
+		                      <<" on a 2d image's size "<<image.n_rows<<" "<<image.n_cols<<std::endl;
+		std::cerr<<"[ Info ] : coordinate = "<<coordinate<<" - "<<storage._offset[axis]<<std::endl;
 	}
+	arma::Mat<uint8_t> subimage = image(rows,cols);
+	if ( coordinate < storage._offset[axis] ) return true ;
+	if ( coordinate-storage._offset[axis] >= storage._size[axis] ) return true ;
+	coordinate -= storage._offset[axis] ;
+	std::cerr<<"[ Info ] : coordinate = "<<coordinate<<std::endl;
+	if ( storage._type == SIGNED_TINY_INT ) {
+		Interval<arma::s8> cast_range( range.min(), range.max() ) ;
+		draw( (BillonTpl<arma::s8>*) storage._adr, subimage, axis, coordinate, cast_range, normalize ) ;
+	} else if ( storage._type == UNSIGNED_TINY_INT ) {
+		Interval<arma::u8> cast_range( range.min(), range.max() ) ;
+		draw( (BillonTpl<arma::u8>*) storage._adr, subimage, axis, coordinate, cast_range, normalize ) ;
+	} else if ( storage._type == SIGNED_SHORT_INT ) {
+		Interval<arma::s16> cast_range( range.min(), range.max() ) ;
+		draw( (BillonTpl<arma::s16>*) storage._adr, subimage, axis, coordinate, cast_range, normalize ) ;
+	} else if ( storage._type == UNSIGNED_SHORT_INT ) {
+		Interval<arma::u16> cast_range( range.min(), range.max() ) ;
+		draw( (BillonTpl<arma::u16>*) storage._adr, subimage, axis, coordinate, cast_range, normalize ) ;
+	} else if ( storage._type == SIGNED_INT ) {
+		Interval<arma::s32> cast_range( range.min(), range.max() ) ;
+		draw( (BillonTpl<arma::s32>*) storage._adr, subimage, axis, coordinate, cast_range, normalize ) ;
+	} else if ( storage._type == UNSIGNED_INT ) {
+		Interval<arma::u32> cast_range( range.min(), range.max() ) ;
+		draw( (BillonTpl<arma::u32>*) storage._adr, subimage, axis, coordinate, cast_range, normalize ) ;
+	}
+	image(rows,cols) = subimage ;
 	//std::cerr<<"[ Info ] : "<<__FUNCTION__<<" @ line "<<__LINE__<<std::endl;
 	return true ;
 }
@@ -279,7 +315,10 @@ void AntHillManager::reset( ) {
 	while ( !_im_16u.isEmpty() ) delete _im_16u.takeLast() ;
 	while ( !_im_32u.isEmpty() ) delete _im_32u.takeLast() ;
 */
-
+	while ( !_prop.isEmpty() ) {
+		delete [] _prop.begin().value()._offset ;
+		_prop.erase( _prop.begin() ) ;
+	}
 }
 
 fs::path AntHillManager::defaultProjectLocation( ) const {

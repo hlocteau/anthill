@@ -182,8 +182,6 @@ void MainWindow::drawSlice( bool newContent ){
 			Interval<int> range_img (_ui->spinMinIntensity->value(),_ui->spinMaxIntensity->value());
 			Interval<int> range_bin (0,255);
 			_mainPix.fill(0xff000000);
-			arma::Mat<uint8_t> arma_mainPix( _mainPix.height(), _mainPix.width() ) ;
-			
 			bool preview_binarization = _ui->checkBox->isChecked() ;
 			bool is_first_layer = true ;
 			for ( uint row = 0 ; row < _ressourcesTable->rowCount() ; row++ ) {
@@ -193,6 +191,9 @@ void MainWindow::drawSlice( bool newContent ){
 					//std::cout<<"[ info ] : do not draw ressource "<<resname.toStdString()<<" ( == "<< _ressourcesTable->item(row,0)->data( Qt::UserRole ).toString().toStdString() <<" )"<<std::endl;
 					continue ;
 				}
+				arma::Mat<uint8_t> arma_mainPix( _mainPix.height(), _mainPix.width() ) ;
+				arma_mainPix.fill(0);
+
 				if ( !_ressourcesTable->item(row,2)->data( Qt::UserRole ).toBool() )
 					antHillMng.draw( resname, arma_mainPix, _ui->axisSelection->currentIndex(), _currentSlice, range_img ) ;
 				else
@@ -490,7 +491,7 @@ bool MainWindow::eventFilter(QObject *obj, QEvent *event) {
 					if ( curPixel.x() < _mainPix.width() && curPixel.y() < _mainPix.height() ) {
 						/// cyclic rotation of axis selection
 						_ui->axisSelection->setCurrentIndex( (_ui->axisSelection->currentIndex() + 1 ) % 3 ) ;
-						std::cout<<"[ Info ] : set slice position"<<std::endl;
+						std::cout<<"[ Info ] : set slice position (turn around voxel ["<<_ui->infoLabel->text().toStdString()<<"])"<<std::endl;
 						on_sequenceSlider_sliderMoved( curPixel.x() );
 					}
 				}

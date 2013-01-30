@@ -71,6 +71,8 @@ private:
 		void*	_adr ;
 		uint8_t _type ;
 		uint8_t _meaning ;
+		uint    *_size ;
+		uint	*_offset ;
 	} TImageProperty ;
 	
 	fs::path _projectLocation ;
@@ -166,6 +168,7 @@ void AntHillManager::draw( const BillonTpl< T > *data, arma::Mat<uint8_t> &image
 		cols = arma::span(0,data->n_cols-1) ;
 		slices = arma::span(coordinate) ;
 	}
+std::cout<<"[ Info ] define view "<<rows.a<<":"<<rows.b<<" x "<<cols.a<<":"<<cols.b<<" x "<<slices.a<<":"<<slices.b<<" on cube "<<data->n_rows<<" x "<<data->n_cols<<" x "<<data->n_slices<<std::endl;
 	const typename arma::Cube< T > v_data = (*data)( rows,cols,slices ) ;
 	typename arma::Cube< T >::const_iterator readIter = v_data.begin(),
 									readEnd = v_data.end() ;
