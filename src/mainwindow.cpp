@@ -183,11 +183,14 @@ void MainWindow::drawSlice( bool newContent ){
 			Interval<int> range_bin (0,255);
 			_mainPix.fill(0xff000000);
 			arma::Mat<uint8_t> arma_mainPix( _mainPix.height(), _mainPix.width() ) ;
+			
+			bool preview_binarization = _ui->checkBox->isChecked() ;
 			bool is_first_layer = true ;
 			for ( uint row = 0 ; row < _ressourcesTable->rowCount() ; row++ ) {
 				QString resname = _ressourcesTable->item(row,0)->text() ;
-				if ( _ressourcesTable->item(row,0)->checkState() != Qt::Checked ) {
-					//std::cerr<<"[ info ] : do not draw ressource "<<resname.toStdString()<<" ( == "<< _ressourcesTable->item(row,0)->data( Qt::UserRole ).toString().toStdString() <<" )"<<std::endl;
+				if ( ( _ressourcesTable->item(row,0)->checkState() != Qt::Checked && !preview_binarization ) ||
+					( preview_binarization && resname != antHillMng.inputuid() ) ){
+					//std::cout<<"[ info ] : do not draw ressource "<<resname.toStdString()<<" ( == "<< _ressourcesTable->item(row,0)->data( Qt::UserRole ).toString().toStdString() <<" )"<<std::endl;
 					continue ;
 				}
 				if ( !_ressourcesTable->item(row,2)->data( Qt::UserRole ).toBool() )
@@ -199,14 +202,26 @@ void MainWindow::drawSlice( bool newContent ){
 					arma_mainPix = arma_mainPix.t() ;
 				QRgb * writeIter = (QRgb *) _mainPix.bits() ;
 				if ( !_ressourcesTable->item(row,2)->data( Qt::UserRole ).toBool() ) {
-					for ( arma::Mat<uint8_t>::iterator readIter = arma_mainPix.begin() ; readIter != arma_mainPix.end() ; readIter++ ) {
-						if ( is_first_layer ) /// depending on whether we draw or we draw OVER
-							* writeIter = qRgb( *readIter,*readIter,*readIter) ;
-						else {
-							if ( *readIter )
-								*writeIter = qRgb( *readIter,*readIter,*readIter) ;
+					if ( !preview_binarization ) {
+						for ( arma::Mat<uint8_t>::iterator readIter = arma_mainPix.begin() ; readIter != arma_mainPix.end() ; readIter++ ) {
+							if ( is_first_layer ) /// depending on whether we draw or we draw OVER
+								* writeIter = qRgb( *readIter,*readIter,*readIter) ;
+							else {
+								if ( *readIter )
+									*writeIter = qRgb( *readIter,*readIter,*readIter) ;
+							}
+							writeIter++ ;
 						}
-						writeIter++ ;
+					} else {
+						for ( arma::Mat<uint8_t>::iterator readIter = arma_mainPix.begin() ; readIter != arma_mainPix.end() ; readIter++ ) {
+							if ( *readIter < _ui->binSpinBox->value() )
+								* writeIter = qRgb( *readIter,*readIter,*readIter) ;
+							else {
+								/// alpha compositing with alpha=0.8 and color=QRgb(0,0,255)
+								* writeIter = qRgb( 0.2 * *readIter, 0.2 * *readIter, 255*0.8 + 0.2 * *readIter ) ;
+							}
+							writeIter++ ;
+						}
 					}
 				} else {
 					for ( arma::Mat<uint8_t>::iterator readIter = arma_mainPix.begin() ; readIter != arma_mainPix.end() ; readIter++ ) {
@@ -241,6 +256,7 @@ void MainWindow::drawSlice( bool newContent ){
 	}else{
 		_ui->SlicePosition->setText(tr("Position"));
 		_mainPix = QImage(1,1,QImage::Format_ARGB32);
+		_mainPix.fill(0xff000000);
 	}
 	_ui->_labelSliceView->setPixmap( QPixmap::fromImage(_mainPix).scaled(_mainPix.width()*_zoomFactor,_mainPix.height()*_zoomFactor,Qt::KeepAspectRatio) );
 }
@@ -267,14 +283,17 @@ void MainWindow::changeRessourcesConfigView(int row, int col) {
 	//}
 	//previewArea->setIcon(icon);
 	std::cout<<__FUNCTION__<<" @ line "<<__LINE__<<std::endl;
+	if ( !findChild<QPushButton*>( "autoRefresh")->isChecked() )
+		drawSlice(true);
 }
 
 void MainWindow::toggled_config_view(bool checked ) {
 	QPushButton* autoRefresh = findChild<QPushButton*>( "autoRefresh") ;
-	if ( checked ) {
-		autoRefresh->setText( "Freeze" ) ;
-	} else {
+	if ( !checked ) {
 		autoRefresh->setText( "Refresh" ) ;
+	} else {
+		autoRefresh->setText( "Freeze" ) ;
+		drawSlice(true);
 	}
 }
 
@@ -298,10 +317,10 @@ void MainWindow::initRessources( QWidget *parent ) {
 	connect( _ressourcesTable, SIGNAL(cellDoubleClicked(int,int)), this, SLOT(changeRessourceColor(int,int)) ) ;
 	QVBoxLayout *layout = new QVBoxLayout;
 	
-	QPushButton *autoRefresh = new QPushButton(tr("Freeze"));
+	QPushButton *autoRefresh = new QPushButton(tr("Refresh"));
 	autoRefresh->setObjectName( "autoRefresh") ;
 	autoRefresh->setCheckable(true);
-	autoRefresh->setChecked ( true ) ;
+	//autoRefresh->setChecked ( true ) ;
 	connect( autoRefresh, SIGNAL(toggled(bool)), this, SLOT(toggled_config_view(bool)));
 	layout->addWidget(autoRefresh);
 	layout->addWidget(_ressourcesTable);

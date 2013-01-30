@@ -214,6 +214,11 @@ bool AntHillManager::draw( const QString &resname, arma::Mat<uint8_t> &image, ui
 		if ( !load_ressource( resname ) ) return false ;
 	}
 	
+	/** \todo define a field offset in _prop and create a view on image :
+	 *  \code      arma::Mat<uint8_t> subimage = image( , ) ;
+	 *        call draw() on subimage
+	 */
+	
 	if ( _prop[ resname ]._type == SIGNED_TINY_INT ) {
 		Interval<arma::s8> cast_range( range.min(), range.max() ) ;
 		draw( (BillonTpl<arma::s8>*) _prop[ resname ]._adr, image, axis, coordinate, cast_range, normalize ) ;
@@ -339,7 +344,7 @@ bool AntHillManager::binarization( const Interval<arma::s16> &range, int th) {
     
     BillonTpl<arma::u8> binImage( n_rows, n_cols, n_slices ) ;
     bool valid ;
-    BillonTpl<arma::s16> *data = getRessourceByUID<arma::s16>( QString("%1:%1").arg( ANTHILL_OVERALL_INPUT_PROCESS_NAME ).arg( ANTHILL_DEFAULT_OUTPUT_NAME ), valid ) ;
+    BillonTpl<arma::s16> *data = getRessourceByUID<arma::s16>( QString("%1:%2").arg( ANTHILL_OVERALL_INPUT_PROCESS_NAME ).arg( ANTHILL_DEFAULT_OUTPUT_NAME ), valid ) ;
     assert( valid ) ;
     arma::Cube< arma::s16 >::const_iterator 	in = data->begin(),
 												in_end = data->end() ;

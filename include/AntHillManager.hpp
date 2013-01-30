@@ -54,6 +54,11 @@ public:
 					QMap< QString, QString >::ConstIterator param ) const {
 		return QString("%1:%2").arg(process.key()).arg(param.key()) ;
 	}
+	
+	QString inputuid ( ) const {
+		return QString("%1:%2").arg( ANTHILL_OVERALL_INPUT_PROCESS_NAME ).arg( ANTHILL_DEFAULT_OUTPUT_NAME ) ;
+	}
+	
 	void getOffset( QMap< QString, QString >::ConstIterator &res, uint &row, uint &col, uint &slice ) const ;
 	void getSize( QMap< QString, QString >::ConstIterator &res, uint &n_rows, uint &n_cols, uint &n_slices ) const ;
 	
