@@ -22,15 +22,15 @@ public:
 	Bounding( const arma::Cube<T> & labels, int combination=COMB_AND );
 	~Bounding();
 	
-	void convexHull2DPlane( int plane, int coord, TBBoxConstIterator &iterBboxes, arma::Cube< char > &convexPlane ) ;
+	void convexHull2DPlane( int plane, int coord, TBBoxConstIterator &iterBboxes, arma::Cube< arma::u8 > &convexPlane ) ;
 	
-	arma::Cube<char> * convexHull2DAxis( int axis, TBBoxConstIterator &iterBboxes ) ;
+	arma::Cube<arma::u8> * convexHull2DAxis( int axis, TBBoxConstIterator &iterBboxes ) ;
 	
 	inline const TBBoxes & bboxes() const { return _bboxes ; }
 protected:
 	void computeBoundingBoxes( ) ;
-	void computeBoundaryPoints( const arma::Mat< char > &volume, Z2i::DigitalSet & boundary ) ;
-	void error_outlying( const map< int,pair<int,int> > &shape_XBound, const arma::Mat< char > &volume, const Geom2D::EdgePolygon &segs, int plane, int coord, const Z2i::DigitalSet &boundary, const arma::Cube< char > &convexPlane, TBBoxConstIterator &iterBboxes ) ;
+	void computeBoundaryPoints( const arma::Mat< src_elem_type > &volume, Z2i::DigitalSet & boundary ) ;
+	void error_outlying( const map< int,pair<int,int> > &shape_XBound, const arma::Mat< src_elem_type > &volume, const Geom2D::EdgePolygon &segs, int plane, int coord, const Z2i::DigitalSet &boundary, const arma::Cube< arma::u8 > &convexPlane, TBBoxConstIterator &iterBboxes ) ;
 private:	
 	static unsigned int _s_planesBounds[] ;
 	

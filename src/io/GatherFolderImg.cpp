@@ -2,14 +2,23 @@
 #include <io/Pgm3dFactory.h>
 #include <utils.h>
 
+namespace fs = boost::filesystem ;
+
 //namespace io {
 GatherFolderImg::GatherFolderImg( const fs::path &folderpath ) {
-	_folderpath = folderpath ;
 	_minFrequencyMask = 100 ;
-	computeDimensions() ;	
+
+	_folderpath = folderpath ;
+	if ( ! fs::is_directory( _folderpath) ) {
+		Pgm3dFactory<arma::u8> factory ;
+		_scene = factory.read( QString( _folderpath.c_str() ) ); /// _scene 's values have to be either 0 or 1
+	} else {
+		computeDimensions() ;
+	}
 }
 
 GatherFolderImg::~GatherFolderImg() {
+	delete _scene ;
 }
 void GatherFolderImg::computeDimensions() {
 	int n_slices = -1 ;
@@ -27,44 +36,55 @@ void GatherFolderImg::computeDimensions() {
 	if ( /*io::*/pgmheader( imagefile, desc ) ) {
 		int n_cols = desc[ PGM_HEADER_IMAGE_WIDTH ].toInt() ;
 		int n_rows = desc[ PGM_HEADER_IMAGE_HEIGHT ].toInt() ;
-		_scene = BillonTpl< char >( n_rows, n_cols, n_slices+1 ) ;
-		_scene.fill(0);
+		_scene = new BillonTpl< arma::u8 >( n_rows, n_cols, n_slices+1 ) ;
+		_scene->fill(0);
 	} else {
 		std::cerr<<desc[ PGM_HEADER_ERROR ].toStdString()<<std::endl;
 	}
 	imagefile.close() ;
-	std::cerr<<__FUNCTION__<<" : "<<_scene.n_rows<<" x "<<_scene.n_cols<<" x "<<_scene.n_slices<<"["<< n_slices<<"]"<<std::endl;
+	std::cerr<<__FUNCTION__<<" : "<<_scene->n_rows<<" x "<<_scene->n_cols<<" x "<<_scene->n_slices<<"["<< n_slices<<"]"<<std::endl;
 }
 void GatherFolderImg::computeMask( ) {
-	_mask = arma::zeros< arma::Mat< char > >( _scene.n_rows, _scene.n_cols ) ;
+	_mask = arma::zeros< arma::Mat< arma::u8 > >( _scene->n_rows, _scene->n_cols ) ;
 	
 	if ( _minFrequencyMask > 100 ) return ;
 	
-	arma::Mat< short > counter = arma::zeros< arma::Mat< short > > ( _scene.n_rows, _scene.n_cols ) ;
+	arma::Mat< arma::u16 > counter = arma::zeros< arma::Mat< arma::u16 > > ( _scene->n_rows, _scene->n_cols ) ;
 
 	int x, y, slice, u ;
 	boost::filesystem::path filePath;
-	Pgm3dFactory<char> factory ;
+	Pgm3dFactory<arma::u8> factory ;
 std::cerr<<__FILE__<<" @ line "<<__LINE__<<std::endl;
-	for ( slice = 0 ; slice < _scene.n_slices ; slice++ ) {
-		filePath = _folderpath ;
-		filePath /= QString("slice-%1.pgm").arg( slice, 0, 10 ).toStdString() ;
-		BillonTpl<char> *image = factory.read( QString( filePath.string().c_str() ) );
-		*image *= -1 ;
+	if ( fs::is_directory( _folderpath) ) {
+		for ( slice = 0 ; slice < _scene->n_slices ; slice++ ) {
+			filePath = _folderpath ;
+			filePath /= QString("slice-%1.pgm").arg( slice, 0, 10 ).toStdString() ;
+			BillonTpl<arma::u8> *image = factory.read( QString( filePath.string().c_str() ) );
+			*image *= -1 ;
 
-		for ( y = 0 ; y < counter.n_rows ; y++ )
-			for ( x = 0 ; x < counter.n_cols ; x++ )
-				counter( y, x ) += (*image)( y,x,0 ) ;
-		delete image ;
+			for ( y = 0 ; y < counter.n_rows ; y++ )
+				for ( x = 0 ; x < counter.n_cols ; x++ )
+					counter( y, x ) += (*image)( y,x,0 ) ;
+			delete image ;
+		}
+	} else {
+		for ( slice = 0 ; slice < _scene->n_slices ; slice++ ) {
+			arma::Mat< arma::u8 > image = _scene->slice( slice ) ;
+			arma::Mat< arma::u8 >::iterator readIter,
+											readEnd = image.end() ;
+			arma::Mat< arma::u16 >::iterator writeIter = counter.begin();
+			for ( readIter = image.begin() ; readIter != readEnd ; readIter++,writeIter++ )
+				*writeIter += *readIter ;
+		}
 	}
 std::cerr<<__FILE__<<" @ line "<<__LINE__<<" max frequency = "<<counter.max()<<std::endl;
-	short th = (_scene.n_slices*_minFrequencyMask)/100 ;
+	arma::u16 th = (_scene->n_slices*_minFrequencyMask)/100 ;
 	for ( y = 0 ; y < _mask.n_rows ; y++ )
 		for ( x = 0 ; x < _mask.n_cols ; x++ )
 			if ( counter( y, x ) >= th )
 				_mask( y, x ) = 1 ;
 std::cerr<<__FILE__<<" @ line "<<__LINE__<<std::endl;
-	arma::Mat<char> *dilMask = dilate( _mask, 4, 4 ) ;
+	arma::Mat<arma::u8> *dilMask = dilate( _mask, 4, 4 ) ;
 std::cerr<<__FILE__<<" @ line "<<__LINE__<<std::endl;
 	_mask = *dilMask ;
 	delete dilMask ;
@@ -133,40 +153,30 @@ std::cerr<<__FILE__<<" @ line "<<__LINE__<<" .. "<<q.n_elem<<" (mask) min="<<(in
 }
 
 bool GatherFolderImg::load( int minFrequencyMask ) {
-	if ( _scene.is_empty() ) return false ;
+	if ( _scene->is_empty() ) return false ;
 	_minFrequencyMask = minFrequencyMask ;
 	computeMask() ;
 	
-	Pgm3dFactory<char> factory ;
-	if ( false ) {
-		BillonTpl<char> dummyMask3d( _mask.n_rows, _mask.n_cols, 1 ) ;
-		dummyMask3d.slice(0) = _mask ;
-		dummyMask3d.setMinValue(0);
-		dummyMask3d.setMaxValue(1);
-		IOPgm3d< char, qint8, false>::write( dummyMask3d, QString("/tmp/mask.pgm") ) ;
-	}
+	Pgm3dFactory<arma::u8> factory ;
+
 	fs::path filePath ;
-	char 	gMax = 0,
-			gMin = 1 ;
-	for ( int slice = 0 ; slice < _scene.n_slices ;slice++ ) {
-		filePath = _folderpath ;
-		filePath /= QString("slice-%1.pgm").arg( slice, 0, 10 ).toStdString() ;
-		BillonTpl<char> *im = factory.read( QString(filePath.string().c_str()) ) ;
-		im->slice(0) *= -1 ;
-		_scene.slice( slice ) = (*im).slice(0) % _mask ;
-		
-		if ( slice ==364 && false ) {
-			BillonTpl<char> dummyMask3d( _mask.n_rows, _mask.n_cols, 1 ) ;
-			dummyMask3d.slice(0) = _scene.slice( slice ) ;
-			dummyMask3d.setMinValue(0);
-			dummyMask3d.setMaxValue(1);
-			IOPgm3d< char, qint8, false>::write( dummyMask3d, QString("/tmp/slice364withmask.pgm") ) ;
+	arma::u8	gMax = 0,
+				gMin = 1 ;
+	for ( int slice = 0 ; slice < _scene->n_slices ;slice++ ) {
+		if ( fs::is_directory( _folderpath) ) {
+			filePath = _folderpath ;
+			filePath /= QString("slice-%1.pgm").arg( slice, 0, 10 ).toStdString() ;
+			BillonTpl<arma::u8> *im = factory.read( QString(filePath.string().c_str()) ) ;
+			im->slice(0) *= -1 ;
+			_scene->slice( slice ) = (*im).slice(0) % _mask ;
+			delete im ;
+		} else {
+			_scene->slice( slice ) = _scene->slice( slice ) % _mask ;
 		}
-		gMin = min( gMin, arma::min(arma::min(_scene.slice( slice ))) ) ;
-		gMax = max( gMax, arma::max(arma::max(_scene.slice( slice ))) ) ;
-		//arma::uvec q=arma::find( _scene.slice( slice ) ) ;
+		gMin = min( gMin, arma::min(arma::min(_scene->slice( slice ))) ) ;
+		gMax = max( gMax, arma::max(arma::max(_scene->slice( slice ))) ) ;
+		//arma::uvec q=arma::find( _scene->slice( slice ) ) ;
 		//std::cout<< q.n_elem<<std::endl;
-		delete im ;
 	}
 std::cerr<<__FILE__<<" @ line "<<__LINE__<<" scene min="<<(int)gMin<<" max="<<(int)gMax<<std::endl;
 	return true ;

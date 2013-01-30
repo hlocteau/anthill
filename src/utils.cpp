@@ -3,8 +3,8 @@
 
 
 
-arma::Mat<char> * dilate( const arma::Mat<char> &im, int row_radius, int col_radius ) {
-	arma::Mat<char> * result = new /*arma::zeros< */arma::Mat<char>/* >*/( im.n_rows, im.n_cols ) ;
+arma::Mat<arma::u8> * dilate( const arma::Mat<arma::u8> &im, int row_radius, int col_radius ) {
+	arma::Mat<arma::u8> * result = new /*arma::zeros< */arma::Mat<arma::u8>/* >*/( im.n_rows, im.n_cols ) ;
 std::cerr<<__FILE__<<" @ line "<<__LINE__<<std::endl;
 	result->fill(0);
 	register int y, x, x_radius, y_radius ;

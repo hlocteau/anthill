@@ -3,5 +3,5 @@
 
 #include <GrayLevelHistogram.h>
 
-arma::Mat<char> * dilate( const arma::Mat<char> &im, int row_radius, int col_radius ) ;
+arma::Mat<arma::u8> * dilate( const arma::Mat<arma::u8> &im, int row_radius, int col_radius ) ;
 #endif

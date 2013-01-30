@@ -33,11 +33,11 @@ template<typename T> Bounding<T>::~Bounding() {
 }
 
 template<typename T>
-void Bounding<T>::error_outlying( const map< int,pair<int,int> > &shape_XBound, const arma::Mat< char > &volume, 
+void Bounding<T>::error_outlying( const map< int,pair<int,int> > &shape_XBound, const arma::Mat< src_elem_type > &volume, 
 								  const Geom2D::EdgePolygon &segs, int plane, int coord, const Z2i::DigitalSet &boundary,
-								  const arma::Cube< char > &convexPlane, TBBoxConstIterator &iterBboxes ) {
+								  const arma::Cube< arma::u8 > &convexPlane, TBBoxConstIterator &iterBboxes ) {
 	std::cerr<<__FUNCTION__<<" for plane "<<plane<<" at coord="<<coord<<std::endl;
-	arma::Cube< char > buffer( volume.n_rows, volume.n_cols,1 ) ;
+	arma::Cube< src_elem_type > buffer( volume.n_rows, volume.n_cols,1 ) ;
 	/// draw initial object
 	std::cerr<<"Draw input..."<<std::endl;
 	//buffer.slice(0) = volume ;
@@ -81,7 +81,7 @@ void Bounding<T>::error_outlying( const map< int,pair<int,int> > &shape_XBound, 
 	for ( ptIter = boundary.begin() ; ptIter != boundary.end() ; ptIter++ )
 		buffer.at( (*ptIter).at(1), (*ptIter).at(0),0 ) += 8 ;
 	std::cerr<<"Saved data for proofreading code"<<std::endl;
-	IOPgm3d< char, qint8, false>::write( buffer, QString("/tmp/errOutLying-%1-%2.pgm" ).arg( plane ).arg( coord ) ) ;
+	IOPgm3d< src_elem_type, qint8, false>::write( buffer, QString("/tmp/errOutLying-%1-%2.pgm" ).arg( plane ).arg( coord ) ) ;
 	std::cerr<<__FUNCTION__<<" END"<<std::endl;
 	
 	if ( buffer.n_rows< 40 && buffer.n_cols< 40 ) {
@@ -98,11 +98,11 @@ void Bounding<T>::error_outlying( const map< int,pair<int,int> > &shape_XBound, 
 }
 
 template<typename T>
-arma::Cube< char > * Bounding<T>::convexHull2DAxis( int axis, TBBoxConstIterator &iterBboxes ) {
+arma::Cube< arma::u8 > * Bounding<T>::convexHull2DAxis( int axis, TBBoxConstIterator &iterBboxes ) {
 	unsigned int 	rows 	= iterBboxes->second.second.at(1) - iterBboxes->second.first.at(1) + 1,
 					cols 	= iterBboxes->second.second.at(0) - iterBboxes->second.first.at(0) + 1,
 					slices 	= iterBboxes->second.second.at(2) - iterBboxes->second.first.at(2) + 1 ;
-	arma::Cube< char > *result =new arma::Cube< char >( rows, cols, slices ) ;
+	arma::Cube< arma::u8 > *result =new arma::Cube< arma::u8 >( rows, cols, slices ) ;
 	if ( _comb == COMB_OR ) {
 		result->fill( 0 ); 
 	} else {
@@ -126,7 +126,7 @@ arma::Cube< char > * Bounding<T>::convexHull2DAxis( int axis, TBBoxConstIterator
 }
 
 template<typename T>
-void Bounding<T>::convexHull2DPlane( int plane, int coord, TBBoxConstIterator &iterBboxes, arma::Cube< char > &convexPlane ) {
+void Bounding<T>::convexHull2DPlane( int plane, int coord, TBBoxConstIterator &iterBboxes, arma::Cube< arma::u8 > &convexPlane ) {
 	register unsigned int index[ 3 ] ;
 
 	const unsigned int *bounds = _s_planesBounds + plane * 5 ;
@@ -141,7 +141,7 @@ void Bounding<T>::convexHull2DPlane( int plane, int coord, TBBoxConstIterator &i
 	const Point &upper = bbox.second ;
 	int view_n_rows = upper.at( bounds[0] )+1-lower.at( bounds[0] ),
 		view_n_cols = upper.at( bounds[1] )+1-lower.at( bounds[1] ) ;
-	arma::Mat< char > volume = arma::zeros< arma::Mat<char> >( view_n_rows, view_n_cols ) ;
+	arma::Mat< src_elem_type > volume = arma::zeros< arma::Mat<src_elem_type> >( view_n_rows, view_n_cols ) ;
 	src_elem_type value ;
 	index[2] = coord ;
 #ifdef DEBUG_BOUNDING
@@ -395,7 +395,7 @@ void Bounding<T>::computeBoundingBoxes( ) {
 }
 
 template<typename T>
-void Bounding<T>::computeBoundaryPoints( const arma::Mat< char > &volume, Z2i::DigitalSet & boundary ) {
+void Bounding<T>::computeBoundaryPoints( const arma::Mat< src_elem_type > &volume, Z2i::DigitalSet & boundary ) {
 	unsigned int lastValue ;
 	register int 	x, y, z ;
 	for ( x = 0 ; x < volume.n_cols ; x++ ) {

@@ -15,11 +15,11 @@ public:
 	
 	bool load( int minFrequencyMask=100 ) ;
 	
-	const arma::Mat< char > & mask( ) const {
+	const arma::Mat< arma::u8 > & mask( ) const {
 		return _mask ;
 	}
-	const BillonTpl< char > & scene( ) const {
-		return _scene ;
+	const BillonTpl< arma::u8 > & scene( ) const {
+		return *_scene ;
 	}
 protected:
 	void computeDimensions() ;
@@ -27,8 +27,8 @@ protected:
 private:
 	fs::path 			_folderpath ;
 	int					_minFrequencyMask ;
-	BillonTpl< char > 	_scene ;
-	arma::Mat< char > 	_mask ;
+	BillonTpl< arma::u8 > 	*_scene ;
+	arma::Mat< arma::u8 > 	_mask ;
 } ;
 //}
 #endif

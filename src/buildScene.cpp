@@ -3,10 +3,6 @@
 #include <Bounding.hpp>
 
 #include <DGtal/helpers/StdDefs.h>
-#include <QtGui/qapplication.h>
-#include <DGtal/io/viewers/Viewer3D.h>
-
-
 #include <io/IOPgm3d.h>
 #include <DistanceTransform.hpp>
 
@@ -23,14 +19,14 @@ BillonTpl<OUT> * BilloncastTo<IN,OUT>( const BillonTpl<IN> *src ) {
 }
 */
 
-typedef ConnexComponentExtractor<char,short>				CS_CCExtractor ;
-typedef Bounding< CS_CCExtractor::value_type > 				MyBounding;
-typedef GrayLevelHistogram< CS_CCExtractor::value_type > 	SHistogram ;
-typedef DistanceTransform<char,int32_t>						CIDistanceTransform ;
-typedef GrayLevelHistogram< CIDistanceTransform::value_type > IHistogram ;
+typedef ConnexComponentExtractor<arma::u8,arma::u16>			CS_CCExtractor ;
+typedef Bounding< CS_CCExtractor::value_type > 					MyBounding;
+typedef GrayLevelHistogram< CS_CCExtractor::value_type > 		SHistogram ;
+typedef DistanceTransform<arma::u8,arma::u32>					CIDistanceTransform ;
+typedef GrayLevelHistogram< CIDistanceTransform::value_type > 	IHistogram ;
 
-BillonTpl<char> *cropComplement( const arma::Cube<char> *universe, const BillonTpl<short> *labels, MyBounding::TBBoxConstIterator bbox ) {
-	BillonTpl<char> *result = new BillonTpl<char>( universe->n_rows, universe->n_cols, universe->n_slices ) ;
+BillonTpl<arma::u8> *cropComplement( const arma::Cube<arma::u8> *universe, const BillonTpl<arma::u16> *labels, MyBounding::TBBoxConstIterator bbox ) {
+	BillonTpl<arma::u8> *result = new BillonTpl<arma::u8>( universe->n_rows, universe->n_cols, universe->n_slices ) ;
 	result->fill(0);
 	result->setMinValue(0);
 	result->setMinValue(1);
@@ -48,18 +44,26 @@ BillonTpl<char> *cropComplement( const arma::Cube<char> *universe, const BillonT
 #define PROOF_COORD(a,b) (b<0?0:(b>=a?a-1:b))
 
 int main( int narg, char **argv ) {
+	if( !fs::exists( argv[1] ) ) return -1 ;
+	
 	GatherFolderImg *factory = new GatherFolderImg( argv[1] ) ;
 	factory->load( 80 ) ;
-	const arma::Mat<char> & mask = factory->mask() ;
-	arma::Cube<char> mask3d( mask.n_rows, mask.n_cols, 1 ) ;
+	const arma::Mat<arma::u8> & mask = factory->mask() ;
+	arma::Cube<arma::u8> mask3d( mask.n_rows, mask.n_cols, 1 ) ;
 	mask3d.slice(0) = mask ;
-	IOPgm3d<char,qint8,false>::write( mask3d, QString("%1/anthill.mask.pgm3d").arg( argv[1] ) ) ;
+	
+	fs::path folderpath = argv[1] ;
+	if ( !fs::is_directory( folderpath ) )
+		folderpath = folderpath.parent_path() ;
+	
+	IOPgm3d<arma::u8,qint8,false>::write( mask3d, QString("%1/anthill.mask.pgm3d").arg( folderpath.c_str() ) ) ;
 	mask3d.reset();
 	
-	const BillonTpl< char > & scene = factory->scene() ;
-	IOPgm3d<char,qint8,false>::write( scene, QString("%1/anthill.scene.pgm3d").arg( argv[1] ) ) ;
+	const BillonTpl< arma::u8 > & scene = factory->scene() ;
+	IOPgm3d<arma::u8,qint8,false>::write( scene, QString("%1/anthill.scene.pgm3d").arg( folderpath.c_str() ) ) ; /// mask has been applied, may be useful even while providing directly a "scene" file
 	CS_CCExtractor extractor;
-	BillonTpl<short> *labels = extractor.run( scene ) ;
+	BillonTpl<arma::u16> *labels = extractor.run( scene ) ;
+	IOPgm3d<arma::u16,qint16,false>::write( *labels, QString("%1/anthill.labelscene.pgm3d").arg( folderpath.c_str() ) ) ;
 	delete factory ;
 	
 	/// note : bounding boxes and volumes are computed by extractor...
@@ -80,8 +84,8 @@ int main( int narg, char **argv ) {
 				( biggestBox->second.second.at(1)-biggestBox->second.first.at(1) )+
 				( biggestBox->second.second.at(2)-biggestBox->second.first.at(2) )*
 				( biggestBox->second.second.at(2)-biggestBox->second.first.at(2) );
-	const QMap<short,int> &volumes = extractor.volumes() ;
-	const QMap<short, std::pair<iCoord3D, iCoord3D> > & bounds = extractor.bounds3D();
+	const QMap<arma::u16,int> &volumes = extractor.volumes() ;
+	const QMap<arma::u16, std::pair<iCoord3D, iCoord3D> > & bounds = extractor.bounds3D();
 	for ( ++boxIter ; boxIter != lastBox ; boxIter++ ) {
 		int curVol =( boxIter->second.second.at(0)-boxIter->second.first.at(0) )*
 					( boxIter->second.second.at(0)-boxIter->second.first.at(0) )+
@@ -105,18 +109,19 @@ int main( int narg, char **argv ) {
 	*/
 	std::cout<<"BoundingBox "<<biggestBox->second.first<<" "<<biggestBox->second.second<<" volume "<<volumes[ biggestBox->first ]<<std::endl;
 	
-	arma::Cube<char> *result = bounding.convexHull2DAxis( 7, biggestBox ) ;
-	IOPgm3d<char,qint8,false>::write( *result, QString("%1/anthillqhull.pgm3d").arg( argv[1] ) ) ;
-	BillonTpl<char> *inner = cropComplement( result, labels, biggestBox ) ;
-	IOPgm3d<char,qint8,false>::write( *inner, QString("%1/anthillallcontent.pgm3d").arg( argv[1] ) ) ;
+	arma::Cube<arma::u8> *result = bounding.convexHull2DAxis( 7, biggestBox ) ;
+	IOPgm3d<arma::u8,qint8,false>::write( *result, QString("%1/anthillqhull.pgm3d").arg( folderpath.c_str() ) ) ;
+	BillonTpl<arma::u8> *inner = cropComplement( result, labels, biggestBox ) ;
+	IOPgm3d<arma::u8,qint8,false>::write( *inner, QString("%1/anthillallcontent.pgm3d").arg( folderpath.c_str() ) ) ;
 	delete labels ;
 	
 	BillonTpl< CS_CCExtractor::value_type > *labelsInner = extractor.run( *inner ) ;
+	IOPgm3d<arma::u16,qint16,false>::write( *labelsInner, QString("%1/anthilllabelinner.pgm3d").arg( folderpath.c_str() ) ) ; /// to make it viewable (redefine labels wrt volumes)
 	SHistogram histInner( *labelsInner ) ;
 	
 	CIDistanceTransform *dtHull = new CIDistanceTransform( *result ) ;
 	const arma::Cube< CIDistanceTransform::value_type > & imDtHull = dtHull->result() ;
-	IOPgm3d<CIDistanceTransform::value_type,qint32,false>::write( imDtHull, QString("%1/anthill.dthull.pgm3d").arg( argv[1] ) ) ;
+	IOPgm3d<CIDistanceTransform::value_type,qint32,false>::write( imDtHull, QString("%1/anthill.dthull.pgm3d").arg( folderpath.c_str() ) ) ;
 	
 	std::map< CS_CCExtractor::value_type, CIDistanceTransform::value_type > distToHull ;
 	std::set< CS_CCExtractor::value_type > touchingHull ;
@@ -187,7 +192,7 @@ int main( int narg, char **argv ) {
 	
 	/// seems that we can keep only the biggest one
 	{
-		BillonTpl<char> imSelect ( labelsInner->n_rows, labelsInner->n_cols, labelsInner->n_slices ) ;
+		BillonTpl<arma::u8> imSelect ( labelsInner->n_rows, labelsInner->n_cols, labelsInner->n_slices ) ;
 		imSelect.fill(0);
 		imSelect.setMinValue(0);
 		imSelect.setMaxValue(1);
@@ -201,13 +206,13 @@ int main( int narg, char **argv ) {
 							if ( (*labelsInner)( PROOF_COORD((*labelsInner).n_rows,y + (neighbor/9-1)), PROOF_COORD((*labelsInner).n_cols,x + ( (neighbor%9)/3 -1 )), PROOF_COORD((*labelsInner).n_slices,z + ( neighbor % 3 -1 ) ) ) == 0 ) break ;
 						if ( neighbor != 27 ) imSelect(y,x,z) = 1 ;
 					}
-		IOPgm3d<char,qint16,false>::write( imSelect, QString("%1/anthillcontent_v3d.pgm3d").arg( argv[1] ),QString("P3D") ) ;
+		IOPgm3d<arma::u8,qint16,false>::write( imSelect, QString("%1/anthillcontent_v3d.pgm3d").arg( folderpath.c_str() ),QString("P3D") ) ;
 		for ( z = 0 ; z < labelsInner->n_slices ; z++ )
 			for ( x = 0 ; x < labelsInner->n_cols ; x++ )
 				for ( y = 0 ; y < labelsInner->n_rows ; y++ )
 					if ( biggestInnerCCIdentifier == (*labelsInner)( y,x,z) )
 						imSelect(y,x,z) = 1 ;
-		IOPgm3d<char,qint8,false>::write( imSelect, QString("%1/anthillcontent.pgm3d").arg( argv[1] ) ) ;
+		IOPgm3d<arma::u8,qint8,false>::write( imSelect, QString("%1/anthillcontent.pgm3d").arg( folderpath.c_str() ) ) ;
 		delete labelsInner ;
 		delete result ;
 		delete inner ;
@@ -216,7 +221,7 @@ int main( int narg, char **argv ) {
 		/// compute distance transform on imSelect
 		CIDistanceTransform dtObj( imSelect ) ;
 		IHistogram depthObj( dtObj.result() ) ;
-		QFile fHist( QString("%1/depthObjHist.txt").arg(argv[1])) ;
+		QFile fHist( QString("%1/depthObjHist.txt").arg(folderpath.c_str())) ;
 		if( !fHist.open(QFile::WriteOnly) ) {
 			std::cerr << "Error : saving size of conn comp on the complement of the scene"<< std::endl;
 			return -1;
@@ -226,64 +231,6 @@ int main( int narg, char **argv ) {
 			out<<QString("%1 : %2").arg((int)it->first).arg((long unsigned int)it->second)<<endl;
 		}
 		fHist.close() ;
-	}
-	
-	
-	
-	
-	#if 0
-	QApplication application(narg,argv);
-	Viewer3D viewer ;
-	QString title = QString("convex hull of 3d objetcs - %1").arg(argv[1]);
-	viewer.setWindowTitle( title.toStdString().c_str() );
-	viewer.show();
-	Z3i::Domain domain ( biggestBox->second.first,biggestBox->second.second ) ;
-	viewer<<SetMode3D( domain.className(), "BoundingBox" ) ;
-	viewer<<domain ;
-	int x,y,z;
-	int n_rows = (*result).n_rows,
-		n_cols = (*result).n_cols,
-		n_slices = (*result).n_slices ;
-
-	/*
-	viewer<<CustomColors3D( Color(255,255,0,220), Color(255,255,0,220) ) ;
-	for ( y = biggestBox->second.first.at(1) ; y <=biggestBox->second.second.at(1) ; y++ )
-		for ( x = biggestBox->second.first.at(0) ; x <= biggestBox->second.second.at(0) ; x++ )
-			for ( z = biggestBox->second.first.at(2) ; z <= biggestBox->second.second.at(2) ; z++ )
-				if ( (*labels)( y,x,z ) == id ) {
-					viewer << Z3i::Point(x,y,z) ;
-				}
-	*/
-	viewer<<CustomColors3D( Color(255,255,255,10), Color(255,255,255,10) ) ;
-	
-	arma::Cube<char> *toDisplay = inner ;
-	uint64_t nVoxels = 0 ;
-	for ( y = 0 ; y < n_rows ; y++ )
-		for ( x = 0 ; x < n_cols ; x++ )
-			for ( z = 0 ; z < n_slices ; z++ )
-				if ( (*toDisplay)( y,x,z)>0) {
-					if (toDisplay->at(y,max(0,x-1),z) ==0 || toDisplay->at(y, min(n_cols-1,x+1),z) ==0 || 
-						toDisplay->at(max(0,y-1),x,z) ==0 || toDisplay->at(min(n_rows-1,y+1),x,z) ==0 || 
-						toDisplay->at(y,x,max(0,z-1)) ==0 || toDisplay->at(y,x,min(n_slices-1,z+1)) ==0|| ( x==0||y==0||z==0||x==n_cols-1||y==n_rows-1||z==n_slices-1) ) {
-						nVoxels++ ;
-						viewer << Z3i::Point(x+biggestBox->second.first.at(0),y+biggestBox->second.first.at(1),z+biggestBox->second.first.at(2)) ;
-					}
-				}
-	std::cout<<"Display "<<nVoxels<<" voxel(s)"<<std::endl;
-	/*
-	viewer<<CustomColors3D( Color(255,0,0), Color(255,0,0) ) ;
-	const arma::Mat<char> &mask = factory.mask() ;
-	for ( x = 0 ; x < scene.n_cols ; x++ ) {
-		for ( y = 0;y<scene.n_rows ; y++ )
-			if ( mask(y,x)==(char)1 ) break ;
-		for ( z = 0 ; z < scene.n_slices ; z++ )
-			viewer << Z3i::Point(x,y,z) ;
-	}
-	*/
-	viewer << Viewer3D::updateDisplay;
-	toDisplay=0;
-	#endif
-	
-	
-	return 1;//application.exec();
+	}	
+	return 1;
 }
