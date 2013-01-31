@@ -176,7 +176,7 @@ template <typename T, typename W,bool minmax,bool tracing> uint SignalMinMax<T,W
 
 template <typename T, typename W,bool minmax,bool tracing> T SignalMinMax<T,W,minmax,tracing>::delta ( uint mL, uint M, uint mR ) {
 	if ( M != _signal.size() && mL != _signal.size() && mR != _signal.size() )
-		return _signal.at(M) - std::max( _signal.at(mL), _signal.at(mR) ) ;
+		return _signal.at(M) - std::min( _signal.at(mL), _signal.at(mR) ) ;
 	return 0 ;
 }
 
@@ -327,37 +327,37 @@ template <typename T, typename W,bool minmax,bool tracing> SignalMinMax<T,W,minm
 			if ( _s_absolute_min_max_search_only ) {
 				maxi_left = get_max( cur_job.first, peak_idx ) ;
 				mini_left = get_min( maxi_left, peak_idx ) ;
-				delta_left = std::min( delta( cur_job.first, maxi_left, mini_left ) , delta( mini_left,peak_idx,cur_job.second ) ) ;
+				delta_left = std::max( delta( cur_job.first, maxi_left, mini_left ) , delta( mini_left,peak_idx,cur_job.second ) ) ;
 				if ( _s_tracing ) std::cout<<"       think about ["<<cur_job.first<<","<<maxi_left<<","<<mini_left<<"] ("<<delta( cur_job.first, maxi_left, mini_left )<<") union "
 											<<"["<<mini_left<<","<<peak_idx<<","<<cur_job.second<<"] ("<<delta( mini_left,peak_idx,cur_job.second )<<")"<<std::endl;
 				
 				mini_right = get_min( peak_idx, cur_job.second ) ;
 				maxi_right = get_max( mini_right, cur_job.second ) ;
-				delta_right = std::min( delta( cur_job.first, peak_idx, mini_right ), delta(mini_right,maxi_right,cur_job.second) ) ;
+				delta_right = std::max( delta( cur_job.first, peak_idx, mini_right ), delta(mini_right,maxi_right,cur_job.second) ) ;
 				if ( _s_tracing ) std::cout<<"       think about ["<<cur_job.first<<","<<peak_idx<<","<<mini_right<<"] ("<<delta( cur_job.first, peak_idx, mini_right )<<") union "
 											<<"["<<mini_right<<","<<maxi_right<<","<<cur_job.second<<"] ("<<delta( mini_right,maxi_right,cur_job.second )<<")"<<std::endl;
 			} else {
 				maxi_left = get_firstmax( cur_job.first, peak_idx ) ;
 				mini_left = get_min( maxi_left, peak_idx ) ;
-				delta_left = std::min( delta( cur_job.first, maxi_left, mini_left ) , delta( mini_left,peak_idx,cur_job.second ) ) ;
+				delta_left = std::max( delta( cur_job.first, maxi_left, mini_left ) , delta( mini_left,peak_idx,cur_job.second ) ) ;
 				if ( _s_tracing ) std::cout<<"       think about ["<<cur_job.first<<","<<maxi_left<<","<<mini_left<<"] ("<<delta( cur_job.first, maxi_left, mini_left )<<") union "
 											<<"["<<mini_left<<","<<peak_idx<<","<<cur_job.second<<"] ("<<delta( mini_left,peak_idx,cur_job.second )<<")"<<std::endl;
 				
 				maxi_right = get_lastmax( peak_idx, cur_job.second ) ;
 				mini_right = get_min( peak_idx, maxi_right ) ;
-				delta_right = std::min( delta( cur_job.first, peak_idx, mini_right ), delta(mini_right,maxi_right,cur_job.second) ) ;
+				delta_right = std::max( delta( cur_job.first, peak_idx, mini_right ), delta(mini_right,maxi_right,cur_job.second) ) ;
 				if ( _s_tracing ) std::cout<<"       think about ["<<cur_job.first<<","<<peak_idx<<","<<mini_right<<"] ("<<delta( cur_job.first, peak_idx, mini_right )<<") union "
 											<<"["<<mini_right<<","<<maxi_right<<","<<cur_job.second<<"] ("<<delta( mini_right,maxi_right,cur_job.second )<<")"<<std::endl;
 				
 				mini_mid_left = get_lastmin( cur_job.first, peak_idx ) ;
 				maxi_mid_left = get_max( cur_job.first, mini_mid_left ) ;
-				delta_mid_left = std::min( delta(cur_job.first, maxi_mid_left,mini_mid_left ), delta(mini_mid_left,peak_idx,cur_job.second) ) ;
+				delta_mid_left = std::max( delta(cur_job.first, maxi_mid_left,mini_mid_left ), delta(mini_mid_left,peak_idx,cur_job.second) ) ;
 				if ( _s_tracing ) std::cout<<"       think about ["<<cur_job.first<<","<<maxi_mid_left<<","<<mini_mid_left<<"] ("<<delta( cur_job.first, maxi_mid_left, mini_mid_left )<<") union "
 											<<"["<<mini_mid_left<<","<<peak_idx<<","<<cur_job.second<<"] ("<<delta( mini_mid_left,peak_idx,cur_job.second )<<")"<<std::endl;
 				
 				mini_mid_right = get_firstmin( peak_idx,cur_job.second ) ;
 				maxi_mid_right = get_max( mini_mid_right,cur_job.second ) ;
-				delta_mid_right = std::min( delta(cur_job.first, peak_idx,mini_mid_right), delta(mini_mid_right,maxi_mid_right,cur_job.second) ) ;
+				delta_mid_right = std::max( delta(cur_job.first, peak_idx,mini_mid_right), delta(mini_mid_right,maxi_mid_right,cur_job.second) ) ;
 				if ( _s_tracing ) std::cout<<"       think about ["<<cur_job.first<<","<<peak_idx<<","<<mini_mid_right<<"] ("<<delta( cur_job.first, peak_idx, mini_mid_right )<<") union "
 											<<"["<<mini_mid_right<<","<<maxi_mid_right<<","<<cur_job.second<<"] ("<<delta( mini_mid_right,maxi_mid_right,cur_job.second )<<")"<<std::endl;
 			}
