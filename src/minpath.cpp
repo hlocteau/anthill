@@ -730,7 +730,7 @@ int main( int narg, char **argv ) {
 	QList< int32_t > nextsource ;
 	QList< int32_t > trashcan ;
 	uint radius_blur = 5 ;
-	uint radius_local_extrema = 2 ;
+	uint radius_local_extrema = 4 ;
 	double th = 15 ;
 	seg_geodesic( SG, source, 0, "/tmp", depthFileName, out, nextsource, true, radius_blur, radius_local_extrema, th ) ;
 	compress_files( source, 0 ) ;
