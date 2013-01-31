@@ -23,12 +23,12 @@ int main( int narg, char **argv ) {
 	file.close() ;
 	
 	QList< char > W ;
-	uint radius = 2 ;
+	uint radius = 4 ;
 	
 	QList< double > Lblur ;
 	blur_signal( L, Lblur, 5 ) ;
 	for ( uint i=0;i<Lblur.size();i++ ) std::cout<<i<<":"<<Lblur.at(i)<<std::endl;
-	SignalMinMax< double, char,true > SMM( Lblur, radius, 35 ) ;
+	SignalMinMax< double, char,true,true > SMM( Lblur, radius, 15 ) ;
 	QList<char> Lw ;
 	SMM.result( Lw ) ;
 	for ( uint i= 0;i<Lw.size();i++ ) std::cout<<i<<":"<<(int)Lw.at(i)<<" ";
