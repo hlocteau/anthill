@@ -54,7 +54,11 @@ bool AntHillFile::save( const QString &filename ) {
 }
 
 bool AntHillFile::addProcess( const QString &name, const QMap< QString, QString > &details ) {
-	if ( _process.contains( name ) ) return false ;
+	if ( _process.contains( name ) ) {
+		_process[ name ].clear() ;
+		_process[ name ] = details ;
+		return true ;
+	}
 	
 	_process.insert( name, details ) ;
 	
