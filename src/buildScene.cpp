@@ -47,7 +47,7 @@ int main( int narg, char **argv ) {
 	if( !fs::exists( argv[1] ) ) return -1 ;
 	
 	GatherFolderImg *factory = new GatherFolderImg( argv[1] ) ;
-	factory->load( 80 ) ;
+	factory->load( narg==3?atoi(argv[2]):80 ) ;
 	const arma::Mat<arma::u8> & mask = factory->mask() ;
 	arma::Cube<arma::u8> mask3d( mask.n_rows, mask.n_cols, 1 ) ;
 	mask3d.slice(0) = mask ;
@@ -79,25 +79,19 @@ int main( int narg, char **argv ) {
 		return -1 ;
 	}
 	bigVol =	( biggestBox->second.second.at(0)-biggestBox->second.first.at(0) )*
-				( biggestBox->second.second.at(0)-biggestBox->second.first.at(0) )+
 				( biggestBox->second.second.at(1)-biggestBox->second.first.at(1) )*
-				( biggestBox->second.second.at(1)-biggestBox->second.first.at(1) )+
-				( biggestBox->second.second.at(2)-biggestBox->second.first.at(2) )*
 				( biggestBox->second.second.at(2)-biggestBox->second.first.at(2) );
 	const QMap<arma::u16,int> &volumes = extractor.volumes() ;
 	const QMap<arma::u16, std::pair<iCoord3D, iCoord3D> > & bounds = extractor.bounds3D();
 	for ( ++boxIter ; boxIter != lastBox ; boxIter++ ) {
 		int curVol =( boxIter->second.second.at(0)-boxIter->second.first.at(0) )*
-					( boxIter->second.second.at(0)-boxIter->second.first.at(0) )+
 					( boxIter->second.second.at(1)-boxIter->second.first.at(1) )*
-					( boxIter->second.second.at(1)-boxIter->second.first.at(1) )+
-					( boxIter->second.second.at(2)-boxIter->second.first.at(2) )*
 					( boxIter->second.second.at(2)-boxIter->second.first.at(2) );
 		if ( bigVol < curVol ) {
 			bigVol = curVol ;
 			biggestBox = boxIter ;
 		}
-		//std::cerr<<boxIter->first<<" "<<boxIter->second.first<<" to "<<boxIter->second.second<<" volume "<<volumes[ boxIter->first ]<<std::endl;
+		if ( boxIter->first == 114 ) std::cerr<<boxIter->first<<" "<<boxIter->second.first<<" to "<<boxIter->second.second<<" volume "<<volumes[ boxIter->first ]<<std::endl;
 		
 	}
 	
@@ -107,7 +101,7 @@ int main( int narg, char **argv ) {
 	std::cin>>id;
 	biggestBox = bboxes.find( id ) ;
 	*/
-	std::cout<<"BoundingBox "<<biggestBox->second.first<<" "<<biggestBox->second.second<<" volume "<<volumes[ biggestBox->first ]<<std::endl;
+	std::cout<<"BoundingBox #"<<biggestBox->first<<" : "<<biggestBox->second.first<<" "<<biggestBox->second.second<<" volume "<<volumes[ biggestBox->first ]<<std::endl;
 	
 	arma::Cube<arma::u8> *result = bounding.convexHull2DAxis( 7, biggestBox ) ;
 	IOPgm3d<arma::u8,qint8,false>::write( *result, QString("%1/anthillqhull.pgm3d").arg( folderpath.c_str() ) ) ;

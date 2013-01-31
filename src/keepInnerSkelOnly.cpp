@@ -11,7 +11,8 @@ namespace fs = boost::filesystem ;
 
 int main( int narg, char **argv ) {
 	fs::path inputFolderPath = argv[1] ;
-	
+	int maxLoop = -1 ;
+	if ( narg == 3 ) maxLoop=atoi(argv[2]);
 	/** input files */
 	fs::path skelFilePath = inputFolderPath ;
 	skelFilePath /= "anthillcontent.skeleucl.pgm3d" ;
@@ -26,13 +27,13 @@ int main( int narg, char **argv ) {
 	fs::path innerskelFilePath = inputFolderPath ;
 	innerskelFilePath /= "anthill.innerskel.pgm3d" ;
 	
-	Pgm3dFactory<char> factoryBin ;
-	Pgm3dFactory<int32_t> factoryInteger ;
+	Pgm3dFactory<arma::u8> factoryBin ;
+	Pgm3dFactory<arma::u32> factoryInteger ;
 	
-	BillonTpl<char> *skel = factoryBin.read( QString( "%1").arg( skelFilePath.c_str() ) ) ;
-	BillonTpl<int32_t> *distToHull = factoryInteger.read( QString( "%1").arg(distToHullFilePath.c_str() ) ) ;
+	BillonTpl<arma::u8> *skel = factoryBin.read( QString( "%1").arg( skelFilePath.c_str() ) ) ;
+	BillonTpl<arma::u32> *distToHull = factoryInteger.read( QString( "%1").arg(distToHullFilePath.c_str() ) ) ;
 	//factoryInteger.correctEncoding( distToHull ) ;
-	BillonTpl<int32_t> *distToSkel = factoryInteger.read( QString( "%1").arg(distToSkelFilePath.c_str() ) ) ;
+	BillonTpl<arma::u32> *distToSkel = factoryInteger.read( QString( "%1").arg(distToSkelFilePath.c_str() ) ) ;
 	factoryInteger.correctEncoding( distToSkel ) ;
 	
 	std::cout	<<"Info : size of the input skeleton's image    "<<skel->n_rows<< " x "<<skel->n_cols<<" x " << skel->n_slices<<std::endl
@@ -40,7 +41,7 @@ int main( int narg, char **argv ) {
 				<<"       size of the distance skeleton's image "<<distToSkel->n_rows<< " x "<<distToSkel->n_cols<<" x " << distToSkel->n_slices<<std::endl;
 	
 	
-	arma::Cube<char> mySkel( skel->n_rows, skel->n_cols, skel->n_slices ) ;
+	arma::Cube<arma::u8> mySkel( skel->n_rows, skel->n_cols, skel->n_slices ) ;
 	mySkel.fill( 0 ) ;
 	
 	int x,y,z ;
@@ -87,7 +88,7 @@ int main( int narg, char **argv ) {
 				}
 		nLoop++ ;
 		if ( nLoop == 1 ) std::cout<<skel_n_elem-myskel_n_del_elem<<" after the first loop"<<std::endl;
-	} while ( bUpdate ) ;
+	} while ( bUpdate && nLoop != maxLoop ) ;
 	std::cout	<<"Info : number of skeleton's voxels"<<std::endl
 				<<"                    - input  : "<<skel_n_elem<<std::endl
 				<<"                    - output : "<<skel_n_elem-myskel_n_del_elem<<" after "<<nLoop<<" loop(s)"<<std::endl;
@@ -124,7 +125,7 @@ int main( int narg, char **argv ) {
 			for ( Z3i::DigitalSet::ConstIterator pt = toRemove.begin() ; pt != toRemove.end() ; pt++ )
 				mySkel( (*pt).at(1), (*pt).at(0), (*pt).at(2) ) = 0 ;
 			toRemove.clear() ;
-			IOPgm3d<char,qint8,false>::write( mySkel, QString( "%1" ).arg( innerskelFilePath.c_str() ) ) ;
+			IOPgm3d<arma::u8,qint8,false>::write( mySkel, QString( "%1" ).arg( innerskelFilePath.c_str() ) ) ;
 		}
 		file.close() ;
 	} else {

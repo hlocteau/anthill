@@ -73,7 +73,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), _ui(new Ui::MainW
 void MainWindow::onChangeAxis( int idx ) {
 	if ( antHillMng.project() == 0 ) return ;
 	uint dims[3] ;
-	antHillMng.getSize( dims[0], dims[1], dims[2] ) ;
+	antHillMng.getSize( dims[1], dims[0], dims[2] ) ;
 	
 	_mainPix = QImage( dims[ (idx+1)%3], dims[ (idx+2)%3], QImage::Format_ARGB32);
 	//std::cout<<"[ Info ] : image's dimensions are "<<dims[0]<<" x "<<dims[1]<<" x "<<dims[2]<<std::endl
@@ -441,7 +441,7 @@ void MainWindow::on_listWidget_itemDoubleClicked(QListWidgetItem *item) {
 	updateRessources( ) ;
 	uint idx = _ui->axisSelection->currentIndex();
 	uint dims[3] ;
-	antHillMng.getSize( dims[0], dims[1],dims[2] ) ;
+	antHillMng.getSize( dims[1], dims[0],dims[2] ) ;
 	_mainPix = QImage( dims[ (idx+1)%3], dims[ (idx+2)%3], QImage::Format_ARGB32);
 	_ui->sequenceSlider->setMaximum( 0 );
 	_ui->sequenceSlider->setMaximum( dims[idx]-1 );
@@ -452,7 +452,7 @@ void MainWindow::on_listWidget_itemDoubleClicked(QListWidgetItem *item) {
 	_ui->spinMaxIntensity->setEnabled(true);
 
 	Interval<arma::s16> range ;
-	antHillMng.getRange<arma::s16>( range ) ;
+	antHillMng.getRange<arma::s16>( range ) ;//range.setBounds(0,5161);
 	_ui->spinMinIntensity->setRange( range.min(), range.max() );
 	_ui->spinMaxIntensity->setRange( range.min(), range.max() );
 	_ui->spinMinIntensity->setValue( range.min() );
@@ -538,7 +538,7 @@ void MainWindow::on_segmLoadButton_clicked(){
 		_segmImg = factory.read( fileName ) ;
 		if ( _segmImg != 0 ) {
 			uint dims[3] ;
-			antHillMng.getSize( dims[0], dims[1], dims[2] ) ;
+			antHillMng.getSize( dims[1], dims[0], dims[2] ) ;
 			_ui->segmCheckBox->setEnabled(true);
 			_ui->x_shift->setMaximum( dims[0] - _segmImg->n_rows);
 			_ui->y_shift->setMaximum( dims[1] - _segmImg->n_cols);
@@ -568,7 +568,7 @@ void MainWindow::on_skelLoadButton_clicked(){
 		_skelImg = factory.read( fileName ) ;
 		if ( _skelImg != 0 ) {
 			uint dims[3] ;
-			antHillMng.getSize( dims[0], dims[1], dims[2] ) ;
+			antHillMng.getSize( dims[1], dims[0], dims[2] ) ;
 			_ui->skelCheckBox->setEnabled(true);
 			_ui->x_shift_skel->setMaximum( dims[0] - _skelImg->n_rows);
 			_ui->y_shift_skel->setMaximum( dims[1] - _skelImg->n_cols);
@@ -598,7 +598,7 @@ void MainWindow::on__labelSliceView_customContextMenuRequested(const QPoint &pos
 void MainWindow::on_actionOpen_project_triggered() {
 	QString fileName = QFileDialog::getOpenFileName(0,tr("select project file"), QString("%1").arg( antHillMng.defaultProjectLocation().c_str() ),tr("Anthill project Files (*.xml)"));
 	if ( !fileName.isEmpty() ) {
-		closeImage();
+		on_actionClose_folder_triggered();
 		antHillMng.setFileName( fileName ) ;
 		updateProjectsList();
 		// as we get only one serie...

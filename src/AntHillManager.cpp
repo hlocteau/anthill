@@ -307,16 +307,17 @@ void AntHillManager::reset( ) {
 	if ( _project )
 		delete _project ;
 	_project = 0 ;
-/*
+	
 	while ( !_im_8s.isEmpty() )  delete _im_8s.takeLast() ;
 	while ( !_im_16s.isEmpty() ) delete _im_16s.takeLast() ;
 	while ( !_im_32s.isEmpty() ) delete _im_32s.takeLast() ;
 	while ( !_im_8u.isEmpty() )  delete _im_8u.takeLast() ;
 	while ( !_im_16u.isEmpty() ) delete _im_16u.takeLast() ;
 	while ( !_im_32u.isEmpty() ) delete _im_32u.takeLast() ;
-*/
+
 	while ( !_prop.isEmpty() ) {
 		delete [] _prop.begin().value()._offset ;
+		delete [] _prop.begin().value()._size ;
 		_prop.erase( _prop.begin() ) ;
 	}
 }

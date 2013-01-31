@@ -22,7 +22,8 @@ int main( int narg, char **argv ) {
 	po::options_description general_opt ( "Allowed options are: " );
 	general_opt.add_options()
 		( "help,h", "display this message." )
-		( "input,i", po::value<std::string>(), "Input pgm filename." )
+		( "input,i", po::value<std::string>(), "Input binary pgm filename." )
+		( "label,l", po::value<std::string>(), "Input label pgm filename." )
 		( "output,o", po::value<string>(),"Output pgm filename." )
 		( "top,t", po::value<int>()->default_value(-1),"rank when sorting connected components wrt their length" );
 
@@ -43,8 +44,10 @@ int main( int narg, char **argv ) {
 	}
 
 	//Parse options
-	if ( ! ( vm.count ( "input" ) ) ) missingParam ( "input" );
-	std::string inputFileName = vm["input"].as<std::string>();
+	if ( ! ( vm.count ( "input" ) ) && ! ( vm.count ( "label" ) )) missingParam ( "input or label" );
+	std::string inputFileName ;
+	if ( vm.count ( "input" ) ) inputFileName = vm["input"].as<std::string>();
+	else inputFileName = vm["label"].as<std::string>();
 	if ( ! ( vm.count ( "output" ) ) ) missingParam ( "output" );
 	std::string outputFileName = vm["output"].as<std::string>();
 	
@@ -52,87 +55,69 @@ int main( int narg, char **argv ) {
 	
 	QString input( inputFileName.c_str() ) ;
 	QString output( outputFileName.c_str() ) ;
-	Pgm3dFactory<char> factory ;
-	BillonTpl<char> * skel = factory.read( input ) ;
-	factory.correctEncoding( skel ) ;
-	ConnexComponentExtractor<char,int32_t> CCE ;
-	BillonTpl<int32_t> *labels = CCE.run( *skel ) ;
+	BillonTpl<arma::u16> *labels ;
+	if ( vm.count ( "input" ) ) {
+		Pgm3dFactory<arma::u8> factory ;
+		BillonTpl<arma::u8> * skel = factory.read( input ) ;
+		factory.correctEncoding( skel ) ;
+		ConnexComponentExtractor<arma::u8,arma::u16> CCE ;
+		labels = CCE.run( *skel ) ;
+		delete skel ;
+	} else {
+		Pgm3dFactory<arma::u16> factory ;
+		labels = factory.read( input ) ;
+	}
 
-	if ( top_size != -1 ) {
-		GrayLevelHistogram<int32_t> histogram( *labels ) ;
-		std::list< std::pair<uint32_t,int32_t> > sizeCC ;
-		std::list< std::pair<uint32_t,int32_t> >::iterator pos ;
-		for ( GrayLevelHistogram<int32_t>::THistogram::const_iterator it=histogram._bin.begin(); it != histogram._bin.end();it++ ) {
-			std::cout<<"Key : "<<it->first<<" Frequency : "<<it->second<<std::endl;
+	GrayLevelHistogram<arma::u16> histogram( *labels ) ;
+	std::list< std::pair<arma::u16,int32_t> > sizeCC ;
+	std::list< std::pair<arma::u16,int32_t> >::iterator pos ;
+	for ( GrayLevelHistogram<arma::u16>::THistogram::const_iterator it=histogram._bin.begin(); it != histogram._bin.end();it++ ) {
+		std::cout<<"Key : "<<it->first<<" Frequency : "<<it->second<<std::endl;
 
-			pos = sizeCC.begin() ;
-			while ( pos != sizeCC.end() ) {
-				if ( pos->first < it->second ) break ;
-				pos++ ;
-			}
-			sizeCC.insert( pos, std::pair<uint32_t,int32_t>( it->second, it->first ) ) ;
-		}
-		uint *NewMap = new uint [ histogram._bin.size()+1 ] ;
-		uint iNewMap = 1 ;
-		/// sort connected components' identifier wrt their size
-
-		/// keep only connected components having one of the top_size biggest area value
-
-		uint32_t last_distinct_value = sizeCC.front().first ;
 		pos = sizeCC.begin() ;
-		/// move pos to the first item to be removed
 		while ( pos != sizeCC.end() ) {
-			if ( pos->first != last_distinct_value ) {
-				last_distinct_value = pos->first ;
-				top_size-- ;
-			}
-			if ( top_size == 0 ) break ;
-			NewMap[ pos->second ] = iNewMap ;
-			iNewMap++ ;
+			if ( pos->first < it->second ) break ;
 			pos++ ;
 		}
-		while ( pos != sizeCC.end() ) {
-			NewMap[ pos->second ] = 0 ;
-			pos++ ;
-		}
-
-		for ( uint z = 0 ; z < labels->n_slices ; z++ )
-			for ( uint y = 0 ; y < labels->n_rows ; y++ )
-				for ( uint x = 0 ; x < labels->n_cols ; x++ )
-					if ( (*labels)(y,x,z) != 0 )
-						(*labels)(y,x,z) = NewMap[ (*labels)(y,x,z) ] ;
-		labels->setMaxValue( iNewMap );
-		delete [] NewMap ;
+		sizeCC.insert( pos, std::pair<arma::u16,int32_t>( it->second, it->first ) ) ;
 	}
-	else
-	{
-		/// nothing as we keep all connected components
-	}
-	IOPgm3d< int32_t,qint32, false >::write( *labels, output ) ;
+	uint *NewMap = new uint [ histogram._bin.size()+1 ] ;
+	uint iNewMap = 1 ;
 	
-	#ifdef DEBUG_ENCODING_IMAGE
-	GrayCube * imcheck = io::Pgm3dFactory::read( output ) ;
-	ui32histogram_t hWrite, hRead ;
-	GrayLevelHistogram( *labels, hWrite ) ;
-	GrayLevelHistogram( *imcheck, hRead ) ;
+	if ( top_size == -1 ) top_size = histogram._bin.size() ;
+	/// sort connected components' identifier wrt their size
 
-	if ( accu(*labels != *imcheck) > 0 ) {
-		std::cerr<<"ERROR[encoding] : saving/loading an image does not preserve the values"<<std::endl;
-		std::cerr<<"Histogram of the exported image "<<std::endl;
-		for ( ui32histogram_t::const_iterator bin = hWrite.begin() ; bin != hWrite.end() ; bin++ )
-			std::cerr<<bin->first<<" : "<<bin->second<<std::endl;
-		std::cerr<<std::endl;
-		std::cerr<<"Histogram of the imported image "<<std::endl;
-		for ( ui32histogram_t::const_iterator bin = hRead.begin() ; bin != hRead.end() ; bin++ )
-			std::cerr<<bin->first<<" : "<<bin->second<<std::endl;
-		std::cerr<<std::endl;
+	/// keep only connected components having one of the top_size biggest area value
 
+	arma::u16 last_distinct_value = sizeCC.front().first ;
+	pos = sizeCC.begin() ;
+	/// move pos to the first item to be removed
+	while ( pos != sizeCC.end() ) {
+		if ( pos->first != last_distinct_value ) {
+			last_distinct_value = pos->first ;
+			top_size-- ;
+		}
+		if ( top_size == 0 ) break ;
+		NewMap[ pos->second ] = iNewMap ;
+		std::cout<<pos->second<<" => "<<iNewMap<<std::endl;
+		iNewMap++ ;
+		pos++ ;
 	}
-	std::cerr<<"Histograms' size are "<< hWrite.size()<<" vs "<<hRead.size()<<std::endl;
-	#endif
+	while ( pos != sizeCC.end() ) {
+		NewMap[ pos->second ] = 0 ;
+		pos++ ;
+	}
+
+	for ( uint z = 0 ; z < labels->n_slices ; z++ )
+		for ( uint y = 0 ; y < labels->n_rows ; y++ )
+			for ( uint x = 0 ; x < labels->n_cols ; x++ )
+				if ( (*labels)(y,x,z) != 0 )
+					(*labels)(y,x,z) = NewMap[ (*labels)(y,x,z) ] ;
+	labels->setMaxValue( iNewMap );
+	delete [] NewMap ;
+	IOPgm3d< arma::u16,qint16, false >::write( *labels, output ) ;
 	
 	delete labels ;
-	delete skel ;
 
 	return 0 ;
 }

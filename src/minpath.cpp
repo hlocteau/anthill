@@ -20,13 +20,13 @@ namespace fs = boost::filesystem ;
 #include <boost/graph/connected_components.hpp>
 #include <unistd.h>
 
-typedef Pgm3dFactory<char> 				CPgm3dFactory ;
-typedef BillonTpl<char>					CharImage ;
-typedef SkeletonGraph<char>				CSkeletonGraph ;
-typedef Pgm3dFactory<int32_t> 			IPgm3dFactory ;
-typedef int32_t							im_elem_sp_type ;
+typedef Pgm3dFactory<arma::u8> 				CPgm3dFactory ;
+typedef BillonTpl<arma::u8>					CharImage ;
+typedef SkeletonGraph<arma::u8>				CSkeletonGraph ;
+typedef Pgm3dFactory<arma::u32> 			IPgm3dFactory ;
+typedef arma::u32							im_elem_sp_type ;
 typedef BillonTpl< im_elem_sp_type > 	ISPImage ;
-typedef ConnexComponentExtractor<CPgm3dFactory::value_type,int16_t> CCExtractor ;
+typedef ConnexComponentExtractor<CPgm3dFactory::value_type,arma::u16> CCExtractor ;
 
 using DGtal::Z3i::Point ;
 
@@ -710,7 +710,7 @@ int main( int narg, char **argv ) {
 	delete pOwnLabel ;
 
 	/// initializing the graph
-	CSkeletonGraph SG( *img, (char)1 );
+	CSkeletonGraph SG( *img, (arma::u8)1 );
 	const CSkeletonGraph::graph_t & g = SG.graph() ; 
 	delete img ;
 
@@ -766,7 +766,7 @@ int main( int narg, char **argv ) {
 		cout << "Total number of components: " << num << " for "<<num_vertices(g)<<" vertices"<<endl;
 		int rows, cols, slices ;
 		SG.size( rows, cols, slices ) ;
-		BillonTpl< int32_t > result( rows, cols, slices ) ;
+		BillonTpl< arma::u32 > result( rows, cols, slices ) ;
 		result.fill(0);
 		/// it should be faster to iterate on the QMap
 		#if 0
@@ -775,14 +775,14 @@ int main( int narg, char **argv ) {
 		  result( pt.y, pt.x, pt.z ) = component[i]+1;
 		}
 		#else
-		for ( SkeletonGraph<int32_t>::ConstVoxelIterator it = SG.encoding_begin() ; it != SG.encoding_end() ; it++ )
+		for ( SkeletonGraph<arma::u8>::ConstVoxelIterator it = SG.encoding_begin() ; it != SG.encoding_end() ; it++ )
 			result( SG.y_from_linear_coord( it.key() ),
 					SG.x_from_linear_coord( it.key() ),
 					SG.z_from_linear_coord( it.key() ) ) = component[ it.value() ]+1 ;
 		#endif
 		fs::path filepath = "/tmp" ;
 		filepath /= "seg.final.pgm3d" ;
-		IOPgm3d< int32_t, qint32,false>::write( result, QString("%1").arg( filepath.c_str() ) ) ;
+		IOPgm3d< arma::u32, qint32,false>::write( result, QString("%1").arg( filepath.c_str() ) ) ;
 	}
 	return 0 ;
 }

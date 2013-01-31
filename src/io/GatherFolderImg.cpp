@@ -47,7 +47,10 @@ void GatherFolderImg::computeDimensions() {
 void GatherFolderImg::computeMask( ) {
 	_mask = arma::zeros< arma::Mat< arma::u8 > >( _scene->n_rows, _scene->n_cols ) ;
 	
-	if ( _minFrequencyMask > 100 ) return ;
+	if ( _minFrequencyMask > 100 ) {
+		_mask = 1 - _mask ;
+		return ;
+	}
 	
 	arma::Mat< arma::u16 > counter = arma::zeros< arma::Mat< arma::u16 > > ( _scene->n_rows, _scene->n_cols ) ;
 
@@ -77,6 +80,14 @@ std::cerr<<__FILE__<<" @ line "<<__LINE__<<std::endl;
 				*writeIter += *readIter ;
 		}
 	}
+	
+	{
+		arma::Cube<arma::u16> counter3D( counter.n_rows, counter.n_cols, 1 ) ;
+		counter3D.slice(0) = counter ;
+		IOPgm3d<arma::u16,qint16,false>::write( counter3D,"/tmp/inferingmask.pgm3d");
+	}
+	
+	
 std::cerr<<__FILE__<<" @ line "<<__LINE__<<" max frequency = "<<counter.max()<<std::endl;
 	arma::u16 th = (_scene->n_slices*_minFrequencyMask)/100 ;
 	for ( y = 0 ; y < _mask.n_rows ; y++ )

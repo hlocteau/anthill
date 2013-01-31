@@ -406,7 +406,7 @@ int32_t ConnexComponentExtractor<IN,OUT>::twoPassAlgorithm( const arma::Mat<int3
 						if (oldSlice.at(j+1,i+1)) voisinage.append(oldSlice.at(j+1,i+1));
 				}
 				///hlo
-				if ( true&&i>=(96-1)&&i<=(96+1)&&j>=(105-1)&&j<=(105+1)&&k>=(4-1)&&k<=(4+1) ) {
+				if ( false&&i>=(96-1)&&i<=(96+1)&&j>=(105-1)&&j<=(105+1)&&k>=(4-1)&&k<=(4+1) ) {
 					std::cerr<<"== "<<__FUNCTION__<<" @ line "<<__LINE__<<" for voxel "<<i<<","<<j<<","<<k<<" we get adjacent labels ";
 					typename TVoisinage::ConstIterator iterVoisin = voisinage.constBegin();
 					while ( iterVoisin != voisinage.constEnd() )
