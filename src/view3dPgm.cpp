@@ -46,11 +46,15 @@ int main( int narg, char **argv ) {
 	general_opt.add_options()
 		( "help,h", "display this message." )
 		( "input,i", po::value< std::string >()->multitoken(), "Input pgm filename(s)." )
-		( "clipping,c", po::value<std::string>()->multitoken(), "vector's coordinates. <val_a> <val_b> <val_c> <val_d>" )
+		( "clipping,p", po::value<std::string>()->multitoken(), "vector's coordinates. <val_a> <val_b> <val_c> <val_d>" )
 		( "domain,d", po::value<bool>()->default_value(true),"Display the overall domain." )
 		( "bbox,b", po::value<bool>()->default_value(true),"Display bounding boxes." )
-		( "single,s", po::value<bool>()->default_value(true),"Use a single channel color." )
+		( "mono,m", po::value<bool>()->default_value(true),"Use a single channel color." )
+		( "colormap,c", po::value<bool>()->default_value(true),"Use a gradient based colormap when using multiple channels' color." )
 		( "boundary,b", po::value<bool>()->default_value(true),"Display only boundary voxels." )
+		( "selection,s", po::value< std::string >()->multitoken(), "draw only specific id.")
+		( "export,e", po::value< std::string >(), "export the corresponding scene (filename of a pgm3d file).")
+		( "rgb", po::value<bool>()->default_value(true), "When export is used, export colors (labels only when value is false).")
 		( "xmin,x", po::value<int>()->default_value(0), "xmin.")
 		( "Xmax,X", po::value<int>()->default_value(-1), "xmax.")
 		( "ymin,y", po::value<int>()->default_value(0), "ymin.")
@@ -58,6 +62,7 @@ int main( int narg, char **argv ) {
 		( "zmin,z", po::value<int>()->default_value(0), "zmin.")
 		( "Zmax,Z", po::value<int>()->default_value(-1), "zmax.")
 		( "voxel,v", po::value<bool>()->default_value(true), "display voxel instead of surfel when boundary is required.")
+		( "transparency,t", po::value<bool>()->default_value(true), "display voxel using transparency")
 		( "label,l", po::value<bool>()->default_value(false),"Use existing labeling." );
 
 	bool parseOK = true ;
@@ -74,6 +79,15 @@ int main( int narg, char **argv ) {
 	if (!parseOK || vm.count ( "help" ) ||narg<=1 ) {
 		errorAndHelp( general_opt ) ;
 		return -1 ;
+	}
+	arma::Cube< arma::u8 > *resultingscene_8 = 0 ;
+	arma::Cube< arma::u16 > *resultingscene_16 = 0 ;
+	QList< src_type > Labels;
+	if ( vm.count("selection") ) {
+		QStringList selectedLabels = QString( "%1").arg( vm["selection"].as< std::string >().c_str() ).split( " ", QString::SkipEmptyParts) ;
+		while ( !selectedLabels.isEmpty() )
+			Labels.append( (src_type)selectedLabels.takeAt(0).toInt() ) ;
+		qSort( Labels.begin(), Labels.end(), qLess<src_type>() ) ;
 	}
 
 	//Parse options
@@ -95,7 +109,7 @@ int main( int narg, char **argv ) {
 	bool display_domain = vm["domain"].as<bool>();
 	bool use_labeling = vm["label"].as<bool>();
 	bool boundary_only = vm["boundary"].as<bool>();
-	bool single_channelColor = vm["single"].as<bool>();
+	bool single_channelColor = vm["mono"].as<bool>();
 	bool display_bbox = vm["bbox"].as<bool>();
 	bool display_voxel = vm["voxel"].as<bool>();
 	
@@ -157,6 +171,24 @@ int main( int narg, char **argv ) {
 		}
 	}
 
+	uint size_voxel = 1 ;
+	if ( vm.count ( "export" ) ) {
+		if ( vm["rgb"].as<bool>() && use_labeling ) size_voxel = 3 ;
+		uint nRequired ;
+		if ( size_voxel == 1 ) {
+			if ( Labels.isEmpty() ) nRequired = histo.size() ;
+			else nRequired = Labels.size() ;
+		}
+		if ( size_voxel == 3  ) 
+			resultingscene_8 = new arma::Cube< arma::u8 >( img->n_rows, img->n_cols * size_voxel, img->n_slices ) ;
+		else if ( nRequired < 256 )
+			resultingscene_8 = new arma::Cube< arma::u8 >( img->n_rows, img->n_cols, img->n_slices ) ;
+		else
+			resultingscene_16 = new arma::Cube< arma::u16 >( img->n_rows, img->n_cols, img->n_slices ) ;
+		if ( resultingscene_8 ) resultingscene_8->fill( 0 ) ;
+		else resultingscene_16->fill( 0 ) ;
+	}
+
 	if ( display_domain ) {
 		viewer << SetMode3D( domain.className(), "BoundingBox") ;
 		viewer << domain ;
@@ -199,20 +231,50 @@ int main( int narg, char **argv ) {
 		cmap_grad.addColor(Color::Yellow);*/
 		
 		for ( GrayLevelHistogram<src_type>::THistogram::const_iterator bin = h._bin.begin() ; bin != h._bin.end() ; bin ++ ) {
+			if ( !Labels.isEmpty() ) {
+				if ( !Labels.contains( bin->first ) ) {
+					iColor++ ; // do not change color order whenever selection is done or not
+					delete map_obj[ bin->first ] ;
+					map_obj[ bin->first ] = 0 ;
+					continue ;
+				}
+			}
 			Color cVoxel, cEdgel ;
 			if ( single_channelColor ) {
-				Color col = cmap_grad( iColor-1) ;
 				cVoxel = Color( 0,(iColor*256)/nColor,0, 240 );
 				cEdgel = Color( 0,(iColor*256)/nColor,0, 120 );
-				
-				cVoxel = Color( col.red(),col.green(),col.blue(), 255 );
-				cEdgel = Color( col.red(),col.green(),col.blue(), 255 );
 			} else {
-				cVoxel = Color((iColor*stepColor)/(256*256), (iColor*stepColor/256)%256,(iColor*stepColor)%256, 240) ;
-				cEdgel = Color((iColor*stepColor)/(256*256), (iColor*stepColor/256)%256,(iColor*stepColor)%256, 120) ;
+				if ( !vm["colormap"].as<bool>() ) {
+					cVoxel = Color((iColor*stepColor)/(256*256), (iColor*stepColor/256)%256,(iColor*stepColor)%256, 240) ;
+					cEdgel = Color((iColor*stepColor)/(256*256), (iColor*stepColor/256)%256,(iColor*stepColor)%256, 120) ;
+				} else {
+					Color col = cmap_grad( iColor-1) ;
+					cVoxel = Color( col.red(),col.green(),col.blue(), 240 );
+					cEdgel = Color( col.red(),col.green(),col.blue(), 120 );
+				}
+			}
+			if ( !vm["transparency"].as<bool>() ) {
+				cVoxel.alpha(255);
+				cEdgel.alpha(255);
 			}
 			viewer << CustomColors3D( cVoxel, cEdgel );
 			viewer << *( map_obj[ bin->first ] );
+			
+			if ( resultingscene_8 ) {
+				if ( size_voxel == 3 )
+					for ( Z3i::DigitalSet::ConstIterator pt = map_obj[ bin->first ]->begin() ; pt != map_obj[ bin->first ]->end() ; pt++ ) {
+						resultingscene_8->at( pt->at(1), 3*pt->at(0),pt->at(2) ) = cVoxel.red() ;
+						resultingscene_8->at( pt->at(1), 3*pt->at(0)+1,pt->at(2) ) = cVoxel.green() ;
+						resultingscene_8->at( pt->at(1), 3*pt->at(0)+2,pt->at(2) ) = cVoxel.blue() ;
+					}
+				else
+					for ( Z3i::DigitalSet::ConstIterator pt = map_obj[ bin->first ]->begin() ; pt != map_obj[ bin->first ]->end() ; pt++ )
+						resultingscene_8->at( pt->at(1), pt->at(0),pt->at(2) ) = iColor ;
+			} else if ( resultingscene_16 ) {
+				for ( Z3i::DigitalSet::ConstIterator pt = map_obj[ bin->first ]->begin() ; pt != map_obj[ bin->first ]->end() ; pt++ )
+					resultingscene_16->at( pt->at(1), pt->at(0),pt->at(2) ) = iColor ;
+			}
+			
 			if ( display_bbox ) {
 				Point lower, upper ;
 				map_obj[ bin->first ]->computeBoundingBox( lower, upper ) ;
@@ -230,6 +292,10 @@ int main( int narg, char **argv ) {
 		Color cVoxel, cEdgel ;
 		cVoxel = Color( 128,128,0,240 );
 		cEdgel = Color( 128,128,0,120 );
+		if ( !vm["transparency"].as<bool>() ) {
+			cVoxel.alpha(255);
+			cEdgel.alpha(255);
+		}
 		viewer<<SetMode3D( p.className(), "Paving" ) ;
 		viewer << CustomColors3D( cVoxel, cEdgel );
 		unsigned int nbVoxel = 0 ;
@@ -238,6 +304,12 @@ int main( int narg, char **argv ) {
 			for ( int y = ymin ; y < ymax ; y++ )
 				for ( int x = xmin ; x < xmax ; x++ )
 					if ( img->at(y,x,z) != 0 ) {
+						src_type value = img->at(y,x,z) ;
+						if ( !Labels.isEmpty() ) {
+							if ( !Labels.contains( value ) ) {
+								continue ;
+							}
+						}
 						if ( boundary_only ) {
 							/// insert this voxel iff at least one neighbor is 0
 							if ( display_voxel && ( (img->at(y,max(0,x-1),z) ==0 || img->at(y, min(width-1,x+1),z) ==0 || 
@@ -261,6 +333,17 @@ int main( int narg, char **argv ) {
 						} else {
 							viewer << Point(x,y,z) ;nbVoxel++;
 						}
+						if ( resultingscene_8 ) {
+							if ( Labels.isEmpty() )
+								resultingscene_8->at( y, x,z ) = value ;
+							else
+								resultingscene_8->at( y, x,z ) = Labels.indexOf( value )+1 ;
+						} else if ( resultingscene_16 ) {
+							if ( Labels.isEmpty() )
+								resultingscene_16->at( y, x,z ) = value ;
+							else
+								resultingscene_16->at( y, x,z ) = Labels.indexOf( value )+1 ;
+						}							
 					}
 		std::cout<<"Display "<<nbVoxel<<" voxel(s)"<<std::endl;
 	}
@@ -271,6 +354,16 @@ int main( int narg, char **argv ) {
 		delete [] param_clipping ;
 	}
 	viewer << Viewer3D::updateDisplay;
+	
+	if ( resultingscene_8 ) {
+		std::cout<<"(8 bits) min-max while exporting : "<<(arma::s32)resultingscene_8->min()<<" "<<(arma::s32)resultingscene_8->max()<<std::endl;
+		IOPgm3d< arma::u8, qint8, false>::write( *resultingscene_8, QString("%1").arg( vm["export"].as< std::string >().c_str() ) ) ;
+		delete resultingscene_8 ;
+	} else if ( resultingscene_16 ) {
+		std::cout<<"(16 bits) min-max while exporting : "<<(arma::s32)resultingscene_16->min()<<" "<<(arma::s32)resultingscene_16->max()<<std::endl;
+		IOPgm3d< arma::u16, qint16, false>::write( *resultingscene_16, QString("%1").arg( vm["export"].as< std::string >().c_str() ) ) ;
+		delete resultingscene_16 ;
+	}
 	
 	return application.exec();
 }
