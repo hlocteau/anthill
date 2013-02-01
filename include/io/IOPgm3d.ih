@@ -86,7 +86,7 @@ template <typename To, typename T, bool tAscii> bool IOPgm3d<To,T,tAscii>::write
 		out << QString("%1 %2 %3").arg( width ).arg( height ).arg( depth ) << endl;
 	else
 		out << QString("%1 %2").arg( width ).arg( height ) << endl;
-	out << QString("%1").arg( (T)img.max() ) << endl;
+	out << QString("%1").arg( (int)img.max() ) << endl;
 	if ( !tAscii ) {
 		QDataStream dout(&file);
 		for ( uint k=0 ; k< depth ; k++ ) {
