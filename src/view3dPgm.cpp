@@ -50,6 +50,7 @@ int main( int narg, char **argv ) {
 		( "domain,d", po::value<bool>()->default_value(true),"Display the overall domain." )
 		( "bbox,b", po::value<bool>()->default_value(true),"Display bounding boxes." )
 		( "mono,m", po::value<bool>()->default_value(true),"Use a single channel color." )
+		( "number,n", po::value<int>()->default_value(0), "minimum number of colors (impact on the distance between two \'consecutive\' colors).")
 		( "colormap,c", po::value<bool>()->default_value(true),"Use a gradient based colormap when using multiple channels' color." )
 		( "boundary,b", po::value<bool>()->default_value(true),"Display only boundary voxels." )
 		( "selection,s", po::value< std::string >()->multitoken(), "draw only specific id.")
@@ -179,6 +180,10 @@ int main( int narg, char **argv ) {
 			if ( Labels.isEmpty() ) nRequired = histo.size() ;
 			else nRequired = Labels.size() ;
 		}
+		/**
+		 * \todo enable to export the label and the palette only
+		 *       enable import a colored image! (with or without a palette)
+		 */
 		if ( size_voxel == 3  ) 
 			resultingscene_8 = new arma::Cube< arma::u8 >( img->n_rows, img->n_cols * size_voxel, img->n_slices ) ;
 		else if ( nRequired < 256 )
@@ -217,6 +222,7 @@ int main( int narg, char **argv ) {
 		delete img ;	
 		int iColor = 1 ;
 		int nColor = histo.size()+1 ;
+		if ( vm["number"].as<int>() > nColor ) nColor = vm["number"].as<int>() ;
 		int stepColor = 256 * 256 * 256 / nColor ;
 		
 		GradientColorMap<int> cmap_grad( 0, nColor, CMAP_HOT );
