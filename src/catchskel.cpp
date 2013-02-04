@@ -28,7 +28,7 @@ typedef qint8     qtlabel ;
 typedef arma::u16 tlabelbranch ;
 typedef qint16    qtlabelbranch ;
 
-void set_branch( const QList< uint * > &touching, const BillonTpl< tlabel > *labelSkel, const BillonTpl< tlabelbranch > *labelBranch, QMap< tlabelbranch, tlabel > &NewLabelBranch, const QList< tlabel > &Labels ) {
+void set_branch( const QList< uint * > &touching, const BillonTpl< tlabel > *labelSkel, const BillonTpl< tlabelbranch > *labelBranch, QMap< tlabelbranch, tlabel > &NewLabelBranch, const QList< tlabel > &Labels, QMap< tlabel, QList<tlabel> > &edges ) {
 	QList< uint * >::const_iterator iterVoxel = touching.begin(),
 	                                iterVoxelEnd = touching.end() ;
 	bool bDiscard ;
@@ -43,8 +43,15 @@ void set_branch( const QList< uint * > &touching, const BillonTpl< tlabel > *lab
 		if ( !bDiscard ) {
 			if ( !NewLabelBranch.contains( idBranch ) )
 				NewLabelBranch.insert( idBranch, idComp ) ;
-			else if (NewLabelBranch[idBranch] != idComp )
+			else if (NewLabelBranch[idBranch] != idComp ) {
 				bridges.append( idBranch ) ;
+				if ( !edges.contains( idComp ) ) edges.insert( idComp, QList<tlabel>() ) ;
+				if ( !edges.contains( NewLabelBranch[idBranch] ) ) edges.insert( NewLabelBranch[idBranch], QList<tlabel>() ) ;
+				edges[ idComp ].append( NewLabelBranch[idBranch] ) ;
+				//edges[ idComp ].append( idBranch ) ;
+				edges[ NewLabelBranch[idBranch] ].append( idComp ) ;
+				//edges[ NewLabelBranch[idBranch] ].append( idBranch ) ; /// it is this value that is the edge between the two
+			}
 		} else if ( NewLabelBranch.contains( idBranch ) ) {
 			bridges.append( idBranch ) ;
 		}
@@ -55,6 +62,14 @@ void set_branch( const QList< uint * > &touching, const BillonTpl< tlabel > *lab
 	while ( !bridges.isEmpty() ) {
 		NewLabelBranch.take( bridges.takeFirst() ) ;
 	}
+	
+	for ( QMap<tlabel,QList<tlabel> >::ConstIterator e_source_it = edges.begin() ; e_source_it != edges.end() ; e_source_it++ ) {
+		std::cout<<(int)e_source_it.key()<<" connected to ";
+		for ( QList<tlabel>::ConstIterator e_target_it = e_source_it.value().begin() ; e_target_it != e_source_it.value().end() ; e_target_it++ )
+			std::cout<<(int)*e_target_it<<" " ;
+		std::cout<<std::endl;
+	}
+	
 }
 
 void attach_branch( BillonTpl< tlabel > *extendedSkel, const BillonTpl< tlabelbranch > *labelBranch, const QMap< tlabelbranch, tlabel > &NewLabelBranch, const QList< tlabel > &Labels ) {
@@ -194,7 +209,8 @@ int main ( int narg, char **argv ) {
 	delete initialSkel ;
 	
 	QMap< tlabelbranch, tlabel > NewLabelBranch ;
-	set_branch( touching, labelReducedSkel, labelBranch, NewLabelBranch, Labels ) ;
+	QMap< tlabel, QList<tlabel> > edges ;
+	set_branch( touching, labelReducedSkel, labelBranch, NewLabelBranch, Labels,edges ) ;
 	attach_branch( labelReducedSkel, labelBranch, NewLabelBranch, Labels ) ;
 	
 	IOPgm3d< tlabel, qtlabel, false >::write( *labelReducedSkel, QString(outputSkelFile.c_str() ) ) ;
