@@ -13,7 +13,6 @@
 #include <RessourceDelegate.hpp>
 
 #include "DGtal/images/ImageSelector.h"
-#include "DGtal/io/writers/PNMWriter.h"
 #include "DGtal/io/colormaps/GrayscaleColorMap.h"
 
 namespace fs = boost::filesystem ;
