@@ -6,7 +6,6 @@
 
 #include <map>
 #include <def_billon.h>
-#include "sliceview.h"
 
 #include <io/Pgm3dFactory.h>
 #include <AntHillManager.hpp>
@@ -79,8 +78,6 @@ private:
     QGroupBox *_ressourcesGroupBox ;
     QTableWidget *_ressourcesTable ;
     
-    SliceView *_sliceView;
-
     uint _currentSlice;
     uint _currentSerie ;
     BillonTpl<char> *_segmImg ;
