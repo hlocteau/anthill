@@ -81,7 +81,7 @@ int main( int narg, char **argv ) {
 		}
 		sizeCC.insert( pos, std::pair<arma::u16,int32_t>( it->second, it->first ) ) ;
 	}
-	uint *NewMap = new uint [ histogram._bin.size()+1 ] ;
+	uint *NewMap = new uint [ /*histogram._bin.size()*/histogram._bin.rbegin()->first+1 ] ;
 	uint iNewMap = 1 ;
 	
 	if ( top_size == -1 ) top_size = histogram._bin.size() ;
