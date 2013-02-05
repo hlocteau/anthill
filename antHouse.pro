@@ -18,9 +18,6 @@ CONFIG		*=	$${ITK_VERSION}
 SOURCES += src/main.cpp\
         src/mainwindow.cpp \
     src/dicomreader.cpp \
-    src/sliceview.cpp \
-    src/globalfunctions.cpp \
-    src/geom2d.cpp \
     src/AntHillManager.cpp \
     src/io/AntHillFile.cpp \
     src/RessourceDelegate.cpp \
@@ -32,8 +29,6 @@ HEADERS  += include/mainwindow.h \
     include/coordinate.h \
     include/billon.h \
     include/define.h \
-    include/sliceview.h \
-    include/geom2d.h \
     include/io/Pgm3dFactory.ih \
     include/io/Pgm3dFactory.h \
     include/io/AntHillFile.hpp \
