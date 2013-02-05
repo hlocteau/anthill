@@ -1,19 +1,19 @@
-#include "mainwindow.h"
-#include "ui_mainwindow.h"
+#include <mainwindow.h>
+#include <ui_mainwindow.h>
 
-#include "billon.h"
-#include "coordinate.h"
+#include <billon.h>
+#include <def_coordinate.h>
+#include <coordinate.h>
 
-#include "io/AntHillFile.hpp"
-#include "geom2d.h"
+#include <io/AntHillFile.hpp>
 
 #include <QFileDialog>
 #include <QColorDialog>
 #include <QMouseEvent>
 #include <RessourceDelegate.hpp>
 
-#include "DGtal/images/ImageSelector.h"
-#include "DGtal/io/colormaps/GrayscaleColorMap.h"
+#include <DGtal/images/ImageSelector.h>
+#include <DGtal/io/colormaps/GrayscaleColorMap.h>
 
 namespace fs = boost::filesystem ;
 
