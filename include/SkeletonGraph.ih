@@ -63,6 +63,8 @@
 
 #define CHECK_VERTEX_DEGREE_3DIMAGE(node,graph)
 
+/// this macro should be redefined on a derived class when further criteria are required
+
 #define ADD_EDGE(source,target,graph) add_edge(source,target,graph);
 
 #define CHECK_VERTEX_ID(x,y,z)
@@ -292,12 +294,12 @@ template <typename T> bool SkeletonGraph<T>::isolated_vertex( const BillonTpl<T>
 		y=y_from_linear_coord( Iter.key()) ;
 		z=z_from_linear_coord( Iter.key()) ;
 		std::cerr<<"vertex "<< Iter.value()<<" is mapped to voxel ("<<x<<","<<y<<","<<z<<") is disconnected"<<std::endl;
-		for ( int zz=max(0,z-1);zz<=min((int)_n_slices-1,z+1);zz++ )
+		for ( int zz=std::max(0,z-1);zz<=std::min((int)_n_slices-1,z+1);zz++ )
 			std::cerr<<"z = "<<zz<<"\t\t";
 		std::cerr<<std::endl;
-		for ( int yy=max(0,y-1);yy<=min((int)_n_rows-1,y+1);yy++ ) {
-			for ( int zz=max(0,z-1);zz<=min((int)_n_slices-1,z+1);zz++ ) {
-				for ( int xx=max(0,x-1);xx<=min((int)_n_cols-1,x+1);xx++ )
+		for ( int yy=std::max(0,y-1);yy<=std::min((int)_n_rows-1,y+1);yy++ ) {
+			for ( int zz=std::max(0,z-1);zz<=std::min((int)_n_slices-1,z+1);zz++ ) {
+				for ( int xx=std::max(0,x-1);xx<=std::min((int)_n_cols-1,x+1);xx++ )
 					std::cerr<<(int)img(yy,xx,zz)<<" ";
 				std::cerr<<"\t\t" ;
 			}
