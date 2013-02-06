@@ -35,6 +35,13 @@ void missingParam ( std::string param )
 
 typedef uint32_t src_type ;
 
+const double golden_ratio_conjugate = 0.618033988749895 ;
+QColor makeRgbColor( double &hue ) {
+  hue += golden_ratio_conjugate ;
+  if ( hue > 1. ) hue -= 1. ;
+  return  QColor::fromHsv( (int)floor(hue*359), 76, 252) ;
+}
+
 int main( int narg, char **argv ) {
 
 	
@@ -64,7 +71,9 @@ int main( int narg, char **argv ) {
 		( "Zmax,Z", po::value<int>()->default_value(-1), "zmax.")
 		( "voxel,v", po::value<bool>()->default_value(true), "display voxel instead of surfel when boundary is required.")
 		( "transparency,t", po::value<bool>()->default_value(true), "display voxel using transparency")
-		( "label,l", po::value<bool>()->default_value(false),"Use existing labeling." );
+		( "label,l", po::value<bool>()->default_value(false),"Use existing labeling." )
+		( "verbose", po::value<bool>()->default_value(false),"output additional information." )
+		( "golden,g",po::value<bool>()->default_value(false),"use hsv color generator." );
 
 	bool parseOK = true ;
 	po::variables_map vm;
@@ -200,10 +209,12 @@ int main( int narg, char **argv ) {
 	}
 	//std::vector< std::vector< Z3i::SCell > > vectConnectedSCell;
 	if ( use_labeling ) {
+		double hue=( rand() % 1000 ) / 1000. ;
+		
 		std::map< src_type, DigitalSet * > map_obj ;
 		for ( GrayLevelHistogram<src_type>::THistogram::const_iterator bin = h._bin.begin() ; bin != h._bin.end() ; bin ++ ) {
 			map_obj[ bin->first ] = new DigitalSet( domain ) ;
-			std::cout<<bin->first<<" : "<<bin->second<<std::endl;
+			if ( vm["verbose"].as<bool>() ) std::cout<<bin->first<<" : "<<bin->second<<std::endl;
 		}
 		for ( int z = zmin ; z < zmax ; z++ )
 			for ( int y = ymin ; y < ymax ; y++ )
@@ -223,7 +234,7 @@ int main( int narg, char **argv ) {
 		int iColor = 1 ;
 		int nColor = histo.size()+1 ;
 		if ( vm["number"].as<int>() > nColor ) nColor = vm["number"].as<int>() ;
-		int stepColor = 256 * 256 * 256 / nColor ;
+		int stepColor = (int)floor( log( (double)nColor ) / log( 3. ) + 1 );
 		
 		GradientColorMap<int> cmap_grad( 0, nColor, CMAP_HOT );
 		//cmap_grad.addColor( Color( 50, 50, 255 ) );
@@ -240,6 +251,7 @@ int main( int narg, char **argv ) {
 			if ( !Labels.isEmpty() ) {
 				if ( !Labels.contains( bin->first ) ) {
 					iColor++ ; // do not change color order whenever selection is done or not
+					makeRgbColor( hue );
 					delete map_obj[ bin->first ] ;
 					map_obj[ bin->first ] = 0 ;
 					continue ;
@@ -251,8 +263,14 @@ int main( int narg, char **argv ) {
 				cEdgel = Color( 0,(iColor*256)/nColor,0, 120 );
 			} else {
 				if ( !vm["colormap"].as<bool>() ) {
-					cVoxel = Color((iColor*stepColor)/(256*256), (iColor*stepColor/256)%256,(iColor*stepColor)%256, 240) ;
-					cEdgel = Color((iColor*stepColor)/(256*256), (iColor*stepColor/256)%256,(iColor*stepColor)%256, 120) ;
+					if ( vm["golden"].as<bool>() ) {
+						QColor qColor = makeRgbColor( hue ) ;
+						cVoxel = Color( qColor.red(), qColor.green(), qColor.blue(), 240 ) ;
+						cEdgel = Color( qColor.red(), qColor.green(), qColor.blue(), 120 ) ;
+					} else {
+						cVoxel = Color((256/stepColor)*(iColor/(stepColor*stepColor)), (256/stepColor)*( (iColor/stepColor) % stepColor ),( 256 / stepColor ) * ( iColor % stepColor) , 240) ;
+						cEdgel = Color(cVoxel.red(), cVoxel.green(),cVoxel.blue() , 120) ;						
+					}
 				} else {
 					Color col = cmap_grad( iColor-1) ;
 					cVoxel = Color( col.red(),col.green(),col.blue(), 240 );
@@ -286,8 +304,8 @@ int main( int narg, char **argv ) {
 				map_obj[ bin->first ]->computeBoundingBox( lower, upper ) ;
 				viewer << SetMode3D( domain.className(), "BoundingBox") ;
 				viewer << Domain( lower, upper ) ;
-				std::cout<<"obj "<<bin->first<<" size "<<bin->second<<"(reduced to "<<map_obj[ bin->first ]->size()<<" boundary voxels) color rgb("<<(iColor*stepColor)/(256*256)<<";"<<(iColor*stepColor/256)%256<<";"<<(iColor*stepColor)%256<<")";
-				std::cout<<" bb ["<<lower.at(0)<<","<<lower.at(1)<<","<<lower.at(2)<<" -- "<<upper.at(0)<<","<<upper.at(1)<<","<<upper.at(2)<<"]"<<std::endl;
+				if ( vm["verbose"].as<bool>() ) std::cout<<"obj "<<bin->first<<" size "<<bin->second<<"(reduced to "<<map_obj[ bin->first ]->size()<<" boundary voxels) color rgb("<<(iColor*stepColor)/(256*256)<<";"<<(iColor*stepColor/256)%256<<";"<<(iColor*stepColor)%256<<")";
+				if ( vm["verbose"].as<bool>() ) std::cout<<" bb ["<<lower.at(0)<<","<<lower.at(1)<<","<<lower.at(2)<<" -- "<<upper.at(0)<<","<<upper.at(1)<<","<<upper.at(2)<<"]"<<std::endl;
 			}
 			iColor++ ;
 			delete map_obj[ bin->first ] ;
