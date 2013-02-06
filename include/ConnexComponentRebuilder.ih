@@ -50,12 +50,12 @@ template <typename T, typename U, typename V> bool ConnexComponentRebuilder<T,U,
 	const DigitalSet * pts = _layers[ selection ].first ;
 	for ( DigitalSet::ConstIterator pt = pts->begin() ; pt != pts->end(); pt++ ) {
 		U d = floor( 1.+sqrt( double( (*_depth)( (*pt).at(1),(*pt).at(0),(*pt).at(2) ) ) ) ) ;
-		lower.at(0) = std::min ( pt->at(0) - d , lower.at(0) ) ;
-		lower.at(1) = std::min ( pt->at(1) - d , lower.at(1) ) ;
-		lower.at(2) = std::min ( pt->at(2) - d , lower.at(2) ) ;
-		upper.at(0) = std::max ( pt->at(0) + d , upper.at(0) ) ;
-		upper.at(1) = std::max ( pt->at(1) + d , upper.at(1) ) ;
-		upper.at(2) = std::max ( pt->at(2) + d , upper.at(2) ) ;
+		lower.at(0) = std::min ( (U)pt->at(0) - d , (U)lower.at(0) ) ;
+		lower.at(1) = std::min ( (U)pt->at(1) - d , (U)lower.at(1) ) ;
+		lower.at(2) = std::min ( (U)pt->at(2) - d , (U)lower.at(2) ) ;
+		upper.at(0) = std::max ( (U)pt->at(0) + d , (U)upper.at(0) ) ;
+		upper.at(1) = std::max ( (U)pt->at(1) + d , (U)upper.at(1) ) ;
+		upper.at(2) = std::max ( (U)pt->at(2) + d , (U)upper.at(2) ) ;
 	}
 	_lower[ selection ] = lower ;
 	_upper[ selection ] = upper ;
