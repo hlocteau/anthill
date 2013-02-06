@@ -7,7 +7,7 @@
 #include <io/Pgm3dFactory.h>
 #include <def_coordinate.h>
 #include <coordinate.h>
-
+#include <util_pair.h>
 using DGtal::Z3i::DigitalSet ;
 using DGtal::Z3i::Point ;
 using DGtal::Z3i::Domain ;
