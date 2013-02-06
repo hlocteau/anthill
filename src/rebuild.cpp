@@ -2,14 +2,8 @@
  * \brief reconstruct the connected component from the given skeleton and depth map
  */
 
-#include <bits/stl_pair.h>
 
-template <typename T> const T & get_first( const std::pair< T, T > & value ) {
-	return value.first ;
-}
-template <typename T> const T & get_second( const std::pair< T, T > & value ) {
-	return value.second ;
-}
+#include <util_pair.h>
 
 
 #include <ConnexComponentRebuilder.hpp>
