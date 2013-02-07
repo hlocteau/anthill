@@ -35,7 +35,7 @@ BillonTpl<arma::u8> *cropComplement( const arma::Cube<arma::u8> *universe, const
 		for ( x = 0 ; x < universe->n_cols ; x++ )
 			for ( y = 0 ; y < universe->n_rows ; y++ ) {
 				if ( (*universe)(y,x,z) == 0 ) continue ;
-				(*result)(y,x,z) = (*labels)(y+bbox->second.first.at(1),x+bbox->second.first.at(0),z+bbox->second.first.at(2) ) == 0 ? 1 : 0 ;
+				(*result)(y,x,z) = (*labels)(y+bbox->second.first.at(1),x+bbox->second.first.at(0),z+bbox->second.first.at(2) ) /*== 0*/ != bbox->first ? 1 : 0 ;
 			}
 	
 	return result ;
