@@ -395,8 +395,9 @@ bool AntHillManager::binarization( const Interval<arma::s16> &range, int th) {
 				*out = 1 ;
 			else
 				*out = 0 ;
-		} else
-			*out = 0 ;
+		} else {
+			*out = range.max() < *in ? 1 : 0 ;
+		}
     }
     binImage.setMaxValue( 1 ) ;
     IOPgm3d< arma::u8, qint8, false >::write( binImage, QString("%1").arg( filepath.c_str() ) ) ;

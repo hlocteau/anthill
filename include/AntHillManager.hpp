@@ -183,8 +183,9 @@ std::cout<<"[ Info ] define view "<<rows.a<<":"<<rows.b<<" x "<<cols.a<<":"<<col
 			if ( normalize )
 				value = floor( ( ( value - range.min() ) * 255. ) / range.size() ) ;
 			*writeIter = (uint8_t)value ;
-		} else
-			*writeIter = 0 ;
+		} else {
+			*writeIter = range.max() < *readIter ? 255 : 0 ;
+		}
 		readIter++ ;
 		writeIter++;
 	}
