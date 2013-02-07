@@ -35,6 +35,7 @@ public:
 protected:
 	void					init 		( const BillonTpl< T > &) ;
 	bool					setBounds	( uint32_t selection ) ;
+	void                    set_voxels  ( const OutImage & img, const int * plane, const Point &seed, QList<Point> &crop  ) ;
 private:
 	QMap< uint32_t, LayerType > 			_layers ;
 	BillonTpl< U >							*_depth ;
