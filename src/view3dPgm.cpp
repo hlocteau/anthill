@@ -95,8 +95,18 @@ int main( int narg, char **argv ) {
 	QList< src_type > Labels;
 	if ( vm.count("selection") ) {
 		QStringList selectedLabels = QString( "%1").arg( vm["selection"].as< std::string >().c_str() ).split( " ", QString::SkipEmptyParts) ;
-		while ( !selectedLabels.isEmpty() )
-			Labels.append( (src_type)selectedLabels.takeAt(0).toInt() ) ;
+		while ( !selectedLabels.isEmpty() ) {
+			int sep_interval = selectedLabels.at( 0 ).indexOf( ':') ;
+			if ( sep_interval == -1 )
+				Labels.append( (src_type)selectedLabels.takeAt(0).toInt() ) ;
+			else {
+				QStringList interval = selectedLabels.takeAt(0).split( ":" ) ;
+				int interval_value = interval.takeAt(0).toInt() ;
+				int interval_end = interval.takeAt(0).toInt() ;
+				for ( ; interval_value <= interval_end ; interval_value++ )
+					Labels.append( (src_type) interval_value ) ;
+			}
+		}
 		qSort( Labels.begin(), Labels.end(), qLess<src_type>() ) ;
 	}
 
@@ -259,8 +269,8 @@ int main( int narg, char **argv ) {
 			}
 			Color cVoxel, cEdgel ;
 			if ( single_channelColor ) {
-				cVoxel = Color( 0,(iColor*256)/nColor,0, 240 );
-				cEdgel = Color( 0,(iColor*256)/nColor,0, 120 );
+				cVoxel = Color( 0,(iColor*255)/nColor,0, 240 );
+				cEdgel = Color( 0,(iColor*255)/nColor,0, 120 );
 			} else {
 				if ( !vm["colormap"].as<bool>() ) {
 					if ( vm["golden"].as<bool>() ) {
@@ -268,7 +278,7 @@ int main( int narg, char **argv ) {
 						cVoxel = Color( qColor.red(), qColor.green(), qColor.blue(), 240 ) ;
 						cEdgel = Color( qColor.red(), qColor.green(), qColor.blue(), 120 ) ;
 					} else {
-						cVoxel = Color((256/stepColor)*(iColor/(stepColor*stepColor)), (256/stepColor)*( (iColor/stepColor) % stepColor ),( 256 / stepColor ) * ( iColor % stepColor) , 240) ;
+						cVoxel = Color((255/stepColor)*(iColor/(stepColor*stepColor)), (255/stepColor)*( (iColor/stepColor) % stepColor ),( 255 / stepColor ) * ( iColor % stepColor) , 240) ;
 						cEdgel = Color(cVoxel.red(), cVoxel.green(),cVoxel.blue() , 120) ;						
 					}
 				} else {
