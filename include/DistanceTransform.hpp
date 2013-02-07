@@ -1,6 +1,8 @@
 #ifndef DISTANCE_TRANFORM_TEMPLATE_HEADER
 #define DISTANCE_TRANFORM_TEMPLATE_HEADER
 
+#include <billon.h>
+
 template <typename Gray,typename Distance>
 class DistanceTransform {
 public:
