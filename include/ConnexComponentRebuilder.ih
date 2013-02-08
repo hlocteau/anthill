@@ -257,10 +257,12 @@ template <typename T, typename U, typename V> void ConnexComponentRebuilder<T,U,
 		dnext = 1 ;
 		do {
 			pt = seed ;
+std::cerr<<"[ Debug ] : "<<pt<<" @ line "<<__LINE__<<std::endl;
 			do {
 				pt.at(0) += dnext * plane[0] ;
 				pt.at(1) += dnext * plane[1] ;
 				pt.at(2) = -( plane[4] + plane[0] * pt.at(0) + plane[1] * pt.at(1) ) / plane[2] ;
+std::cerr<<"[ Debug ] : "<<pt<<" @ line "<<__LINE__<<std::endl;
 				if ( img.domain().isInside(pt) ) {
 					is_touching = ( img(pt) != 0 ) ;
 				} else
@@ -274,9 +276,11 @@ template <typename T, typename U, typename V> void ConnexComponentRebuilder<T,U,
 			dnext = 1 ;
 			do {
 				pt = L.at(0) ;
+std::cerr<<"[ Debug ] : "<<pt<<" @ line "<<__LINE__<<std::endl;
 				do {
 					pt.at(0) += dnext * plane[0] ;
 					pt.at(1) = -( plane[4] + plane[0] * pt.at(0) + plane[2] * pt.at(2) ) / plane[1] ;
+std::cerr<<"[ Debug ] : "<<pt<<" @ line "<<__LINE__<<std::endl;
 					if ( img.domain().isInside(pt) ) {
 						is_touching = ( img(pt) != 0 ) ;
 					} else
@@ -413,7 +417,7 @@ std::cerr<<"[ Debug ] : "<<plane[0]<<" "<<plane[1]<<" "<<plane[2]<<" function "<
 			do {
 				toRemove.append( crop ) ;
 				crop.clear() ;
-				for ( shift_coord = 0 ; shift_coord <= config_plane ; shift_coord++ ) {
+				for ( shift_coord = 0 ; shift_coord < config_plane ; shift_coord++ ) {
 					if ( plane[ shift_coord ] == 0 ) continue ;
 					new_ref.at( shift_coord ) += plane[ shift_coord ] ;
 					set_voxels( componentDGImg, plane, new_ref, crop ) ;

@@ -14,11 +14,11 @@ using DGtal::Z3i::Domain ;
 
 template <typename T, typename U, typename V> class ConnexComponentRebuilder {
 public:
-	typedef ImageSelector< Domain, uint>::Type 			Image ;
-	typedef ReverseDistanceTransformation< Image, 2 > 	RDT ;
-	typedef RDT::OutputImage							OutImage ;
-	typedef std::pair< DigitalSet*, Domain* >			LayerType ;
-	typedef std::pair<Point,Point>						VoxelsPair ;
+	typedef DGtal::ImageSelector< Domain, uint>::Type 			Image ;
+	typedef DGtal::ReverseDistanceTransformation< Image, 2 > 	RDT ;
+	typedef RDT::OutputImage									OutImage ;
+	typedef std::pair< DigitalSet*, Domain* >					LayerType ;
+	typedef std::pair<Point,Point>								VoxelsPair ;
 	
 	ConnexComponentRebuilder			( const BillonTpl< T > & ) ;
 	ConnexComponentRebuilder			( const QString & ) ;

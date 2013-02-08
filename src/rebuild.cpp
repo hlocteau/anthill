@@ -44,18 +44,48 @@ std::pair< BillonTpl< arma::u8 >*, BillonTpl< arma::u16 >* > gen_toy_problem( ) 
 	BillonTpl< arma::u16 > *dist = new BillonTpl<arma::u16>( n_rows, n_cols, n_slices ) ;
 	*( (arma::Cube<arma::u16> *) dist ) = dt.result() ;
 	
+	arma::u8 xx,yy,zz, of ;
+	bool on_skeleton ;
 	/** step 3 : define a skeleton */
 	for ( z = 0 ; z < labels->n_slices ; z++ )
 		for ( x = 0 ; x < labels->n_cols ; x++ )
 			for ( y = 0 ; y < labels->n_rows ; y++ ) {
 				if ( (*labels)(y,x,z) == 0 ) continue ;
-				for ( n = 0 ; n < 27 ; n++ ) {
+				on_skeleton = false ;
+				for ( n = 0 ; !on_skeleton && n < 27 ; n++ ) {
 					if ( ( y + (n/9-1)) >= 0 		&& ( y + (n/9-1)) < n_rows &&
 						 ( x + ( (n%9)/3 -1 )) >= 0 && ( x + ( (n%9)/3 -1 ))<n_cols &&
 						 ( z + ( n % 3 -1 )) >= 0 	&& ( z + ( n % 3 -1 ))<n_slices && n != 9+4 ) {
 						/// \todo analyze all "segments" passing through (x,y,z)
+						if ( (n/9-1) != -1 && ( (n%9)/3 -1 ) != -1 && ( n % 3 -1 ) != -1 ) continue ;
+						int Delta [] = { -(n/9-1), -( (n%9)/3 -1 ), -( n % 3 -1 )} ;
+						/// loop on the coordinate being fixed
+						for ( of = 0 ; !on_skeleton && of < 3 ; of++ ) {
+							int Delta_d [] = { -1, 1, -1, 1, -1, 1 } ;
+							Delta_d[ of*2 ] = Delta_d[ of*2+1 ] = Delta[ of ] ;
+							for ( yy = y + Delta_d[0] ; !on_skeleton && yy <= y+Delta_d[1] ; yy++ )
+								for ( xx = x + Delta_d[2] ; !on_skeleton && xx <= x+Delta_d[3] ; xx++ )
+									for ( zz = z + Delta_d[4] ; !on_skeleton && zz <= z+Delta_d[5] ; zz++ ) {
+										if ( ( (xx-x)*-Delta[1]+(yy-y)*-Delta[0]+(zz-z)*-Delta[2] ) >= 0 ) /** cosinus >= 0 */
+											continue ;
+										if ( ( ( xx-x-Delta[1] )*( xx-x-Delta[1] )+( yy-y-Delta[0] )*( yy-y-Delta[0] )+( zz-z-Delta[2] )*( zz-z-Delta[2] ) ) > 3 )
+											continue ;
+										on_skeleton =
+							                ( (   (*dist)(y,x,z) > std::max( (*dist)( y-Delta[0],x-Delta[1],z-Delta[2] ), (*dist)( yy,xx,zz ) ) ||
+							                    ( (*dist)(y,x,z) == std::max( (*dist)( y-Delta[0],x-Delta[1],z-Delta[2] ), (*dist)( yy,xx,zz ) ) &&
+						                          (*dist)( y-Delta[0],x-Delta[1],z-Delta[2] ) != (*dist)( yy,xx,zz )) && false) &&
+						                      (*dist)( y-Delta[0],x-Delta[1],z-Delta[2] ) != 0 && (*dist)( yy,xx,zz ) != 0 ) ;
+										if ( on_skeleton ) {
+											std::cerr<<"is skel : "	<<(int)y-Delta[0]<<","<<(int)x-Delta[1]<<","<<(int)z-Delta[2]<<" ("<<(int)(*dist)( y-Delta[0],x-Delta[1],z-Delta[2] )<<") "
+																	<<(int)y<<","<<(int)x<<","<<(int)z<<" ("<<(int)(*dist)(y,x,z)<<") "
+																	<<(int)yy<<","<<(int)xx<<","<<(int)zz<<" ("<<(int)(*dist)(yy,xx,zz)<<")"<<std::endl;
+										}
+								    }
+						}
 					}
 				}
+				if ( on_skeleton )
+					(*labels)(y,x,z) = 0 ;
 			}
 
 	/** step 4 : define the classification's voxels */
@@ -71,10 +101,10 @@ std::pair< BillonTpl< arma::u8 >*, BillonTpl< arma::u16 >* > gen_toy_problem( ) 
 			for ( y = 0 ; y < labels->n_rows ; y++ ) {
 				if ( (*labels)(y,x,z) == 0 ) continue ;
 				if ( ext[0].at(0) < 0 ) ext[0]=Point(x,y,z) ;
-				if ( z >= ext[1].at(2) && x >= ext[1].at(0) && y > ext[1].at(1) ) ext[1] = Point(x,y,z) ;
-				if ( z >= ext[2].at(2) && x >= ext[2].at(0) && y < ext[2].at(1) ) ext[2] = Point(x,y,z) ;
-				if ( z >= ext[3].at(2) && x <= ext[3].at(0) && y > ext[3].at(1) ) ext[3] = Point(x,y,z) ;
-				if ( z >= ext[4].at(2) && x <= ext[4].at(0) && y < ext[4].at(1) ) ext[4] = Point(x,y,z) ;
+				if ( z >= ext[1].at(2) && (x > ext[1].at(0) || (x == ext[1].at(0) && y > ext[1].at(1) ) ) ) ext[1] = Point(x,y,z) ;
+				if ( z >= ext[2].at(2) && (x > ext[2].at(0) || (x == ext[2].at(0) && y < ext[2].at(1) ) ) ) ext[2] = Point(x,y,z) ;
+				if ( z >= ext[3].at(2) && (x < ext[3].at(0) || (x == ext[3].at(0) && y > ext[3].at(1) ) ) ) ext[3] = Point(x,y,z) ;
+				if ( z >= ext[4].at(2) && (x < ext[4].at(0) || (x == ext[4].at(0) && y < ext[4].at(1) ) ) ) ext[4] = Point(x,y,z) ;
 			}
 std::cerr<<"Classification voxels are : "<<std::endl
 			<<"0 : "<<ext[0]<<std::endl
@@ -84,6 +114,8 @@ std::cerr<<"Classification voxels are : "<<std::endl
 			<<"4 : "<<ext[4]<<std::endl;
 	arma::u16 d[5] ;
 	arma::u8 iClosest ;
+std::cin>>	iClosest;
+	
 	/** step 5 : define labels */
 	for ( z = 0 ; z < labels->n_slices ; z++ )
 		for ( x = 0 ; x < labels->n_cols ; x++ )
@@ -132,11 +164,12 @@ int main( int narg, char **argv ) {
 		BillonTpl< arma::u16 > *pDist ;
 		
 		boost::tie( pLabels,pDist ) = gen_toy_problem() ;
+		IOPgm3d< arma::u8,qint8, false >::write( *pLabels, "toy_labels.pgm3d" ) ;
+		IOPgm3d< arma::u16,qint16, false >::write( *pDist, "toy_dist.pgm3d" ) ;
+
 		ConnexComponentRebuilder< arma::u8, arma::u16, arma::u8 > CCR( *pLabels ) ;
 		CCR.setDepth( pDist ) ;
 		CCR.run() ;
-		IOPgm3d< arma::u8,qint8, false >::write( *pLabels, "toy_labels.pgm3d" ) ;
-		IOPgm3d< arma::u16,qint16, false >::write( *pDist, "toy_dist.pgm3d" ) ;
 		IOPgm3d< arma::u8,qint8, false >::write( CCR.result(), "toy_rebuild.pgm3d" ) ;
 		delete pDist ;
 		delete pLabels ;
