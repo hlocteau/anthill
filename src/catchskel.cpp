@@ -23,10 +23,10 @@ void missingParam ( std::string param )
   exit ( 1 );
 }
 
-typedef arma::u8  tlabel ;
-typedef qint8     qtlabel ;
-typedef arma::u16 tlabelbranch ;
-typedef qint16    qtlabelbranch ;
+typedef arma::u32  tlabel ;
+typedef qint32     qtlabel ;
+typedef arma::u32 tlabelbranch ;
+typedef qint32    qtlabelbranch ;
 
 void set_branch( const QList< uint * > &touching, const BillonTpl< tlabel > *labelSkel, const BillonTpl< tlabelbranch > *labelBranch, QMap< tlabelbranch, tlabel > &NewLabelBranch, const QList< tlabel > &Labels, QMap< tlabel, QList<tlabel> > &edges ) {
 	QList< uint * >::const_iterator iterVoxel = touching.begin(),
