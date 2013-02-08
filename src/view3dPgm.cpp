@@ -243,7 +243,7 @@ int main( int narg, char **argv ) {
 		delete img ;	
 		int iColor = 1 ;
 		int nColor = histo.size()+1 ;
-		if ( vm["number"].as<int>() > nColor ) nColor = vm["number"].as<int>() ;
+		if ( vm["number"].as<int>() < nColor ) nColor = vm["number"].as<int>() ;
 		int stepColor = (int)floor( log( (double)nColor ) / log( 3. ) + 1 );
 		
 		GradientColorMap<int> cmap_grad( 0, nColor, CMAP_HOT );
