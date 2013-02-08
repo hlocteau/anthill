@@ -141,8 +141,8 @@ typedef struct _TRefLine {
 	double len ;
 } TRefLine ;
 
-void set_projections( const TRefLine & refLine, QMap< arma::u16, Interval<double> > *bounds, uint nSamples, const BillonTpl< arma::u16 > &img, arma::u16 th ) {
-	BillonTpl< arma::u16 >::const_iterator iterImg = img.begin(),
+void set_projections( const TRefLine & refLine, QMap< arma::u32, Interval<double> > *bounds, uint nSamples, const BillonTpl< arma::u32 > &img, arma::u32 th ) {
+	BillonTpl< arma::u32 >::const_iterator iterImg = img.begin(),
 	                                       iterEndImg = img.end() ;
 	uint n_rows = img.n_rows ,
 	     n_cols = img.n_cols;
@@ -173,14 +173,14 @@ void set_projections( const TRefLine & refLine, QMap< arma::u16, Interval<double
 //std::cerr<<"[ Debug ] : "<<__FUNCTION__<<" @ line "<<__LINE__<<std::endl;
 }
 
-std::pair< uint, double > eval_projections( const QMap< arma::u16, Interval<double> > &bounds, QList< arma::u16 > *pLstBreaks ) {
+std::pair< uint, double > eval_projections( const QMap< arma::u32, Interval<double> > &bounds, QList< arma::u32 > *pLstBreaks ) {
 	///
 	/// \brief build a sorted list of projection intervals wrt first the min, next the max
 	/// \note to keep the linked with the corresponding identifier, we define a list of identifiers...
 	///
-	QList< arma::u16 > lexiLabels ;
-	QList< arma::u16 >::Iterator position,end_of_list ;
-	QMap< arma::u16, Interval<double> >::ConstIterator iterBound = bounds.begin(),
+	QList< arma::u32 > lexiLabels ;
+	QList< arma::u32 >::Iterator position,end_of_list ;
+	QMap< arma::u32, Interval<double> >::ConstIterator iterBound = bounds.begin(),
 	                                                   iterEndBound = bounds.end() ;
 //std::cerr<<"[ Debug ] : "<<__FUNCTION__<<" @ line "<<__LINE__<<std::endl;
 	for ( ; iterBound != iterEndBound ; iterBound++ ) {
@@ -215,20 +215,20 @@ std::pair< uint, double > eval_projections( const QMap< arma::u16, Interval<doub
 	return std::pair< uint, double > ( number_of_cluster, gap_strength ) ;
 }
 
-void discriminate_projection( const BillonTpl< arma::u16 > &label, const QMap< arma::u16, Interval<double> > *bounds, uint nSamples ) {
-	BillonTpl< arma::u16 >::const_iterator iterImg = label.begin(),
+void discriminate_projection( const BillonTpl< arma::u32 > &label, const QMap< arma::u32, Interval<double> > *bounds, uint nSamples ) {
+	BillonTpl< arma::u32 >::const_iterator iterImg = label.begin(),
 	                                       iterEndImg = label.end() ;
 	uint n_rows = label.n_rows ,
 	     n_cols = label.n_cols,
 	     n_slices = label.n_slices ;
 	uint x=0,y=0,z=0;
 
-	BillonTpl< arma::u16 > gt( n_rows, n_cols, n_slices ) ;
+	BillonTpl< arma::u32 > gt( n_rows, n_cols, n_slices ) ;
 	gt.fill( 0 ) ;
-	BillonTpl< arma::u16 >::iterator iterWrite = gt.begin() ;
+	BillonTpl< arma::u32 >::iterator iterWrite = gt.begin() ;
 	
-	QMap< arma::u16, Interval<double> >::ConstIterator bound_label ;
-	QList< arma::u16 > *breaks_per_sample = new QList< arma::u16 > [ nSamples ];
+	QMap< arma::u32, Interval<double> >::ConstIterator bound_label ;
+	QList< arma::u32 > *breaks_per_sample = new QList< arma::u32 > [ nSamples ];
 	for ( uint iSample = 0 ; iSample < nSamples; iSample++ ) {
 		uint qNum ;
 		double qCluster ;
@@ -240,17 +240,17 @@ void discriminate_projection( const BillonTpl< arma::u16 > &label, const QMap< a
 			                       <<bounds[ iSample ][ breaks_per_sample[ iSample ].at(iCut) ].max()<<std::endl;
 	}
 	
-	QList< arma::u16 > & LstBreaks = breaks_per_sample[ 0 ] ;
-	const QMap< arma::u16, Interval<double> > * current_bound = bounds + 0 ;	
-	QMap< arma::u16, Interval<double> >::ConstIterator undefined_label = current_bound->end() ;
-	arma::u16 number_of_previous_breaks = 0 ;
+	QList< arma::u32 > & LstBreaks = breaks_per_sample[ 0 ] ;
+	const QMap< arma::u32, Interval<double> > * current_bound = bounds + 0 ;	
+	QMap< arma::u32, Interval<double> >::ConstIterator undefined_label = current_bound->end() ;
+	arma::u32 number_of_previous_breaks = 0 ;
 	
 		
 	for ( ; iterImg != iterEndImg ; iterImg++, iterWrite++ ) {
 		if ( *iterImg ) {
 			bound_label = current_bound->constFind( *iterImg ) ;
 			if ( bound_label != undefined_label ) {
-				arma::u16 iBreak = 0 ;
+				arma::u32 iBreak = 0 ;
 				while ( iBreak < LstBreaks.size() ) {
 					if ( bound_label.value().min() <= (*current_bound)[ LstBreaks.at( iBreak ) ].min() ) break ;
 					iBreak++ ;
@@ -278,7 +278,7 @@ void discriminate_projection( const BillonTpl< arma::u16 > &label, const QMap< a
 		}	
 	}
 	delete [] breaks_per_sample ;
-	IOPgm3d< arma::u16, qint16, false >::write( gt, "/tmp/gt.pgm3d");
+	IOPgm3d< arma::u32, qint32, false >::write( gt, "/tmp/gt.pgm3d");
 }
 
 int main( int narg, char **argv ) {
@@ -293,15 +293,15 @@ int main( int narg, char **argv ) {
 		skelimg = factory.read( QString( params._skelFilePath.c_str() ) ) ;
 		
 		/// keep only the biggest connected component
-		ConnexComponentExtractor< arma::u8,arma::u16 > cce ;
-		BillonTpl< arma::u16 > *lblSkelImg = cce.run( *skelimg ) ;
-		ConnexComponentExtractor< arma::u8,arma::u16 >::TMapVolume::ConstIterator iterVolume = cce.volumes().begin(),
+		ConnexComponentExtractor< arma::u8,arma::u32 > cce ;
+		BillonTpl< arma::u32 > *lblSkelImg = cce.run( *skelimg ) ;
+		ConnexComponentExtractor< arma::u8,arma::u32 >::TMapVolume::ConstIterator iterVolume = cce.volumes().begin(),
 		                                                                          iterVolumeEnd = cce.volumes().end(),
 		                                                                          mainVolume ;
 		for ( mainVolume = iterVolume ; iterVolume != iterVolumeEnd ; iterVolume++ )
 			if ( mainVolume.value() < iterVolume.value() )
 				mainVolume = iterVolume ;
-		BillonTpl< arma::u16 >::const_iterator iterLbl = lblSkelImg->begin(),
+		BillonTpl< arma::u32 >::const_iterator iterLbl = lblSkelImg->begin(),
 		                                       iterLblEnd = lblSkelImg->end() ;
 		BillonTpl< arma::u8 >::iterator        iterSkel = skelimg->begin();
 		for ( ; iterLbl != iterLblEnd ; iterLbl++,iterSkel++ )
@@ -355,21 +355,21 @@ int main( int narg, char **argv ) {
 	/// Extracting rooms
 	///
 	std::cout<<"extracting rooms..."<<std::endl;
-	BillonTpl< arma::u16 > * label = new BillonTpl< arma::u16 > ( classifiedVoxel->n_rows, classifiedVoxel->n_cols, classifiedVoxel->n_slices ) ;
+	BillonTpl< arma::u32 > * label = new BillonTpl< arma::u32 > ( classifiedVoxel->n_rows, classifiedVoxel->n_cols, classifiedVoxel->n_slices ) ;
 	label->fill( 0 ) ;
 	SG_u8 *sg_above = new SG_u8( *classifiedVoxel, color_above ) ;
-	arma::u16 from = 1 ;
+	arma::u32 from = 1 ;
 	from = do_labeling( sg_above, *label, from ) ;
 	delete sg_above ;
 	
-	IOPgm3d< arma::u16, qint16, false >::write( *label, QString( "/tmp/rooms.pgm3d" ) ) ;
+	IOPgm3d< arma::u32, qint32, false >::write( *label, QString( "/tmp/rooms.pgm3d" ) ) ;
 	
 	///
 	/// Extracting corridors
 	///
 	std::cout<<(int)from<<std::endl<<"extracting corridors..."<<std::endl;
 	SG_u8 *sg_below = new SG_u8( *classifiedVoxel, color_below ) ;
-	arma::u16 to = do_labeling( sg_below, *label, from ) ;
+	arma::u32 to = do_labeling( sg_below, *label, from ) ;
 	delete sg_below ;
 	delete classifiedVoxel ;
 	
@@ -377,15 +377,15 @@ int main( int narg, char **argv ) {
 	/// Extracting candidate merge
 	///
 	std::cout<<(int)to<<std::endl<<"extracting adjacency relations..."<<std::endl;
-	QMap< arma::u16, QList< arma::u16 > > touching ;
+	QMap< arma::u32, QList< arma::u32 > > touching ;
 	extract_adjacency( *label, touching, from ) ;
 	
 	///
 	/// a corridor being only linked to a single room can be merged with that room
 	///
 	std::cout<<"identifying merge operation..."<<std::endl;
-	QMap< arma::u16, QList< arma::u16 > >::Iterator iterRewrite = touching.begin() ;
-	QMap< arma::u16, arma::u16 > translation ;
+	QMap< arma::u32, QList< arma::u32 > >::Iterator iterRewrite = touching.begin() ;
+	QMap< arma::u32, arma::u32 > translation ;
 	for ( ; iterRewrite != touching.end() ; ) {
 		if ( iterRewrite.value().size() == 1 ) {
 			translation.insert( iterRewrite.key(), iterRewrite.value().takeFirst() ) ;
@@ -402,19 +402,19 @@ int main( int narg, char **argv ) {
 	/// reconstruct each individual connected component to evaluate their volume
 	///
 	#if 0
-	typedef ConnexComponentRebuilder< arma::u16, arma::u32, arma::u16 > TConnexComponentRebuilder ;
+	typedef ConnexComponentRebuilder< arma::u32, arma::u32, arma::u32 > TConnexComponentRebuilder ;
 	TConnexComponentRebuilder *ccr = new TConnexComponentRebuilder( *label ) ;
 	ccr->setDepth( QString( params._depthFilePath.c_str() ) ) ;
 	ccr->run() ;
-	BillonTpl< arma::u16 > *reconstruction = new BillonTpl< arma::u16 >( ccr->result() ) ;
+	BillonTpl< arma::u32 > *reconstruction = new BillonTpl< arma::u32 >( ccr->result() ) ;
 	delete ccr ;
-	GrayLevelHistogram<arma::u16> volumes_ext( *reconstruction ) ;
-	GrayLevelHistogram<arma::u16>::THistogram &volumes = volumes_ext._bin ;
+	GrayLevelHistogram<arma::u32> volumes_ext( *reconstruction ) ;
+	GrayLevelHistogram<arma::u32>::THistogram &volumes = volumes_ext._bin ;
 	/// build a sorted list of ccx (per type) wrt their volume
-	QList< arma::u16 > corridors, rooms ;
-	QList< arma::u16 > *ptr ;
-	QList< arma::u16 >::Iterator position ;
-	for ( GrayLevelHistogram<arma::u16>::THistogram::iterator it = volumes.begin() ; it != volumes.end() ; it++ ) {
+	QList< arma::u32 > corridors, rooms ;
+	QList< arma::u32 > *ptr ;
+	QList< arma::u32 >::Iterator position ;
+	for ( GrayLevelHistogram<arma::u32>::THistogram::iterator it = volumes.begin() ; it != volumes.end() ; it++ ) {
 		ptr = & corridors ;
 		if ( it->first < from ) ptr = & rooms ;
 		position = ptr->begin() ;
@@ -440,7 +440,7 @@ int main( int narg, char **argv ) {
 		std::cout<<"Number of samples to discretize the y values : " ;
 		std::cin >> nSamples ;
 		
-		QMap< arma::u16, Interval<double> > *bounds = new QMap< arma::u16, Interval<double> >[ nSamples ] ;
+		QMap< arma::u32, Interval<double> > *bounds = new QMap< arma::u32, Interval<double> >[ nSamples ] ;
 		
 		TRefLine refLine ;
 		refLine.x = 0 ;
@@ -471,7 +471,7 @@ int main( int narg, char **argv ) {
 		proj_yz.fill( 0 ) ;
 		proj_xz.setMaxValue(1) ;
 		proj_yz.setMaxValue(1) ;
-		BillonTpl< arma::u16 >::const_iterator iterRoom = label->begin(),
+		BillonTpl< arma::u32 >::const_iterator iterRoom = label->begin(),
 		                                       iterRoomEnd = label->end() ;
 		uint x=0,y=0,z=0 ;
 		for ( ; iterRoom != iterRoomEnd ; iterRoom++ ) {
@@ -494,7 +494,7 @@ int main( int narg, char **argv ) {
 		
 		for ( uint iSample = 0 ; false && iSample < nSamples ; iSample++ ) {
 			std::cout<<"= begin =======;"<<iSample+1<<std::endl;
-			for ( QMap< arma::u16,Interval<double> >::ConstIterator it = bounds[iSample].begin() ; it != bounds[iSample].end() ; it++ )
+			for ( QMap< arma::u32,Interval<double> >::ConstIterator it = bounds[iSample].begin() ; it != bounds[iSample].end() ; it++ )
 				std::cout<<";"<<(int)it.key()<<" ;"<<it.value().min()<<" "<<it.value().max()<<";"<<std::endl;
 			std::cout<<"======== end ==;"<<std::endl;
 		}
@@ -520,16 +520,16 @@ int main( int narg, char **argv ) {
 		IOPgm3d< arma::u8, qint8, false >::write ( proj_yz, "/tmp/proj_yz.pgm" ) ;
 	}
 	
-	{
+	if ( false ) {
 		///
 		/// to easier vizualizing rooms
 		///
-		BillonTpl< arma::u16 >::iterator iterLbl = label->begin(),
+		BillonTpl< arma::u32 >::iterator iterLbl = label->begin(),
 		                                 iterLblEnd = label->end() ;
 		for ( ; iterLbl != iterLblEnd ; iterLbl ++ )
 			if ( *iterLbl >= from ) *iterLbl = from + 1 ; /// only one label for all corridors
 	}
-	IOPgm3d< arma::u16, qint16, false >::write( *label, QString( params._outputFilePath.c_str() ) ) ;
+	IOPgm3d< arma::u32, qint32, false >::write( *label, QString( params._outputFilePath.c_str() ) ) ;
 	delete label ;
 	#if 0
 	delete reconstruction ;
