@@ -121,12 +121,15 @@ template< typename To, typename T, bool tAscii> void IOPgm3d<To,T,tAscii>::readA
 	QTextStream data( &imageFile ) ;
 	T curVal ;
 	char curChar ;
+std::cerr<<"image's dimension : "<<img->n_rows<<" x "<<img->n_cols<<" x "<<img->n_slices<<std::endl;
 	for ( uint k=0 ; k<img->n_slices ; k++ ) {
 		for ( uint i=0 ; i<img->n_rows ; i++ ) {
 			for ( uint j=0 ; j<img->n_cols ; j++ ) {
-				if ( sizeof(T) == sizeof(char) )
+				data.skipWhiteSpace() ;
+				if ( sizeof(T) == sizeof(char) ) {
 					data >> curChar ;
-				else
+					curVal = curChar ;
+				} else
 					data >> curVal;
 				//Construction de l'image entière en binaire
 				if ( curVal != 0 ) {
