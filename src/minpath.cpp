@@ -6,12 +6,8 @@
 #include <DGtal/helpers/StdDefs.h>
 
 #include <boost/filesystem.hpp>
-template <typename T> const T & get_first( const std::pair< T, T > & value ) {
-	return value.first ;
-}
-template <typename T> const T & get_second( const std::pair< T, T > & value ) {
-	return value.second ;
-}
+
+
 #include <ConnexComponentRebuilder.hpp>
 namespace fs = boost::filesystem ;
 //#define CHECK_TOY_PROBLEM_OUTPUT
