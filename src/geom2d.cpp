@@ -1,6 +1,7 @@
 #include "geom2d.h"
 
-
+#include <iomanip>
+using std::setw ;
 
 Geom2D::Geom2D()
 {
