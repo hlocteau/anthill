@@ -11,13 +11,15 @@
 #include <QColorDialog>
 #include <QMouseEvent>
 #include <RessourceDelegate.hpp>
-
+#include <QLineEdit>
 #include <DGtal/images/ImageSelector.h>
 #include <DGtal/io/colormaps/GrayscaleColorMap.h>
 
 namespace fs = boost::filesystem ;
 
 bool USE_SEGM_TOOL = true ;
+
+QColor getLabelColor( arma::u32 iColor, const Interval<arma::u32> & selIdx ) ;
 
 void MainWindow::onChangeBoolParameter(bool v) {
 	drawSlice(v==v);
@@ -35,9 +37,10 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), _ui(new Ui::MainW
 	_ui->_labelSliceView->installEventFilter(this);
 
 	_ui->sequenceSlider->setEnabled(false);
-	_ui->spinMinIntensity->setEnabled(false);
+    /*
+    _ui->spinMinIntensity->setEnabled(false);
 	_ui->spinMaxIntensity->setEnabled(false);
-
+    */
 	QStringList horLabels ;
 	horLabels << "Key" << "Value" ;
 	_ui->tableWidget->setHorizontalHeaderLabels( horLabels ) ;
@@ -47,14 +50,19 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), _ui(new Ui::MainW
 	_ui->ressources->setMinimumWidth ( 150*3 ) ;
 	initRessources(_ui->ressources) ;
 
-	_segmImg = 0 ;
-	_skelImg = 0 ;
+    /*
+    _segmImg = 0 ;
+    _skelImg = 0 ;
+    */
 	_zoomFactor = 1 ;
 
-	connect( _ui->spinMinIntensity, SIGNAL(valueChanged(int)), this, SLOT( onChangeIntParameter(int) ) ) ;
+    /*
+    connect( _ui->spinMinIntensity, SIGNAL(valueChanged(int)), this, SLOT( onChangeIntParameter(int) ) ) ;
 	connect( _ui->spinMaxIntensity, SIGNAL(valueChanged(int)), this, SLOT( onChangeIntParameter(int) ) ) ;
-	connect( _ui->binSpinBox,       SIGNAL(valueChanged(int)), this, SLOT( onChangeIntParameter(int) ) ) ;
-	connect( _ui->x_shift,          SIGNAL(valueChanged(int)), this, SLOT( onChangeIntParameter(int) ) ) ;
+    */
+    connect( _ui->binSpinBox,       SIGNAL(valueChanged(int)), this, SLOT( onChangeIntParameter(int) ) ) ;
+    /*
+    connect( _ui->x_shift,          SIGNAL(valueChanged(int)), this, SLOT( onChangeIntParameter(int) ) ) ;
 	connect( _ui->y_shift,          SIGNAL(valueChanged(int)), this, SLOT( onChangeIntParameter(int) ) ) ;
 	connect( _ui->z_shift,          SIGNAL(valueChanged(int)), this, SLOT( onChangeIntParameter(int) ) ) ;
 	connect( _ui->x_shift_skel,     SIGNAL(valueChanged(int)), this, SLOT( onChangeIntParameter(int) ) ) ;
@@ -63,7 +71,8 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), _ui(new Ui::MainW
 	
 	connect( _ui->segmCheckBox,     SIGNAL(toggled(bool)), this, SLOT( onChangeBoolParameter(bool) ) ) ;
 	connect( _ui->contentCheckBox,  SIGNAL(toggled(bool)), this, SLOT( onChangeBoolParameter(bool) ) ) ;
-	connect( _ui->checkBox,         SIGNAL(toggled(bool)), this, SLOT( onChangeBoolParameter(bool) ) ) ;
+    */
+    connect( _ui->checkBox,         SIGNAL(toggled(bool)), this, SLOT( onChangeBoolParameter(bool) ) ) ;
 
 	connect( _ui->axisSelection, SIGNAL(currentIndexChanged(int)), this, SLOT(onChangeAxis(int)));
 
@@ -93,12 +102,13 @@ MainWindow::~MainWindow() {
 void MainWindow::on_actionClose_folder_triggered() {
 
 	_ui->sequenceSlider->setSliderPosition(0);
+    _ui->sequenceSlider->setEnabled(false);
+    /*
 	_ui->spinMinIntensity->setValue(0);
 	_ui->spinMaxIntensity->setValue(0);
-	_ui->sequenceSlider->setEnabled(false);
 	_ui->spinMinIntensity->setEnabled(false);
 	_ui->spinMaxIntensity->setEnabled(false);
-
+    */
 	antHillMng.reset() ;
 	updateProjectsList() ;
 	updateDictionary() ;
@@ -127,7 +137,8 @@ void MainWindow::on_actionOpen_folder_triggered() {
 }
 
 void MainWindow::closeImage() {
-	if ( _segmImg != 0 ) {
+    /*
+    if ( _segmImg != 0 ) {
 		delete _segmImg;
 		_segmImg = 0 ;
 	}
@@ -148,7 +159,7 @@ void MainWindow::closeImage() {
 	_ui->z_shift_skel->setEnabled(false);
 	_ui->contentSkelCheckBox->setEnabled(false);
 	_ui->skelCheckBox->setEnabled(false);
-
+    */
 	_zoomFactor = 1 ;
 	_mainPix = QImage(1,1,QImage::Format_ARGB32);
 	drawSlice();
@@ -174,12 +185,19 @@ QColor MainWindow::getColorOf( uint row ) {
 	return item->background().color() ;
 }
 
+QColor getLabelColor( arma::u32 iColor, const Interval<arma::u32> & selIdx ) {
+	arma::s32 stepColor = (int)floor( log( (double)selIdx.size()+1 ) / log( 3. ) + 1 );
+	return QColor((255/stepColor)*(iColor/(stepColor*stepColor)), (255/stepColor)*( (iColor/stepColor) % stepColor ),( 255 / stepColor ) * ( iColor % stepColor) ) ;
+}
+
+Interval<arma::u32> RANGE( const QString &text ) {
+	QStringList range_text = text.split(" ", QString::SkipEmptyParts) ;
+	return Interval<arma::u32>( range_text.front().split(":").front().toInt(), range_text.back().split(":").back().toInt() ) ;
+}
 void MainWindow::drawSlice( bool newContent ){
 
 	if ( antHillMng.project() != 0 )	{
 		if ( newContent ) {
-			Interval<int> range_img (_ui->spinMinIntensity->value(),_ui->spinMaxIntensity->value());
-			Interval<int> range_bin (0,255);
 			_mainPix.fill(0xff000000);
 			bool preview_binarization = _ui->checkBox->isChecked() ;
 			bool is_first_layer = true ;
@@ -190,20 +208,25 @@ void MainWindow::drawSlice( bool newContent ){
 					//std::cout<<"[ info ] : do not draw ressource "<<resname.toStdString()<<" ( == "<< _ressourcesTable->item(row,0)->data( Qt::UserRole ).toString().toStdString() <<" )"<<std::endl;
 					continue ;
 				}
-				arma::Mat<uint8_t> arma_mainPix( _mainPix.height(), _mainPix.width() ) ;
+                Interval<arma::u32> range_res( RANGE( qobject_cast<QLineEdit *>(_ressourcesTable->cellWidget(row,3) )->text() ) ) ;
+                
+                arma::Mat<arma::u32> arma_mainPix ( _mainPix.height(), _mainPix.width() ) ;
 				arma_mainPix.fill(0);
 
-				if ( !_ressourcesTable->item(row,2)->data( Qt::UserRole ).toBool() )
-					antHillMng.draw( resname, arma_mainPix, _ui->axisSelection->currentIndex(), _currentSlice, range_img ) ;
-				else
-					antHillMng.draw( resname, arma_mainPix, _ui->axisSelection->currentIndex(), _currentSlice, range_bin ) ;
+                if ( resname == antHillMng.inputuid() )
+                    antHillMng.draw( resname, arma_mainPix, _ui->axisSelection->currentIndex(), _currentSlice, range_res ) ;
+                else {
+					QTableWidgetItem * item = _ressourcesTable->item( row,3 ) ;
+					std::cout<<"Tooltip is ["<<item->toolTip().toStdString()<<"]"<<std::endl;
+					antHillMng.draw( resname, arma_mainPix, _ui->axisSelection->currentIndex(), _currentSlice, RANGE( item->toolTip() ), false ) ;
+				}
 				resname = _ressourcesTable->item(row,0)->text() ;
 				if ( _ui->axisSelection->currentIndex() != 0 )
 					arma_mainPix = arma_mainPix.t() ;
 				QRgb * writeIter = (QRgb *) _mainPix.bits() ;
 				if ( !_ressourcesTable->item(row,2)->data( Qt::UserRole ).toBool() ) {
 					if ( !preview_binarization ) {
-						for ( arma::Mat<uint8_t>::iterator readIter = arma_mainPix.begin() ; readIter != arma_mainPix.end() ; readIter++ ) {
+						for ( arma::Mat<arma::u32>::iterator readIter = arma_mainPix.begin() ; readIter != arma_mainPix.end() ; readIter++ ) {
 							if ( is_first_layer ) /// depending on whether we draw or we draw OVER
 								* writeIter = qRgb( *readIter,*readIter,*readIter) ;
 							else {
@@ -213,7 +236,7 @@ void MainWindow::drawSlice( bool newContent ){
 							writeIter++ ;
 						}
 					} else {
-						for ( arma::Mat<uint8_t>::iterator readIter = arma_mainPix.begin() ; readIter != arma_mainPix.end() ; readIter++ ) {
+						for ( arma::Mat<arma::u32>::iterator readIter = arma_mainPix.begin() ; readIter != arma_mainPix.end() ; readIter++ ) {
 							if ( *readIter < _ui->binSpinBox->value() )
 								* writeIter = qRgb( *readIter,*readIter,*readIter) ;
 							else {
@@ -224,20 +247,27 @@ void MainWindow::drawSlice( bool newContent ){
 						}
 					}
 				} else {
-					for ( arma::Mat<uint8_t>::iterator readIter = arma_mainPix.begin() ; readIter != arma_mainPix.end() ; readIter++ ) {
-						if ( is_first_layer ) /// depending on whether we draw or we draw OVER
-							* writeIter = *readIter ? getColorOf( resname ).rgb() : qRgb(0,0,0) ;
-						else {
-							if ( *readIter )
-								* writeIter = getColorOf( resname ).rgb() ;
+					QMap< arma::u32, arma::u32 > counter ;
+					for ( arma::Mat<arma::u32>::iterator readIter = arma_mainPix.begin() ; readIter != arma_mainPix.end() ; readIter++ ) {
+						if ( range_res.containsClosed( *readIter ) ) {
+							if ( !counter.contains(*readIter) ) counter.insert( *readIter, 0 ) ;
+							counter[ *readIter ] ++ ;
+							QColor cl = *readIter ? getLabelColor( *readIter, range_res ) : qRgb(0,0,0) ;
+							if ( is_first_layer ) /// depending on whether we draw or we draw OVER
+								* writeIter = cl.rgb() ;
+							else {
+								if ( *readIter )
+									* writeIter = cl.rgb() ;
+							}
 						}
 						writeIter++ ;
 					}
+					for ( QMap< arma::u32, arma::u32 >::ConstIterator it = counter.begin() ; it != counter.end(); it++ )
+						std::cout<<(int)it.key()<<" : "<<(int)it.value() <<std::endl;
 				}
 				is_first_layer = false ;
-				if ( _ui->axisSelection->currentIndex() != 0 )
-					arma_mainPix = arma_mainPix.t() ;
-			}			
+				std::cout<<"[ info ] : draw ressource "<<resname.toStdString()<<" ( = "<< range_res.min()<<":"<<range_res.max() <<" ) " <<_ressourcesTable->item(row,2)->data( Qt::UserRole ).toBool()<<std::endl;
+			}
 			/*
 			if ( !_bViewSegm )
 			   _sliceView->drawSlice(_mainPix,*_billon,_currentSlice, range_img, range_img.max());
@@ -306,10 +336,10 @@ void MainWindow::initRessources( QWidget *parent ) {
 	_ressourcesTable->setItemDelegate(new RessourceDelegate(this));
 
 	QStringList labels;
-	labels << tr("Image") << tr("Mode") << tr("Color") << tr("Tracked");
+    labels << tr("Image") << tr("Mode") << tr("Color") << tr("Selection")<<tr("Tracked");
 
 	_ressourcesTable->horizontalHeader()->setResizeMode(QHeaderView::Interactive);
-	_ressourcesTable->setColumnCount(4);
+    _ressourcesTable->setColumnCount(labels.size());
 	_ressourcesTable->setHorizontalHeaderLabels(labels);
 	_ressourcesTable->verticalHeader()->hide();
 
@@ -325,6 +355,12 @@ void MainWindow::initRessources( QWidget *parent ) {
 	layout->addWidget(autoRefresh);
 	layout->addWidget(_ressourcesTable);
 	_ressourcesGroupBox->setLayout(layout);
+}
+
+void MainWindow::changeRessourceSelection() {
+    QLineEdit * ql = qobject_cast<QLineEdit *>( sender() ) ;
+    QStringList sl = ql->objectName().split("_") ;
+    changeRessourcesConfigView( sl.back().toInt(), 3);
 }
 
 void MainWindow::changeRessourceColor(int row,int column) {
@@ -363,41 +399,53 @@ std::cout<<"[ Info ] : process ("<<resultIter.key().toStdString()<<" ( "<<fieldI
 				int row = _ressourcesTable->rowCount();
 				_ressourcesTable->setRowCount(row + 1);
 
-				QTableWidgetItem *item0 = new QTableWidgetItem( antHillMng.uid( resultIter, fieldIter ) );
-				item0->setData(Qt::UserRole, fieldIter.value().split(";").at(0) );
-				item0->setFlags(item0->flags() & ~Qt::ItemIsEditable);
+                QTableWidgetItem *itemUID = new QTableWidgetItem( antHillMng.uid( resultIter, fieldIter ) );
+                itemUID->setData(Qt::UserRole, fieldIter.value().split(";").at(0) );
+                itemUID->setFlags(itemUID->flags() & ~Qt::ItemIsEditable);
 std::cout<<"[ Debug ] : "<<__FUNCTION__<<" @ line "<<__LINE__<<std::endl;
-				QTableWidgetItem *item1 = new QTableWidgetItem(tr("Content"));
+                QTableWidgetItem *itemMode = new QTableWidgetItem(tr("Content"));
 				/**
 				 * \brief it makes no sense to define a boundary on feature images
 				 */
-				item1->setData( Qt::UserRole, antHillMng.isContentOnly( fieldIter ) ) ;
+                itemMode->setData( Qt::UserRole, antHillMng.isContentOnly( fieldIter ) ) ;
 std::cout<<"[ Debug ] : "<<__FUNCTION__<<" @ line "<<__LINE__<<std::endl;
-				QTableWidgetItem *item2 = new QTableWidgetItem();
+                QTableWidgetItem *itemColor = new QTableWidgetItem();
 				/**
 				 * \brief we only define new color(s) for bilevel/labelled images
 				 */
-				item2->setData( Qt::UserRole, antHillMng.isColorSelectionAllowed( fieldIter ) ) ;
+                itemColor->setData( Qt::UserRole, antHillMng.isColorSelectionAllowed( fieldIter ) ) ;
 				if ( antHillMng.isColorSelectionAllowed( fieldIter ) ) {
-					item2->setBackground ( QBrush( makeRgbColor( hue ) ) ) ;
+                    itemColor->setBackground ( QBrush( makeRgbColor( hue ) ) ) ;
 std::cout<<"[ Debug ] : set color for "<<fieldIter.key().toStdString()<<" : "<<fieldIter.value().toStdString()<<std::endl;
 				}
 std::cout<<"[ Debug ] : "<<__FUNCTION__<<" @ line "<<__LINE__<<std::endl;
-				QTableWidgetItem *item3 = new QTableWidgetItem();
-				item3->setCheckState(Qt::Unchecked);
-				item3->setTextAlignment( Qt::AlignCenter ) ;
 
-				/** \warning the item0 is the last one to be inserted in the current row
+                QTableWidgetItem *itemFilterValues = new QTableWidgetItem( );
+                itemFilterValues->setFlags(itemFilterValues->flags() | Qt::ItemIsEditable);
+                itemFilterValues->setTextAlignment( Qt::AlignCenter ) ;
+                Interval< arma::s32 > current_range ;
+                antHillMng.getRange<arma::s32 >( itemUID->text(), current_range ) ;
+                QTableWidgetItem *itemTrack = new QTableWidgetItem();
+                itemTrack->setCheckState(Qt::Unchecked);
+                itemTrack->setTextAlignment( Qt::AlignCenter ) ;
+
+                /** \warning the item itemUID is the last one to be inserted in the current row
 				 *           wrt the slot devoted to signal cellChanged
 				 */
 std::cout<<"[ Debug ] : "<<__FUNCTION__<<" @ line "<<__LINE__<<std::endl;
-				_ressourcesTable->setItem(row, 1, item1);
-				_ressourcesTable->openPersistentEditor(item1);
-				_ressourcesTable->setItem(row, 2, item2);
-				_ressourcesTable->setItem(row, 3, item3);
-				item0->setCheckState(Qt::Unchecked);
+                _ressourcesTable->setItem(row, 1, itemMode);
+                _ressourcesTable->openPersistentEditor(itemMode);
+                _ressourcesTable->setItem(row, 2, itemColor);
+                _ressourcesTable->setItem(row, 3, itemFilterValues);
+                QLineEdit * rangeLine = new QLineEdit( QString("%1:%2").arg( current_range.min() ).arg( current_range.max() ) ) ;
+                rangeLine->setObjectName ( QString ("cell_%1").arg(row) ) ;
+                _ressourcesTable->setCellWidget(row, 3, rangeLine ) ;
+                itemFilterValues->setToolTip( rangeLine->text()) ;
+                connect( rangeLine, SIGNAL(returnPressed()), this, SLOT(changeRessourceSelection())) ;
+                _ressourcesTable->setItem(row, 4, itemTrack);
+                itemUID->setCheckState(Qt::Unchecked);
 std::cout<<"           will trigger slot..."<<std::endl;
-				_ressourcesTable->setItem(row, 0, item0);
+                _ressourcesTable->setItem(row, 0, itemUID);
 			}
 		}
 		_ressourcesTable->resizeRowsToContents () ;
@@ -436,8 +484,6 @@ void MainWindow::on_listWidget_itemDoubleClicked(QListWidgetItem *item) {
 		_currentSerie = -1 ;
 		return ;
 	}
-	updateDictionary( );
-	updateRessources( ) ;
 	uint idx = _ui->axisSelection->currentIndex();
 	uint dims[3] ;
 	antHillMng.getSize( dims[1], dims[0],dims[2] ) ;
@@ -447,21 +493,25 @@ void MainWindow::on_listWidget_itemDoubleClicked(QListWidgetItem *item) {
 	_ui->sequenceSlider->setSliderPosition(_currentSlice);
 	
 	_ui->sequenceSlider->setEnabled(true);
-	_ui->spinMinIntensity->setEnabled(true);
+    /*
+    _ui->spinMinIntensity->setEnabled(true);
 	_ui->spinMaxIntensity->setEnabled(true);
-
-	Interval<arma::s16> range ;
+    Interval<arma::s16> range ;
 	antHillMng.getRange<arma::s16>( range ) ;//range.setBounds(0,5161);
 	_ui->spinMinIntensity->setRange( range.min(), range.max() );
 	_ui->spinMaxIntensity->setRange( range.min(), range.max() );
 	_ui->spinMinIntensity->setValue( range.min() );
-	_ui->spinMaxIntensity->setValue( range.max() );
+    _ui->spinMaxIntensity->setValue( range.max() );*/
 	
 	_ui->binSpinBox->setValue( 128 );
-	
+    updateDictionary( );
+    updateRessources( ) ;
+
 	drawSlice();
+    /*
 	_ui->segmLoadButton->setEnabled(true);
 	_ui->skelLoadButton->setEnabled(true);
+    */
 }
 
 bool MainWindow::eventFilter(QObject *obj, QEvent *event) {
@@ -520,7 +570,16 @@ void MainWindow::on_sequenceSlider_valueChanged(int value) {
 }
 
 void MainWindow::on_binPushButton_clicked() {
-	antHillMng.binarization( Interval<arma::s16>(_ui->spinMinIntensity->value(), _ui->spinMaxIntensity->value() ), _ui->binSpinBox->value()) ;
+    /**
+      * \brief retrieve ressource's row devoted to input image
+      */
+    uint row = 0 ;
+    while (  _ressourcesTable->item(row,0)->text() != antHillMng.inputuid() ) {
+        row++ ;
+    }
+    QLineEdit *ql = qobject_cast< QLineEdit * >( _ressourcesTable->cellWidget(row,0) ) ;
+    Interval<arma::s16> range_res(ql->text().split(":").front().toInt(), ql->text().split(":").back().toInt() ) ;
+    antHillMng.binarization( range_res, _ui->binSpinBox->value()) ;
 	updateRessources() ;
 }
 
@@ -528,6 +587,7 @@ void MainWindow::on_checkBox_stateChanged(int arg1){
 	_bViewSegm = !_bViewSegm ;
 	drawSlice();
 }
+/*
 void MainWindow::on_segmLoadButton_clicked(){
 	if ( antHillMng.project() == 0 ) return ;
 
@@ -583,6 +643,7 @@ void MainWindow::on_skelLoadButton_clicked(){
 	}
 	if ( _ui->skelCheckBox->isChecked() ) drawSlice();
 }
+*/
 void MainWindow::on__labelSliceView_customContextMenuRequested(const QPoint &pos){
 	/// apport d'info contextuelle
 	uint16_t location[3] ;
