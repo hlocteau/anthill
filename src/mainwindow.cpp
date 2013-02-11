@@ -190,9 +190,11 @@ QColor getLabelColor( arma::u32 iColor, const Interval<arma::u32> & selIdx ) {
 	return QColor((255/stepColor)*(iColor/(stepColor*stepColor)), (255/stepColor)*( (iColor/stepColor) % stepColor ),( 255 / stepColor ) * ( iColor % stepColor) ) ;
 }
 
-Interval<arma::u32> RANGE( const QString &text ) {
+template <typename T > Interval<T> RANGE( const QString &text ) {
 	QStringList range_text = text.split(" ", QString::SkipEmptyParts) ;
-	return Interval<arma::u32>( range_text.front().split(":").front().toInt(), range_text.back().split(":").back().toInt() ) ;
+	Interval<T> r;
+	r.setBounds( range_text.front().split(":").front().toInt(), range_text.back().split(":").back().toInt() ) ;
+	return r ;
 }
 void MainWindow::drawSlice( bool newContent ){
 
@@ -208,8 +210,7 @@ void MainWindow::drawSlice( bool newContent ){
 					//std::cout<<"[ info ] : do not draw ressource "<<resname.toStdString()<<" ( == "<< _ressourcesTable->item(row,0)->data( Qt::UserRole ).toString().toStdString() <<" )"<<std::endl;
 					continue ;
 				}
-                Interval<arma::u32> range_res( RANGE( qobject_cast<QLineEdit *>(_ressourcesTable->cellWidget(row,3) )->text() ) ) ;
-                
+                Interval<arma::s32> range_res( RANGE<arma::s32>( qobject_cast<QLineEdit *>(_ressourcesTable->cellWidget(row,3) )->text() ) ) ;
                 arma::Mat<arma::u32> arma_mainPix ( _mainPix.height(), _mainPix.width() ) ;
 				arma_mainPix.fill(0);
 
@@ -218,7 +219,7 @@ void MainWindow::drawSlice( bool newContent ){
                 else {
 					QTableWidgetItem * item = _ressourcesTable->item( row,3 ) ;
 					std::cout<<"Tooltip is ["<<item->toolTip().toStdString()<<"]"<<std::endl;
-					antHillMng.draw( resname, arma_mainPix, _ui->axisSelection->currentIndex(), _currentSlice, RANGE( item->toolTip() ), false ) ;
+					antHillMng.draw( resname, arma_mainPix, _ui->axisSelection->currentIndex(), _currentSlice, RANGE<arma::s32>( item->toolTip() ), false ) ;
 				}
 				resname = _ressourcesTable->item(row,0)->text() ;
 				if ( _ui->axisSelection->currentIndex() != 0 )
@@ -252,7 +253,7 @@ void MainWindow::drawSlice( bool newContent ){
 						if ( range_res.containsClosed( *readIter ) ) {
 							if ( !counter.contains(*readIter) ) counter.insert( *readIter, 0 ) ;
 							counter[ *readIter ] ++ ;
-							QColor cl = *readIter ? getLabelColor( *readIter, range_res ) : qRgb(0,0,0) ;
+							QColor cl = *readIter ? getLabelColor( *readIter, Interval<arma::u32>(range_res.min(),range_res.max() ) ) : qRgb(0,0,0) ;
 							if ( is_first_layer ) /// depending on whether we draw or we draw OVER
 								* writeIter = cl.rgb() ;
 							else {
@@ -577,8 +578,8 @@ void MainWindow::on_binPushButton_clicked() {
     while (  _ressourcesTable->item(row,0)->text() != antHillMng.inputuid() ) {
         row++ ;
     }
-    QLineEdit *ql = qobject_cast< QLineEdit * >( _ressourcesTable->cellWidget(row,0) ) ;
-    Interval<arma::s16> range_res(ql->text().split(":").front().toInt(), ql->text().split(":").back().toInt() ) ;
+    QLineEdit *ql = qobject_cast< QLineEdit * >( _ressourcesTable->cellWidget(row,3) ) ;
+    Interval<arma::s16> range_res = RANGE<arma::s16>( ql->text() ) ;
     antHillMng.binarization( range_res, _ui->binSpinBox->value()) ;
 	updateRessources() ;
 }
