@@ -48,11 +48,12 @@ private slots:
 
 
     void on_binPushButton_clicked();
-
+/*
     void on_segmLoadButton_clicked();
     void on_skelLoadButton_clicked();
-
-	void toggled_config_view(bool checked ) ;
+*/
+    void changeRessourceSelection( ) ;
+    void toggled_config_view(bool checked ) ;
     void on_actionOpen_project_triggered();
 	void changeRessourcesConfigView(int,int);
 	void updateRessources() ;
@@ -62,8 +63,9 @@ private slots:
 	
 	void onChangeBoolParameter(bool v) ;
 	void onChangeIntParameter(int v) ;
-
+/*
     void on_segmCheckBox_stateChanged(int arg1);
+*/
     void on_sequenceSlider_sliderMoved(int position);
     void on_sequenceSlider_valueChanged(int value);
     void on_checkBox_stateChanged(int arg1);
@@ -71,7 +73,7 @@ private slots:
 private:
 	QColor getColorOf( uint row ) ;
 	QColor getColorOf( const QString & search ) ;
-	
+
     Ui::MainWindow *_ui;
     QImage _mainPix;
     
@@ -80,8 +82,8 @@ private:
     
     uint _currentSlice;
     uint _currentSerie ;
-    BillonTpl<char> *_segmImg ;
-    BillonTpl<char> *_skelImg ;
+    /*BillonTpl<char> *_segmImg ;
+    BillonTpl<char> *_skelImg ;*/
     Pgm3dFactory<char> factory ;
     bool _bViewSegm ;
     qreal _zoomFactor ;
