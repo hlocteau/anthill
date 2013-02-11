@@ -53,12 +53,13 @@ int main( int narg, char **argv ) {
 	general_opt.add_options()
 		( "help,h", "display this message." )
 		( "input,i", po::value< std::string >()->multitoken(), "Input pgm filename(s)." )
-		( "clipping,p", po::value<std::string>()->multitoken(), "vector's coordinates. <val_a> <val_b> <val_c> <val_d>" )
+		( "clipping,c", po::value<std::string>()->multitoken(), "vector's coordinates. <val_a> <val_b> <val_c> <val_d>" )
 		( "domain,d", po::value<bool>()->default_value(true),"Display the overall domain." )
 		( "bbox,b", po::value<bool>()->default_value(true),"Display bounding boxes." )
 		( "mono,m", po::value<bool>()->default_value(true),"Use a single channel color." )
-		( "number,n", po::value<int>()->default_value(0), "minimum number of colors (impact on the distance between two \'consecutive\' colors).")
+		( "number,n", po::value<int>(), "minimum number of colors (impact on the distance between two \'consecutive\' colors).")
 		( "colormap,c", po::value<bool>()->default_value(true),"Use a gradient based colormap when using multiple channels' color." )
+		( "preserve,p",po::value<bool>()->default_value(true),"preserve color association when using selection." )
 		( "boundary,b", po::value<bool>()->default_value(true),"Display only boundary voxels." )
 		( "selection,s", po::value< std::string >()->multitoken(), "draw only specific id.")
 		( "export,e", po::value< std::string >(), "export the corresponding scene (filename of a pgm3d file).")
@@ -243,7 +244,8 @@ int main( int narg, char **argv ) {
 		delete img ;	
 		int iColor = 1 ;
 		int nColor = histo.size()+1 ;
-		if ( vm["number"].as<int>() < nColor ) nColor = vm["number"].as<int>() ;
+		if ( vm.count("number") )
+			nColor = vm["number"].as<int>() ;
 		int stepColor = (int)floor( log( (double)nColor ) / log( 3. ) + 1 );
 		
 		GradientColorMap<int> cmap_grad( 0, nColor, CMAP_HOT );
@@ -260,8 +262,10 @@ int main( int narg, char **argv ) {
 		for ( GrayLevelHistogram<src_type>::THistogram::const_iterator bin = h._bin.begin() ; bin != h._bin.end() ; bin ++ ) {
 			if ( !Labels.isEmpty() ) {
 				if ( !Labels.contains( bin->first ) ) {
-					iColor++ ; // do not change color order whenever selection is done or not
-					makeRgbColor( hue );
+					if ( vm["preserve"].as<bool>()) {
+						iColor++ ; // do not change color order whenever selection is done or not
+						makeRgbColor( hue );
+					}
 					delete map_obj[ bin->first ] ;
 					map_obj[ bin->first ] = 0 ;
 					continue ;
