@@ -42,8 +42,8 @@ public:
 	AntHillFile * project() {
 		return _project ;
 	}
-	bool draw( const QString &resname, arma::Mat<uint8_t> &image, uint8_t axis, uint16_t coordinate, const Interval<int32_t> &range,bool normalize=true ) ;
-	template <typename T> void draw( const BillonTpl< T > *data, arma::Mat<uint8_t> &image, uint8_t axis, uint16_t coordinate, const Interval<T> &range,bool normalize=true ) ;
+	template <typename T,typename U> bool draw( const QString &resname, arma::Mat<U> &image, uint8_t axis, uint16_t coordinate, const Interval<T> &range,bool normalize=true ) ;
+	template <typename T,typename U> void draw( const BillonTpl< T > *data, arma::Mat<U> &image, uint8_t axis, uint16_t coordinate, const Interval<T> &range,bool normalize=true ) ;
 	template <typename T> BillonTpl<T> * getRessourceByUID( const QString &uid, bool &valid ) ;
 	void reset() ;
 	
@@ -151,8 +151,64 @@ template <typename T> BillonTpl<T> * AntHillManager::getRessourceByUID( const QS
 	return (BillonTpl<T>*) _prop[ uid ]._adr ;
 }
 
-template <typename T>
-void AntHillManager::draw( const BillonTpl< T > *data, arma::Mat<uint8_t> &image, uint8_t axis, uint16_t coordinate, const Interval<T> &range,bool normalize ) {
+template <typename T, typename U> bool AntHillManager::draw( const QString &resname, arma::Mat<U> &image, uint8_t axis, uint16_t coordinate, const Interval<T> &range,bool normalize ) {
+	QStringList info ;
+	if ( !_prop.contains( resname ) ) {
+		if ( !load_ressource( resname ) ) return false ;
+	}
+	
+	/** \todo define a field offset in _prop and create a view on image :
+	 *  \code      arma::Mat<uint8_t> subimage =
+	 * image( arma::span( _prop[ resname ]._offset[ (axis+1)%3 ],_prop[ resname ]._offset[ (axis+1)%3 ]+_prop[ resname ]._size[ (axis+1)%3 ] ),
+	 *        arma::span( _prop[ resname ]._offset[ (axis+2)%3 ],_prop[ resname ]._offset[ (axis+2)%3 ]+_prop[ resname ]._size[ (axis+2)%3 ] ) ) ;
+	 *             draw() on subimage
+	 */
+	TImageProperty storage = _prop.find( resname ).value() ;
+	arma::span  cols = arma::span( storage._offset[ (axis+1)%3 ],storage._offset[ (axis+1)%3 ]+storage._size[ (axis+1)%3 ]-1 ),
+				rows = arma::span( storage._offset[ (axis+2)%3 ],storage._offset[ (axis+2)%3 ]+storage._size[ (axis+2)%3 ]-1 ) ;
+	if ( true || rows.b >= image.n_rows || cols.b >= image.n_cols ) {
+		std::cerr<<"[ Info ] : offset "<<storage._offset[0]<<","<<storage._offset[1]<<","<<storage._offset[2]
+		                      <<" size "<<storage._size[0]<<","<<storage._size[1]<<","<<storage._size[2]<<" wrt axis "<<(int)axis<<" leading to "<<rows.a<<":"<<rows.b<<" x "<<cols.a<<":"<<cols.b
+		                      <<" on a 2d image's size "<<image.n_rows<<" "<<image.n_cols<<std::endl;
+		std::cerr<<"[ Info ] : coordinate = "<<coordinate<<" - "<<storage._offset[axis]<<std::endl;
+	}
+	arma::Mat<U> subimage = image(rows,cols);
+	if ( coordinate < storage._offset[axis] ) return true ;
+	if ( coordinate-storage._offset[axis] >= storage._size[axis] ) return true ;
+	coordinate -= storage._offset[axis] ;
+	std::cerr<<"[ Info ] : coordinate = "<<coordinate<<std::endl;
+	if ( storage._type == SIGNED_TINY_INT ) {
+std::cerr<<"[ debug ] : draw @line "<<__LINE__<<std::endl;
+		Interval<arma::s8> cast_range( range.min(), range.max() ) ;
+		draw( (BillonTpl<arma::s8>*) storage._adr, subimage, axis, coordinate, cast_range, normalize ) ;
+	} else if ( storage._type == UNSIGNED_TINY_INT ) {
+std::cerr<<"[ debug ] : draw @line "<<__LINE__<<std::endl;
+		Interval<arma::u8> cast_range( range.min(), range.max() ) ;
+		draw( (BillonTpl<arma::u8>*) storage._adr, subimage, axis, coordinate, cast_range, normalize ) ;
+	} else if ( storage._type == SIGNED_SHORT_INT ) {
+std::cerr<<"[ debug ] : draw @line "<<__LINE__<<std::endl;
+		Interval<arma::s16> cast_range( range.min(), range.max() ) ;
+		draw( (BillonTpl<arma::s16>*) storage._adr, subimage, axis, coordinate, cast_range, normalize ) ;
+	} else if ( storage._type == UNSIGNED_SHORT_INT ) {
+std::cerr<<"[ debug ] : draw @line "<<__LINE__<<std::endl;
+		Interval<arma::u16> cast_range( range.min(), range.max() ) ;
+		draw( (BillonTpl<arma::u16>*) storage._adr, subimage, axis, coordinate, cast_range, normalize ) ;
+	} else if ( storage._type == SIGNED_INT ) {
+std::cerr<<"[ debug ] : draw @line "<<__LINE__<<std::endl;
+		Interval<arma::s32> cast_range( range.min(), range.max() ) ;
+		draw( (BillonTpl<arma::s32>*) storage._adr, subimage, axis, coordinate, cast_range, normalize ) ;
+	} else if ( storage._type == UNSIGNED_INT ) {
+std::cerr<<"[ debug ] : draw @line "<<__LINE__<<std::endl;
+		Interval<arma::u32> cast_range( range.min(), range.max() ) ;
+		draw( (BillonTpl<arma::u32>*) storage._adr, subimage, axis, coordinate, cast_range, normalize ) ;
+	}
+	image(rows,cols) = subimage ;
+	//std::cerr<<"[ Info ] : "<<__FUNCTION__<<" @ line "<<__LINE__<<std::endl;
+	return true ;
+}
+
+template <typename T,typename U>
+void AntHillManager::draw( const BillonTpl< T > *data, arma::Mat<U> &image, uint8_t axis, uint16_t coordinate, const Interval<T> &range,bool normalize ) {
 	arma::span rows, cols, slices ;
 	//std::cout<<"[ Debug ] : "<<__FUNCTION__<<" on "<<(void*)data<<std::endl;
 	if ( axis == SLICING_ON_Y ) {
@@ -172,7 +228,7 @@ std::cout<<"[ Info ] define view "<<rows.a<<":"<<rows.b<<" x "<<cols.a<<":"<<col
 	const typename arma::Cube< T > v_data = (*data)( rows,cols,slices ) ;
 	typename arma::Cube< T >::const_iterator readIter = v_data.begin(),
 									readEnd = v_data.end() ;
-	arma::Mat<uint8_t>::iterator writeIter = image.begin();
+	typename arma::Mat<U>::iterator writeIter = image.begin();
 	/** \warning
 	 * QImage's data are stored row by row while cube's data are stored column by column!
 	 * that is why we draw on a matrice that we can next transpose for display
@@ -182,7 +238,7 @@ std::cout<<"[ Info ] define view "<<rows.a<<":"<<rows.b<<" x "<<cols.a<<":"<<col
 			T value = *readIter ;
 			if ( normalize )
 				value = floor( ( ( value - range.min() ) * 255. ) / range.size() ) ;
-			*writeIter = (uint8_t)value ;
+			*writeIter = (U)value ;
 		} else {
 			*writeIter = range.max() < *readIter ? 255 : 0 ;
 		}

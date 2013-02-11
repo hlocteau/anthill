@@ -228,56 +228,6 @@ bool AntHillManager::load_ressource( const QString &resname ) {
 	return true ;
 }
 
-bool AntHillManager::draw( const QString &resname, arma::Mat<uint8_t> &image, uint8_t axis, uint16_t coordinate, const Interval<int32_t> &range,bool normalize ) {
-	QStringList info ;
-	if ( !_prop.contains( resname ) ) {
-		if ( !load_ressource( resname ) ) return false ;
-	}
-	
-	/** \todo define a field offset in _prop and create a view on image :
-	 *  \code      arma::Mat<uint8_t> subimage =
-	 * image( arma::span( _prop[ resname ]._offset[ (axis+1)%3 ],_prop[ resname ]._offset[ (axis+1)%3 ]+_prop[ resname ]._size[ (axis+1)%3 ] ),
-	 *        arma::span( _prop[ resname ]._offset[ (axis+2)%3 ],_prop[ resname ]._offset[ (axis+2)%3 ]+_prop[ resname ]._size[ (axis+2)%3 ] ) ) ;
-	 *             draw() on subimage
-	 */
-	TImageProperty storage = _prop.find( resname ).value() ;
-	arma::span  cols = arma::span( storage._offset[ (axis+1)%3 ],storage._offset[ (axis+1)%3 ]+storage._size[ (axis+1)%3 ]-1 ),
-				rows = arma::span( storage._offset[ (axis+2)%3 ],storage._offset[ (axis+2)%3 ]+storage._size[ (axis+2)%3 ]-1 ) ;
-	if ( true || rows.b >= image.n_rows || cols.b >= image.n_cols ) {
-		std::cerr<<"[ Info ] : offset "<<storage._offset[0]<<","<<storage._offset[1]<<","<<storage._offset[2]
-		                      <<" size "<<storage._size[0]<<","<<storage._size[1]<<","<<storage._size[2]<<" wrt axis "<<(int)axis<<" leading to "<<rows.a<<":"<<rows.b<<" x "<<cols.a<<":"<<cols.b
-		                      <<" on a 2d image's size "<<image.n_rows<<" "<<image.n_cols<<std::endl;
-		std::cerr<<"[ Info ] : coordinate = "<<coordinate<<" - "<<storage._offset[axis]<<std::endl;
-	}
-	arma::Mat<uint8_t> subimage = image(rows,cols);
-	if ( coordinate < storage._offset[axis] ) return true ;
-	if ( coordinate-storage._offset[axis] >= storage._size[axis] ) return true ;
-	coordinate -= storage._offset[axis] ;
-	std::cerr<<"[ Info ] : coordinate = "<<coordinate<<std::endl;
-	if ( storage._type == SIGNED_TINY_INT ) {
-		Interval<arma::s8> cast_range( range.min(), range.max() ) ;
-		draw( (BillonTpl<arma::s8>*) storage._adr, subimage, axis, coordinate, cast_range, normalize ) ;
-	} else if ( storage._type == UNSIGNED_TINY_INT ) {
-		Interval<arma::u8> cast_range( range.min(), range.max() ) ;
-		draw( (BillonTpl<arma::u8>*) storage._adr, subimage, axis, coordinate, cast_range, normalize ) ;
-	} else if ( storage._type == SIGNED_SHORT_INT ) {
-		Interval<arma::s16> cast_range( range.min(), range.max() ) ;
-		draw( (BillonTpl<arma::s16>*) storage._adr, subimage, axis, coordinate, cast_range, normalize ) ;
-	} else if ( storage._type == UNSIGNED_SHORT_INT ) {
-		Interval<arma::u16> cast_range( range.min(), range.max() ) ;
-		draw( (BillonTpl<arma::u16>*) storage._adr, subimage, axis, coordinate, cast_range, normalize ) ;
-	} else if ( storage._type == SIGNED_INT ) {
-		Interval<arma::s32> cast_range( range.min(), range.max() ) ;
-		draw( (BillonTpl<arma::s32>*) storage._adr, subimage, axis, coordinate, cast_range, normalize ) ;
-	} else if ( storage._type == UNSIGNED_INT ) {
-		Interval<arma::u32> cast_range( range.min(), range.max() ) ;
-		draw( (BillonTpl<arma::u32>*) storage._adr, subimage, axis, coordinate, cast_range, normalize ) ;
-	}
-	image(rows,cols) = subimage ;
-	//std::cerr<<"[ Info ] : "<<__FUNCTION__<<" @ line "<<__LINE__<<std::endl;
-	return true ;
-}
-
 void AntHillManager::openInitialInput( Billon ** img ) {
     if ( *img != 0 ) {
         delete *img;
