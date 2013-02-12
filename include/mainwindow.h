@@ -71,6 +71,11 @@ private slots:
     void on_checkBox_stateChanged(int arg1);
 	
 private:
+	enum { RES_UID_COL, RES_MODE_COL, RES_COLOR_COL, RES_RANGE_COL, RES_TRACK_COL } ;
+	static const int ImageContentOnly = 1 ;
+	static const int ImageFixedColor  = 2 ;
+	static const int ImageUsingColor  = 4 ;
+	
 	QColor getColorOf( uint row ) ;
 	QColor getColorOf( const QString & search ) ;
 
@@ -88,6 +93,9 @@ private:
     bool _bViewSegm ;
     qreal _zoomFactor ;
 	AntHillManager antHillMng ;
+	QMap< QString, int > _displayOptions ;
+	
+	QMap< QString, arma::Mat< arma::s32 > > _tracked ;
 };
 
 #endif // MAINWINDOW_H

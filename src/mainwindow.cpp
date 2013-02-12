@@ -21,6 +21,9 @@ bool USE_SEGM_TOOL = true ;
 
 QColor getLabelColor( arma::u32 iColor, const Interval<arma::u32> & selIdx ) ;
 
+
+
+
 void MainWindow::onChangeBoolParameter(bool v) {
 	drawSlice(v==v);
 }
@@ -187,7 +190,9 @@ QColor MainWindow::getColorOf( uint row ) {
 
 QColor getLabelColor( arma::u32 iColor, const Interval<arma::u32> & selIdx ) {
 	arma::s32 stepColor = (int)floor( log( (double)selIdx.size()+1 ) / log( 3. ) + 1 );
-	return QColor((255/stepColor)*(iColor/(stepColor*stepColor)), (255/stepColor)*( (iColor/stepColor) % stepColor ),( 255 / stepColor ) * ( iColor % stepColor) ) ;
+	if ( stepColor == 1 )
+		return QColor( 0,255,0 ) ;
+	return QColor((255/stepColor)*( (iColor/(stepColor*stepColor)) % stepColor ), (255/stepColor)*( (iColor/stepColor) % stepColor ),( 255 / stepColor ) * ( iColor % stepColor) ) ;
 }
 
 template <typename T > Interval<T> RANGE( const QString &text ) {
@@ -213,19 +218,25 @@ void MainWindow::drawSlice( bool newContent ){
                 Interval<arma::s32> range_res( RANGE<arma::s32>( qobject_cast<QLineEdit *>(_ressourcesTable->cellWidget(row,3) )->text() ) ) ;
                 arma::Mat<arma::u32> arma_mainPix ( _mainPix.height(), _mainPix.width() ) ;
 				arma_mainPix.fill(0);
-
                 if ( resname == antHillMng.inputuid() )
                     antHillMng.draw( resname, arma_mainPix, _ui->axisSelection->currentIndex(), _currentSlice, range_res ) ;
                 else {
 					QTableWidgetItem * item = _ressourcesTable->item( row,3 ) ;
-					std::cout<<"Tooltip is ["<<item->toolTip().toStdString()<<"]"<<std::endl;
 					antHillMng.draw( resname, arma_mainPix, _ui->axisSelection->currentIndex(), _currentSlice, RANGE<arma::s32>( item->toolTip() ), false ) ;
 				}
+				
+				if ( _ressourcesTable->item( row, RES_TRACK_COL )->checkState() == Qt::Checked ) {
+					_tracked[ resname ] = arma::Mat<arma::s32>( _mainPix.height(), _mainPix.width() ) ;
+					_tracked[ resname ].fill(0);
+					QTableWidgetItem * item = _ressourcesTable->item( row,3 ) ;
+					antHillMng.draw( resname, _tracked[ resname ], _ui->axisSelection->currentIndex(), _currentSlice, RANGE<arma::s32>( item->toolTip() ), false ) ;
+				}
+				
 				resname = _ressourcesTable->item(row,0)->text() ;
 				if ( _ui->axisSelection->currentIndex() != 0 )
 					arma_mainPix = arma_mainPix.t() ;
 				QRgb * writeIter = (QRgb *) _mainPix.bits() ;
-				if ( !_ressourcesTable->item(row,2)->data( Qt::UserRole ).toBool() ) {
+				if ( !(_displayOptions[ resname ] & ImageUsingColor ) ){
 					if ( !preview_binarization ) {
 						for ( arma::Mat<arma::u32>::iterator readIter = arma_mainPix.begin() ; readIter != arma_mainPix.end() ; readIter++ ) {
 							if ( is_first_layer ) /// depending on whether we draw or we draw OVER
@@ -248,12 +259,9 @@ void MainWindow::drawSlice( bool newContent ){
 						}
 					}
 				} else {
-					QMap< arma::u32, arma::u32 > counter ;
 					for ( arma::Mat<arma::u32>::iterator readIter = arma_mainPix.begin() ; readIter != arma_mainPix.end() ; readIter++ ) {
 						if ( range_res.containsClosed( *readIter ) ) {
-							if ( !counter.contains(*readIter) ) counter.insert( *readIter, 0 ) ;
-							counter[ *readIter ] ++ ;
-							QColor cl = *readIter ? getLabelColor( *readIter, Interval<arma::u32>(range_res.min(),range_res.max() ) ) : qRgb(0,0,0) ;
+							QColor cl = *readIter ? ( ( _displayOptions[ resname ] & ImageFixedColor ) ? getLabelColor( *readIter, Interval<arma::u32>(range_res.min(),range_res.max() ) ) : getColorOf( resname )) : qRgb(0,0,0) ;
 							if ( is_first_layer ) /// depending on whether we draw or we draw OVER
 								* writeIter = cl.rgb() ;
 							else {
@@ -263,26 +271,10 @@ void MainWindow::drawSlice( bool newContent ){
 						}
 						writeIter++ ;
 					}
-					for ( QMap< arma::u32, arma::u32 >::ConstIterator it = counter.begin() ; it != counter.end(); it++ )
-						std::cout<<(int)it.key()<<" : "<<(int)it.value() <<std::endl;
 				}
 				is_first_layer = false ;
 				std::cout<<"[ info ] : draw ressource "<<resname.toStdString()<<" ( = "<< range_res.min()<<":"<<range_res.max() <<" ) " <<_ressourcesTable->item(row,2)->data( Qt::UserRole ).toBool()<<std::endl;
 			}
-			/*
-			if ( !_bViewSegm )
-			   _sliceView->drawSlice(_mainPix,*_billon,_currentSlice, range_img, range_img.max());
-			else
-			   _sliceView->drawSlice(_mainPix,*_billon,_currentSlice, range_img, _ui->binSpinBox->value());
-
-
-			if ( _segmImg && _ui->segmCheckBox->isChecked() ) {
-				_sliceView->drawOverSlice(_mainPix,*_segmImg, _currentSlice, _ui->x_shift->value(), _ui->y_shift->value(),_ui->z_shift->value(), _ui->contentCheckBox->isChecked(), qRgb(255,255,0));
-			}
-
-			if ( _skelImg && _ui->skelCheckBox->isChecked() ) {
-			 _sliceView->drawOverSlice(_mainPix,*_skelImg, _currentSlice, _ui->x_shift_skel->value(), _ui->y_shift_skel->value(),_ui->z_shift_skel->value(), _ui->contentSkelCheckBox->isChecked(),qRgb(0,0,255));
-			}*/
 		}
 	}else{
 		_ui->SlicePosition->setText(tr("Position"));
@@ -304,7 +296,7 @@ void MainWindow::changeRessourcesConfigView(int row, int col) {
 		QTableWidgetItem *item3 = _ressourcesTable->item(row, 3);
 
 		std::cout<<__FUNCTION__<<" @ line "<<__LINE__<<std::endl;	
-		_ressourcesTable->cellWidget(row, 1)->setEnabled( item0->checkState() == Qt::Checked && !item1->data(Qt::UserRole).toBool() ) ;
+		_ressourcesTable->cellWidget(row, 1)->setEnabled( item0->checkState() == Qt::Checked && !(_displayOptions[ item0->text() ] & ImageContentOnly) ) ;
 		
 		if (item0->checkState() == Qt::Checked) {
 			QString fileName = item0->data(Qt::UserRole).toString();
@@ -366,8 +358,9 @@ void MainWindow::changeRessourceSelection() {
 
 void MainWindow::changeRessourceColor(int row,int column) {
 	if ( column != 2 ) return ;
-	if ( _ressourcesTable->item( row, 0 )->checkState() != Qt::Checked ) return ;
-	if ( ! _ressourcesTable->item( row, 2 )->data( Qt::UserRole).toBool() ) return ;
+	QTableWidgetItem *item = _ressourcesTable->item( row, 0 ) ;
+	if ( item->checkState() != Qt::Checked ) return ;
+	if ( _displayOptions[ item->text() ] & ImageFixedColor ) return ;
 	QColor new_color = QColorDialog::getColor( _ressourcesTable->item( row, column )->background().color(),
 												this, tr("Pick a new color"), QColorDialog::DontUseNativeDialog ) ;
 	if ( new_color.isValid() && new_color != Qt::black ) {
@@ -384,7 +377,6 @@ QColor makeRgbColor( double &hue ) {
 }
 
 void MainWindow::updateRessources( ) {
-	std::cout<<__FUNCTION__<<" @ line "<<__LINE__<<std::endl;
 	if ( antHillMng.project() ) {
 		_ressourcesTable->setRowCount(0) ;
 		QMap< QString, QMap< QString,QString > >::ConstIterator resultIter = antHillMng.project()->process_begin(),
@@ -396,31 +388,27 @@ void MainWindow::updateRessources( ) {
 			fieldEnd = resultIter.value().end();
 			for ( ; fieldIter != fieldEnd ; fieldIter ++ ) {
 				if ( !fieldIter.key().startsWith("result") ) continue ;
-std::cout<<"[ Info ] : process ("<<resultIter.key().toStdString()<<" ( "<<fieldIter.key().toStdString()<<" : "<<fieldIter.value().toStdString()<<" ) )"<<std::endl;
+				std::cout<<"[ Info ] : process ("<<resultIter.key().toStdString()<<" ( "<<fieldIter.key().toStdString()<<" : "<<fieldIter.value().toStdString()<<" ) )"<<std::endl;
 				int row = _ressourcesTable->rowCount();
 				_ressourcesTable->setRowCount(row + 1);
-
-                QTableWidgetItem *itemUID = new QTableWidgetItem( antHillMng.uid( resultIter, fieldIter ) );
+				QString cur_uid = antHillMng.uid( resultIter, fieldIter ) ;
+                QTableWidgetItem *itemUID = new QTableWidgetItem( cur_uid );
+				_displayOptions[ cur_uid ] = ( antHillMng.isColor( fieldIter ) ? ImageUsingColor : 0 );
                 itemUID->setData(Qt::UserRole, fieldIter.value().split(";").at(0) );
                 itemUID->setFlags(itemUID->flags() & ~Qt::ItemIsEditable);
-std::cout<<"[ Debug ] : "<<__FUNCTION__<<" @ line "<<__LINE__<<std::endl;
                 QTableWidgetItem *itemMode = new QTableWidgetItem(tr("Content"));
 				/**
 				 * \brief it makes no sense to define a boundary on feature images
 				 */
-                itemMode->setData( Qt::UserRole, antHillMng.isContentOnly( fieldIter ) ) ;
-std::cout<<"[ Debug ] : "<<__FUNCTION__<<" @ line "<<__LINE__<<std::endl;
+				_displayOptions[ cur_uid ] |= ( antHillMng.isContentOnly( fieldIter ) ? ImageContentOnly : 0 ) ;
                 QTableWidgetItem *itemColor = new QTableWidgetItem();
 				/**
 				 * \brief we only define new color(s) for bilevel/labelled images
 				 */
-                itemColor->setData( Qt::UserRole, antHillMng.isColorSelectionAllowed( fieldIter ) ) ;
-				if ( antHillMng.isColorSelectionAllowed( fieldIter ) ) {
+				_displayOptions[ cur_uid ] |= ( antHillMng.isColorSelectionAllowed( fieldIter ) ? 0 : ImageFixedColor );
+				if ( !( _displayOptions[ cur_uid ] & ImageFixedColor ) ) {
                     itemColor->setBackground ( QBrush( makeRgbColor( hue ) ) ) ;
-std::cout<<"[ Debug ] : set color for "<<fieldIter.key().toStdString()<<" : "<<fieldIter.value().toStdString()<<std::endl;
 				}
-std::cout<<"[ Debug ] : "<<__FUNCTION__<<" @ line "<<__LINE__<<std::endl;
-
                 QTableWidgetItem *itemFilterValues = new QTableWidgetItem( );
                 itemFilterValues->setFlags(itemFilterValues->flags() | Qt::ItemIsEditable);
                 itemFilterValues->setTextAlignment( Qt::AlignCenter ) ;
@@ -433,7 +421,6 @@ std::cout<<"[ Debug ] : "<<__FUNCTION__<<" @ line "<<__LINE__<<std::endl;
                 /** \warning the item itemUID is the last one to be inserted in the current row
 				 *           wrt the slot devoted to signal cellChanged
 				 */
-std::cout<<"[ Debug ] : "<<__FUNCTION__<<" @ line "<<__LINE__<<std::endl;
                 _ressourcesTable->setItem(row, 1, itemMode);
                 _ressourcesTable->openPersistentEditor(itemMode);
                 _ressourcesTable->setItem(row, 2, itemColor);
@@ -445,13 +432,12 @@ std::cout<<"[ Debug ] : "<<__FUNCTION__<<" @ line "<<__LINE__<<std::endl;
                 connect( rangeLine, SIGNAL(returnPressed()), this, SLOT(changeRessourceSelection())) ;
                 _ressourcesTable->setItem(row, 4, itemTrack);
                 itemUID->setCheckState(Qt::Unchecked);
-std::cout<<"           will trigger slot..."<<std::endl;
                 _ressourcesTable->setItem(row, 0, itemUID);
+				std::cout<<cur_uid.toStdString()<<" : "<<_displayOptions[ cur_uid ]<<std::endl;
 			}
 		}
 		_ressourcesTable->resizeRowsToContents () ;
 	}
-	std::cout<<__FUNCTION__<<" @ line "<<__LINE__<<std::endl;
 }
 
 void MainWindow::resetRessources() {
@@ -653,7 +639,12 @@ void MainWindow::on__labelSliceView_customContextMenuRequested(const QPoint &pos
 	location[ (idx-2+3)%3 ] = pos.x() ;
 
 	location[ idx ] = _currentSlice ;
-	_ui->infoLabel->setText( QString("mouse on %1,%2,%3").arg(location[0]).arg(location[1]).arg(location[2]) );
+	QString msg = QString("mouse on %1,%2,%3").arg(location[0]).arg(location[1]).arg(location[2]) ;
+	for ( QMap< QString, arma::Mat< arma::s32 > >::ConstIterator iterTrack = _tracked.begin() ; iterTrack != _tracked.end() ; iterTrack++ ) {
+		msg.append( QString(" %1:%2").arg( iterTrack.key() ).arg( iterTrack.value()( location[ (idx+2)%3 ],location[ (idx+1)%3 ] ) ) ) ;
+		std::cout<<(int)idx<<" : "<<((int)idx-1+3+0*(idx==0?-1:0))%3<<" "<<((int)idx-2+3+0*(idx==0?1:0))%3<<std::endl;
+	}
+	_ui->infoLabel->setText( msg );
 }
 
 void MainWindow::on_actionOpen_project_triggered() {
