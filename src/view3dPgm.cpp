@@ -247,7 +247,6 @@ int main( int narg, char **argv ) {
 		if ( vm.count("number") )
 			nColor = vm["number"].as<int>() ;
 		int stepColor = (int)floor( log( (double)nColor ) / log( 3. ) + 1 );
-		
 		GradientColorMap<int> cmap_grad( 0, nColor, CMAP_HOT );
 		//cmap_grad.addColor( Color( 50, 50, 255 ) );
 		//cmap_grad.addColor( Color( 255, 0, 0 ) );
@@ -282,7 +281,10 @@ int main( int narg, char **argv ) {
 						cVoxel = Color( qColor.red(), qColor.green(), qColor.blue(), 240 ) ;
 						cEdgel = Color( qColor.red(), qColor.green(), qColor.blue(), 120 ) ;
 					} else {
-						cVoxel = Color((255/stepColor)*(iColor/(stepColor*stepColor)), (255/stepColor)*( (iColor/stepColor) % stepColor ),( 255 / stepColor ) * ( iColor % stepColor) , 240) ;
+						if ( stepColor != 1 )
+							cVoxel = Color((255/stepColor)*((iColor/(stepColor*stepColor)%stepColor)), (255/stepColor)*( (iColor/stepColor) % stepColor ),( 255 / stepColor ) * ( iColor % stepColor) , 240) ;
+						else
+							cVoxel = Color( 0,255,0 ) ;
 						cEdgel = Color(cVoxel.red(), cVoxel.green(),cVoxel.blue() , 120) ;						
 					}
 				} else {
