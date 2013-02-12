@@ -28,7 +28,8 @@ typedef qint32     qtlabel ;
 typedef arma::u32 tlabelbranch ;
 typedef qint32    qtlabelbranch ;
 
-void set_branch( const QList< uint * > &touching, const BillonTpl< tlabel > *labelSkel, const BillonTpl< tlabelbranch > *labelBranch, QMap< tlabelbranch, tlabel > &NewLabelBranch, const QList< tlabel > &Labels, QMap< tlabel, QList<tlabel> > &edges ) {
+void set_branch( const QList< uint * > &touching, const BillonTpl< tlabel > *labelSkel, const BillonTpl< tlabelbranch > *labelBranch, 
+                 QMap< tlabelbranch, tlabel > &NewLabelBranch, const QList< tlabel > &Labels, QMap< tlabel, QList<tlabel> > &edges ) {
 	QList< uint * >::const_iterator iterVoxel = touching.begin(),
 	                                iterVoxelEnd = touching.end() ;
 	bool bDiscard ;
@@ -206,6 +207,7 @@ int main ( int narg, char **argv ) {
 	
 	ConnexComponentExtractor< arma::u8, tlabelbranch > CCE ;
 	BillonTpl< tlabelbranch > * labelBranch = CCE.run( *initialSkel ) ;
+	IOPgm3d< tlabelbranch, qtlabelbranch, false >::write( *labelBranch, "/tmp/whois429.pgm3d" ) ;
 	delete initialSkel ;
 	
 	QMap< tlabelbranch, tlabel > NewLabelBranch ;
