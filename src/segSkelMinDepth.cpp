@@ -428,7 +428,7 @@ int main( int narg, char **argv ) {
 	/// criteria based on size...	
 	
 	
-	{
+	if ( false ) {
 		///
 		/// for algorithm design only on MeMo0013/serie_2 ...
 		///
