@@ -78,7 +78,7 @@ ${BUILD}/pgmcrop : ${OBJ}/pgmcrop.o ${OBJ}/IOPgm3d.o
 ${BUILD}/minpath : ${OBJ}/minpath.o ${OBJ}/IOPgm3d.o
 	${LINK} ${OBJ}/minpath.o ${OBJ}/IOPgm3d.o -o "$@" -lQtCore -lDGtal ${LIB_BOOST}
 
-${BUILD}/catchskel : ${OBJ}/catchskel.o ${OBJ}/IOPgm3d.o
+${BUILD}/catchSkel : ${OBJ}/catchskel.o ${OBJ}/IOPgm3d.o
 	${LINK} ${OBJ}/catchskel.o ${OBJ}/IOPgm3d.o -o "$@" -lQtCore ${LIB_BOOST} ${LIB_BOOST_PARAM} ${LIB_DGTAL}
 
 ${BUILD}/segSkelMinDepth : ${OBJ}/segSkelMinDepth.o ${OBJ}/IOPgm3d.o ${OBJ}/geom2d.o
