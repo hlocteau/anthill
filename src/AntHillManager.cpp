@@ -31,6 +31,12 @@ bool AntHillManager::isContentOnly( QMap< QString, QString >::ConstIterator &res
 	return ( res.value().split(";").at(ANTHILL_INDEX_MEANING) == ANTHILL_TAG_FEATURE ) ;
 }
 
+bool AntHillManager::isColor( QMap< QString, QString >::ConstIterator &res ) const {
+	assert( res.key().startsWith(ANTHILL_DEFAULT_OUTPUT_NAME) ) ;
+	assert( res.value().count(";") > ANTHILL_INDEX_MEANING ) ;
+	return ( res.value().split(";").at(ANTHILL_INDEX_MEANING) != ANTHILL_TAG_FEATURE ) ;
+}
+
 bool AntHillManager::isColorSelectionAllowed( QMap< QString, QString >::ConstIterator &res ) const {
 	assert( res.key().startsWith(ANTHILL_DEFAULT_OUTPUT_NAME) ) ;
 	assert( res.value().count(";") > ANTHILL_INDEX_MEANING ) ;

@@ -49,6 +49,7 @@ public:
 	
 	bool isContentOnly           ( QMap< QString, QString >::ConstIterator &res ) const ;
 	bool isColorSelectionAllowed ( QMap< QString, QString >::ConstIterator &res ) const ;
+	bool isColor                 ( QMap< QString, QString >::ConstIterator &res ) const ;
 	
 	QString uid ( QMap< QString, QMap< QString, QString> >::ConstIterator process,
 					QMap< QString, QString >::ConstIterator param ) const {
