@@ -318,12 +318,9 @@ template <typename T, typename U, typename V> bool ConnexComponentRebuilder<T,U,
 	}
 	if ( !_lower.contains( selection ) )
 		setBounds( selection ) ;
-//std::cerr<<"Info ("<<__FUNCTION__<<" @ line "<<__LINE__<<" ) rebuild component "<<selection<<std::endl;
 	Domain domain( Point(0,0,0), _upper[ selection ] - _lower[ selection ]) ;
-//std::cerr<<"Info ("<<__FUNCTION__<<" @ line "<<__LINE__<<" ) domain "<<domain.lowerBound()<<" "<<domain.upperBound()<<std::endl;
 	Image 		*distances =new Image( domain ) ;
 	const DigitalSet * pts = _layers[ selection ].first ;
-//std::cerr<<"Info ("<<__FUNCTION__<<" @ line "<<__LINE__<<" ) skeleton's size "<<pts->size()<<std::endl;
 	for ( DigitalSet::ConstIterator pt = pts->begin() ; pt != pts->end(); pt++ ) {
 		Point ptShift = *pt ;
 		ptShift -= _lower[selection] ;
@@ -337,19 +334,14 @@ template <typename T, typename U, typename V> bool ConnexComponentRebuilder<T,U,
 		delete _depth ;
 	}
 #endif
-//std::cerr<<"Info ("<<__FUNCTION__<<" @ line "<<__LINE__<<" ) initialization done "<<std::endl;
 
 	#if BUILD_INDIVIDUAL_COMP
 	arma::icube thisCC( domain.upperBound().at(1), domain.upperBound().at(0), domain.upperBound().at(2) ) ;
 	thisCC.fill(0);
 	#endif
-//std::cerr<<"Info ("<<__FUNCTION__<<" @ line "<<__LINE__<<" )"<<std::endl;
 	OutImage componentDGImg( domain ) ;
-//std::cerr<<"Info ("<<__FUNCTION__<<" @ line "<<__LINE__<<" )"<<std::endl;
 	RDT rdt ;
-//std::cerr<<"Info ("<<__FUNCTION__<<" @ line "<<__LINE__<<" )"<<std::endl;
 	componentDGImg = rdt.reconstruction( *distances ) ;
-//std::cerr<<"Info ("<<__FUNCTION__<<" @ line "<<__LINE__<<" )"<<std::endl;
 	delete distances ;
 #ifdef SAFETY_MEMORY_CONSUPTION
 	if ( !_depthfile.isEmpty() ) {
@@ -405,6 +397,12 @@ template <typename T, typename U, typename V> bool ConnexComponentRebuilder<T,U,
 #else ///#ifdef OLD_REMOVAL_METHOD
 	int plane[4] ;
 	int plane_intermediate[4] ;
+	
+	#ifdef DEBUG_REMOVAL_EXT
+	BillonTpl< arma::u16 > historyRemoval( domain.upperBound().at(1)+1, domain.upperBound().at(0)+1, domain.upperBound().at(2)+1 ) ;
+	historyRemoval.fill(0) ;
+	arma::u16 today = 1 ;
+	#endif
 	for ( typename QSet<uint32_t>::ConstIterator adj_node = relations.begin() ; adj_node != relations.end() ; adj_node++ ) {
 		if ( selection < *adj_node ) {
 			me = &get_first ;
@@ -446,10 +444,22 @@ if ( g_debug ) std::cerr<<"[ Debug ] : "<<(*other)(*loc)<<" (depth "<< (*_depth)
 if ( g_debug ) std::cerr<<"[ Debug ] : "<<toRemove.size()<<" voxels to remove function "<<__FUNCTION__<<" @ line "<<__LINE__<<std::endl;
 			while ( !toRemove.isEmpty() ) {
 				componentDGImg.setValue( toRemove.front(),0 ) ;
+				#ifdef DEBUG_REMOVAL_EXT
+				historyRemoval( toRemove.front().at(1),toRemove.front().at(0),toRemove.front().at(2) ) = today ;
+				#endif
 				toRemove.pop_front() ;
 			}
+			#ifdef DEBUG_REMOVAL_EXT
+			today++ ;
+			if ( today == 0 ) std::cerr<<"[ Warning ] : used type is not big enough for storing the removal steps"<<std::endl;
+			#endif
 		}
 	}
+	#ifdef DEBUG_REMOVAL_EXT
+	today-- ;
+	historyRemoval.setMaxValue( today ) ;
+	IOPgm3d< arma::u16,qint16,false>::write( historyRemoval, QString( "/tmp/deletions-%1.pgm3d").arg( (int) selection ) ) ;
+	#endif
 	/// now, we can copy the image
 int32_t nVoxels = 0 ;
 	for ( Domain::ConstIterator pt = domain.begin() ; pt != domain.end(); pt++ )
