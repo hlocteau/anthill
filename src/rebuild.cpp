@@ -115,7 +115,7 @@ int main( int narg, char **argv ) {
 		( "skel,s", po::value<std::string>(), "Input colored skeleton pgm filename." )
 		( "depth,d", po::value<std::string>(), "Input depth map pgm filename." )
 		( "output,o", po::value<string>(),"Output pgm filename." )
-		( "id,i", po::value<int>()->default_value(-1),"id of the connected component to be rebuild (default, build everything)." )
+		( "selection", po::value< std::string >()->multitoken(), "rebuild only specific id.")
 		( "test,t", po::value<bool>()->default_value(false), "run test program.");
 
 	bool parseOK = true ;
@@ -156,16 +156,43 @@ int main( int narg, char **argv ) {
 		if ( ! ( vm.count ( "output" ) ) ) missingParam ( "output" );
 		std::string outputFileName = vm["output"].as<std::string>();
 		
+		QList< arma::u32 > Labels;
+		if ( vm.count("selection") ) {
+			QStringList selectedLabels = QString( "%1").arg( vm["selection"].as< std::string >().c_str() ).split( " ", QString::SkipEmptyParts) ;
+			while ( !selectedLabels.isEmpty() ) {
+				int sep_interval = selectedLabels.at( 0 ).indexOf( ':') ;
+				if ( sep_interval == -1 )
+					Labels.append( (arma::u32)selectedLabels.takeAt(0).toInt() ) ;
+				else {
+					QStringList interval = selectedLabels.takeAt(0).split( ":" ) ;
+					int interval_value = interval.takeAt(0).toInt() ;
+					int interval_end = interval.takeAt(0).toInt() ;
+					for ( ; interval_value <= interval_end ; interval_value++ )
+						Labels.append( (arma::u32) interval_value ) ;
+				}
+			}
+			qSort( Labels.begin(), Labels.end(), qLess<arma::u32>() ) ;
+		}
 		
-		int idComponent = vm["id"].as<int>() ;
 
 		ConnexComponentRebuilder< arma::u32, int32_t, arma::u32 > CCR( QString( inputFileName.c_str() ) );
 		CCR.setDepth( QString( depthFileName.c_str() ) ) ;
 		trace.beginBlock("Reconstruction") ;
-		if ( idComponent != -1 ) CCR.run( idComponent, (arma::u32)idComponent ) ;
+		if ( !Labels.isEmpty() )
+			for ( uint i=0;i<Labels.size();i++) {
+				std::cerr<<"step "<<(int)i<<" / "<<Labels.size()<<" (cc # "<<(int)Labels.at(i)<<")"<<std::endl;
+				CCR.run( Labels.at(i),Labels.at(i) ) ;
+			}
 		else CCR.run() ;
 		trace.endBlock() ;
-		IOPgm3d< arma::u32,qint32, false >::write( CCR.result(), QString( outputFileName.c_str() ) ) ;
+		
+		if ( (int)CCR.result().max() < (int)std::numeric_limits<unsigned int>::max() )
+			IOPgm3d< arma::u32, qint8, false >::write( CCR.result(), QString( outputFileName.c_str() ) ) ;
+		else if ( (int)CCR.result().max() < (int)std::numeric_limits<unsigned short>::max() )
+			IOPgm3d< arma::u32, qint16, false >::write( CCR.result(), QString( outputFileName.c_str() ) ) ;
+		else
+			IOPgm3d< arma::u32, qint32, false >::write( CCR.result(), QString( outputFileName.c_str() ) ) ;
+		
 	}
 	return 0 ;
 }

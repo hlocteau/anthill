@@ -362,8 +362,16 @@ int main( int narg, char **argv ) {
 	from = do_labeling( sg_above, *label, from ) ;
 	delete sg_above ;
 	
-	IOPgm3d< arma::u32, qint32, false >::write( *label, QString( "/tmp/rooms.pgm3d" ) ) ;
-	
+	if ( (int)label->max() < (int)std::numeric_limits<unsigned int>::max() ) {
+std::cerr<<"[export rooms @"<<__LINE__<<"] trace max()="<<(int)label->max()<<" vs "<<(int)from<<std::endl;
+		IOPgm3d< arma::u32, qint8, false >::write( *label, QString( "/tmp/rooms.pgm3d" ) ) ;
+	} else if ( (int)label->max() < (int)std::numeric_limits<unsigned short>::max() ) {
+std::cerr<<"[export rooms @"<<__LINE__<<"] trace max()="<<(int)label->max()<<" vs "<<(int)from<<std::endl;
+		IOPgm3d< arma::u32, qint16, false >::write( *label, QString( "/tmp/rooms.pgm3d" ) ) ;
+	} else {
+std::cerr<<"[export rooms @"<<__LINE__<<"] trace max()="<<(int)label->max()<<" vs "<<(int)from<<std::endl;
+		IOPgm3d< arma::u32, qint32, false >::write( *label, QString( "/tmp/rooms.pgm3d" ) ) ;
+	}
 	///
 	/// Extracting corridors
 	///
@@ -529,7 +537,12 @@ int main( int narg, char **argv ) {
 		for ( ; iterLbl != iterLblEnd ; iterLbl ++ )
 			if ( *iterLbl >= from ) *iterLbl = from + 1 ; /// only one label for all corridors
 	}
-	IOPgm3d< arma::u32, qint32, false >::write( *label, QString( params._outputFilePath.c_str() ) ) ;
+	if ( (int)label->max() < (int)std::numeric_limits<unsigned int>::max() )
+		IOPgm3d< arma::u32, qint8, false >::write( *label, QString( params._outputFilePath.c_str() ) ) ;
+	else if ( (int)label->max() < (int)std::numeric_limits<unsigned short>::max() )
+		IOPgm3d< arma::u32, qint16, false >::write( *label, QString( params._outputFilePath.c_str() ) ) ;
+	else
+		IOPgm3d< arma::u32, qint32, false >::write( *label, QString( params._outputFilePath.c_str() ) ) ;
 	delete label ;
 	#if 0
 	delete reconstruction ;

@@ -115,9 +115,9 @@ int main( int narg, char **argv ) {
 					(*labels)(y,x,z) = NewMap[ (*labels)(y,x,z) ] ;
 	labels->setMaxValue( iNewMap );
 	delete [] NewMap ;
-	if ( iNewMap <= std::numeric_limits<unsigned int>::max() )
+	if ( (int)iNewMap <= (int)std::numeric_limits<unsigned int>::max() )
 		IOPgm3d< arma::u32,qint8, false >::write( *labels, output ) ;
-	else if ( iNewMap <= std::numeric_limits<unsigned short>::max() )
+	else if ( (int)iNewMap <= (int)std::numeric_limits<unsigned short>::max() )
 		IOPgm3d< arma::u32,qint16, false >::write( *labels, output ) ;
 	else 
 		IOPgm3d< arma::u32,qint32, false >::write( *labels, output ) ;
