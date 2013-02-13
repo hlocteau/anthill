@@ -47,13 +47,17 @@ template <typename To, typename T, bool tAscii> bool IOPgm3d<To,T,tAscii>::write
 		out << QString("%1 %2 %3").arg( width ).arg( height ).arg( depth ) << endl;
 	else
 		out << QString("%1 %2").arg( width ).arg( height ) << endl;
-	out << QString("%1").arg( (T)img.maxValue() ) << endl;
+	out << (int)img.max() << endl;
 	if ( !tAscii ) {
 		QDataStream dout(&file);
 		for ( uint k=0 ; k< depth ; k++ ) {
 			for ( uint i=0 ; i< height ; i++ ) {
 				for ( uint j=0 ; j< width ; j++ ) {
+					#if Q_BYTE_ORDER == Q_LITTLE_ENDIAN
 					dout << (T) img(i,j,k);
+					#else
+					dout << (T) qToLittleEndian(img(i,j,k));
+					#endif
 				}
 			}
 		}
@@ -92,7 +96,11 @@ template <typename To, typename T, bool tAscii> bool IOPgm3d<To,T,tAscii>::write
 		for ( uint k=0 ; k< depth ; k++ ) {
 			for ( uint i=0 ; i< height ; i++ ) {
 				for ( uint j=0 ; j< width ; j++ ) {
+					#if Q_BYTE_ORDER == Q_LITTLE_ENDIAN
 					dout << (T) img(i,j,k);
+					#else
+					dout << (T) qToLittleEndian(img(i,j,k));
+					#endif
 				}
 			}
 		}
