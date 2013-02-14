@@ -32,38 +32,120 @@ template < typename T > bool is_signed2() {
 }
 
 template < typename SRC, typename DST > DST cast_integer( SRC value ) {
-	uint size_t src_size = sizeof( SRC ) ;
-	uint size_t dst_size = sizeof( DST ) ;
+	size_t src_size = sizeof( SRC ) ;
+	size_t dst_size = sizeof( DST ) ;
 	if ( src_size == dst_size ) {
-	
-	} else if ( src_size > dst_size ) {
-	
+		return (DST) value ;
+	} else if ( src_size < dst_size ) {
+		DST cast_value = value ;
+		if ( !std::numeric_limits<DST>::is_signed ) {
+			DST mask = 0x00ff ;
+			uint shift = src_size-1 ;
+			while ( shift != 0 ) {
+				mask = mask << 8 | mask ;
+				shift-= 1 ;
+			}
+			cast_value = cast_value & mask ;
+		}
+		return cast_value ;
 	} else {
-	
+		return (DST) value ; ///?
 	}
+}
+template <typename T,typename TQT> void test_encoding( void *values, uint n_values ) {
+	if      ( sizeof(T) == 1  ) std::cout<<"From  Char " ;
+	else if ( sizeof(T) == 2 ) std::cout<<"From Short " ;
+	else if ( sizeof(T) == 4 ) std::cout<<"From  Int  " ;
+
+	if      ( sizeof(TQT) == 1  ) std::cout<<"via  Char " ;
+	else if ( sizeof(TQT) == 2 ) std::cout<<"via Short " ;
+	else if ( sizeof(TQT) == 4 ) std::cout<<"via  Int  " ;
+
+std::cout<<std::endl;
+
+	T v ;
+	TQT vqt ;
+	QFile fileOUT( QString("/tmp/enc%1.bin").arg((n_values/6)*8 ) );
+	fileOUT.open( QIODevice::WriteOnly ) ;
+	QDataStream streamOUT( &fileOUT ) ;
+	for ( uint i_value = 0 ; i_value < n_values; i_value++ ) {
+		//streamOUT << (TQT) ((T *) values)[ i_value ] ;
+		streamOUT << cast_integer<T,TQT>( ((T *) values)[ i_value ] );
+	}
+	fileOUT.close();
+	
+	QFile fileIN( QString("/tmp/enc%1.bin").arg((n_values/6)*8 ) );
+	fileIN.open( QIODevice::ReadOnly ) ;
+	QDataStream streamIN( &fileIN ) ;
+	for ( uint i_value = 0 ; i_value < n_values; i_value++ ) {
+		streamIN >> vqt ;
+		v=vqt;
+		if ( std::numeric_limits<T>::is_signed ) {
+			arma::s8 v8 = cast_integer<TQT,arma::s8>(v) ;
+			arma::s16 v16 = cast_integer<TQT,arma::s16>(v) ;
+			arma::s32 v32 = cast_integer<TQT,arma::s32>(v) ;
+			std::cout<<(int)((T *) values)[ i_value ]<<" s8="<<(int)v8<<" s16="<<v16<<" s32="<<v32<<std::endl;
+		} else {
+			arma::u8 v8 = cast_integer<TQT,arma::u8>(v) ;
+			arma::u16 v16 = cast_integer<TQT,arma::u16>(v) ;
+			arma::u32 v32 = cast_integer<TQT,arma::u32>(v) ;
+			std::cout<<(int)((T *) values)[ i_value ]<<" u8="<<(int)v8<<" u16="<<v16<<" u32="<<v32<<std::endl;
+		}
+	}
+	fileIN.close();
 }
 
 int main( int narg, char **argv ) {
-	std::cout<<"u8 : "<<is_signed<arma::u8>()<<" "<<is_signed2<arma::u8>()<<std::endl ;
-	std::cout<<"u16 : "<<is_signed<arma::u16>()<<" "<<is_signed2<arma::u16>()<<std::endl ;
-	std::cout<<"u32 : "<<is_signed<arma::u32>()<<" "<<is_signed2<arma::u32>()<<std::endl ;
-	std::cout<<"s8 : "<<is_signed<arma::s8>()<<" "<<is_signed2<arma::s8>()<<std::endl ;
-	std::cout<<"s16 : "<<is_signed<arma::s16>()<<" "<<is_signed2<arma::s16>()<<std::endl ;
-	std::cout<<"s32 : "<<is_signed<arma::s32>()<<" "<<is_signed2<arma::s32>()<<std::endl ;
-	return 0 ;
-
+/*
 	writingup( "/tmp/encoding.bin" ) ;
 	std::cout.flags ( std::ios::hex | std::ios::showbase );
 	readingup( "/tmp/encoding.bin" ) ;
 	std::cout.flags ( std::ios::dec );
 	readingup( "/tmp/encoding.bin" ) ;
-
+*/
+/*
 	writingdown( "/tmp/encoding.bin" ) ;
 	std::cout.flags ( std::ios::hex | std::ios::showbase );
 	readingdown( "/tmp/encoding.bin" ) ;
 	std::cout.flags ( std::ios::dec );
 	readingdown( "/tmp/encoding.bin" ) ;
+*/	
+	char tc8[]  ={0x88,      0x7e,      0x7f,      0x80,      0x81,      0xff};
+	
+	short tc16[]={0x0088,    0x007e,    0x007f,    0x0080,    0x0081,    0x00ff,	
+	              0x8800,    0x7ffe,    0x8000,    0x8001,    0xfffe,    0xffff};
+	
+	int tc32[]  ={0x00000088,0x0000007e,0x0000007f,0x00000080,0x00000081,0x000000ff,
+	              0x00008800,0x00007ffe,0x00008000,0x00008001,0x0000fffe,0x0000ffff,
+	              0x00880000,0x007ffffe,0x00800000,0x00800001,0x00fffffe,0x00ffffff,
+	              0x88000000,0x7ffffffe,0x80000000,0x80000001,0xfffffffe,0xffffffff};
+	
+	test_encoding<arma::u8,qint8>( (void*)tc8, 6 ) ;
+	test_encoding<arma::s8,qint8>( (void*)tc8, 6 ) ;
+	test_encoding<arma::u8,qint16>( (void*)tc8, 6 ) ;
+	test_encoding<arma::s8,qint16>( (void*)tc8, 6 ) ;
+	test_encoding<arma::u8,qint32>( (void*)tc8, 6 ) ;
+	test_encoding<arma::s8,qint32>( (void*)tc8, 6 ) ;
 
+	test_encoding<arma::u16,qint8>( (void*)tc16, 6 ) ;
+	test_encoding<arma::s16,qint8>( (void*)tc16, 6 ) ;
+	test_encoding<arma::u16,qint16>( (void*)tc16, 6 ) ;
+	test_encoding<arma::s16,qint16>( (void*)tc16, 6 ) ;
+	test_encoding<arma::u16,qint32>( (void*)tc16, 6 ) ;
+	test_encoding<arma::s16,qint32>( (void*)tc16, 6 ) ;
+
+	test_encoding<arma::u16,qint16>( (void*)tc16, 6*2 ) ;
+	test_encoding<arma::s16,qint16>( (void*)tc16, 6*2 ) ;
+	test_encoding<arma::u16,qint32>( (void*)tc16, 6*2 ) ;
+	test_encoding<arma::s16,qint32>( (void*)tc16, 6*2 ) ;
+
+	test_encoding<arma::u32,qint8>( (void*)tc32, 6 ) ;
+	test_encoding<arma::s32,qint8>( (void*)tc32, 6 ) ;
+	test_encoding<arma::u32,qint16>( (void*)tc32, 6*2 ) ;
+	test_encoding<arma::s32,qint16>( (void*)tc32, 6*2 ) ;
+	test_encoding<arma::u32,qint32>( (void*)tc32, 6*4 ) ;
+	test_encoding<arma::s32,qint32>( (void*)tc32, 6*4 ) ;
+	
 	return 0 ;
 }
 
