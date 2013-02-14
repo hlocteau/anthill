@@ -164,7 +164,7 @@ ${OBJ}/squareshuntthin.o : src/squareshuntthin.cpp
 	${COMPILE} $< -o "$@"
 
 ${OBJ}/rebuild.o : src/rebuild.cpp
-	${COMPILE} $< -o "$@"
+	${COMPILE} -DDEBUG_REMOVAL_EXT $< -o "$@"
 	
 ${OBJ}/view3dPgm.o : src/view3dPgm.cpp
 	${COMPILE} $< -o "$@"
