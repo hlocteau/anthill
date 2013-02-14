@@ -7,7 +7,7 @@
 #include <QDataStream>
 #include <QTextStream>
 #include <QStringList>
-
+#include <cast_integer.h>
 //namespace io {
 
 template <typename To, typename T, bool tAscii> bool IOPgm3d<To,T,tAscii>::write( const std::vector< DGtal::Z3i::Object6_26*> &objCC, const QString &fileName ) {
@@ -53,11 +53,7 @@ template <typename To, typename T, bool tAscii> bool IOPgm3d<To,T,tAscii>::write
 		for ( uint k=0 ; k< depth ; k++ ) {
 			for ( uint i=0 ; i< height ; i++ ) {
 				for ( uint j=0 ; j< width ; j++ ) {
-					#if Q_BYTE_ORDER == Q_LITTLE_ENDIAN
-					dout << (T) img(i,j,k);
-					#else
-					dout << (T) qToLittleEndian(img(i,j,k));
-					#endif
+					dout << cast_integer<To,T>( img(i,j,k) );
 				}
 			}
 		}
@@ -96,11 +92,7 @@ template <typename To, typename T, bool tAscii> bool IOPgm3d<To,T,tAscii>::write
 		for ( uint k=0 ; k< depth ; k++ ) {
 			for ( uint i=0 ; i< height ; i++ ) {
 				for ( uint j=0 ; j< width ; j++ ) {
-					#if Q_BYTE_ORDER == Q_LITTLE_ENDIAN
-					dout << (T) img(i,j,k);
-					#else
-					dout << (T) qToLittleEndian(img(i,j,k));
-					#endif
+					dout << cast_integer<To,T>( img(i,j,k) );
 				}
 			}
 		}
@@ -128,20 +120,14 @@ template< typename To, typename T, bool tAscii> void IOPgm3d<To,T,tAscii>::readA
 	//Lecture de l'image en ascii
 	QTextStream data( &imageFile ) ;
 	T curVal ;
-	char curChar ;
 std::cerr<<"image's dimension : "<<img->n_rows<<" x "<<img->n_cols<<" x "<<img->n_slices<<std::endl;
 	for ( uint k=0 ; k<img->n_slices ; k++ ) {
 		for ( uint i=0 ; i<img->n_rows ; i++ ) {
 			for ( uint j=0 ; j<img->n_cols ; j++ ) {
 				data.skipWhiteSpace() ;
-				if ( sizeof(T) == sizeof(char) ) {
-					data >> curChar ;
-					curVal = curChar ;
-				} else
-					data >> curVal;
-				//Construction de l'image entière en binaire
+				data >> curVal;
 				if ( curVal != 0 ) {
-					(*img)(i,j,k) = curVal;
+					(*img)(i,j,k) = cast_integer<T,To>( curVal );
 				}
 			}
 		}
@@ -157,9 +143,8 @@ template< typename To, typename T, bool tAscii> void IOPgm3d<To,T,tAscii>::readB
 		for ( uint i=0 ; i<img->n_rows ; i++ ) {
 			for ( uint j=0 ; j<img->n_cols ; j++ ) {
 				data >> curVal;
-				//Construction de l'image entière en binaire
 				if ( curVal != 0 ) {
-					(*img)(i,j,k) = curVal;
+					(*img)(i,j,k) = cast_integer<T,To>( curVal );
 				}
 			}
 		}
