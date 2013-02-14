@@ -27,7 +27,28 @@ void missingParam ( std::string param )
   exit ( 1 );
 }
 
-std::pair< BillonTpl< arma::u8 >*, BillonTpl< arma::u16 >* > gen_toy_problem( ) {
+std::pair< BillonTpl< arma::u8 >*, BillonTpl< arma::u16 >* > gen_toy_problemB( uint cfg ) {
+	arma::s8 configs[] = { 1,0,0,  0,1,0,  0,0,1,  0,1,-1,  1,0,1,  -1,1,0,  0,1,1,  -1,0,1,  1,1,0,  -1,1,1,  1,-1,1,  1,1,-1,  1,1,1 } ;
+	BillonTpl< arma::u8 >* labels = new BillonTpl< arma::u8 >( 40, 40, 40 ) ;
+	labels->fill(0) ;
+	arma::u8 x,y,z,n, n_rows = labels->n_rows,n_cols = labels->n_cols,n_slices=labels->n_slices,iExt ;
+	BillonTpl< arma::u16 > *dist = new BillonTpl<arma::u16>( n_rows, n_cols, n_slices ) ;
+	dist->fill(0) ;
+	
+	Point pBegin(10,10,10), pEnd(10+configs[cfg*3+0]*18,10+configs[cfg*3+1]*18,10+configs[cfg*3+2]*18) ;
+	for (uint iCoord = 0 ; iCoord < 3 ; iCoord++ )
+		if ( pEnd.at(iCoord) < 0 ) { pBegin.at(iCoord) += 18 ; pEnd.at(iCoord) += 18 ; }
+	
+	std::cerr<<"[ info ] : draw line "<<pBegin<<" to "<<pEnd<<std::endl;
+	
+	for (int idx=0;idx<=18;idx++ ) {
+		(*dist)( pBegin.at(1)+idx*configs[cfg*3+1], pBegin.at(0)+idx*configs[cfg*3+0],pBegin.at(2)+idx*configs[cfg*3+2] ) = (idx < 4 ? idx+2 : (idx < 15 ? 6 : 20-idx ) ) ;
+		(*labels)( pBegin.at(1)+idx*configs[cfg*3+1], pBegin.at(0)+idx*configs[cfg*3+0],pBegin.at(2)+idx*configs[cfg*3+2] ) = (idx < 4 ? 1 : (idx < 15 ? 2 : 3 ) ) ;
+	}
+	return std::pair< BillonTpl< arma::u8 >*, BillonTpl< arma::u16 >* > ( labels, dist ) ;
+}
+
+std::pair< BillonTpl< arma::u8 >*, BillonTpl< arma::u16 >* > gen_toy_problemA( ) {
 	BillonTpl< arma::u8 >* labels = new BillonTpl< arma::u8 >( 20, 20, 20 ) ;
 	labels->fill(0) ;
 
@@ -116,7 +137,7 @@ int main( int narg, char **argv ) {
 		( "depth,d", po::value<std::string>(), "Input depth map pgm filename." )
 		( "output,o", po::value<string>(),"Output pgm filename." )
 		( "selection", po::value< std::string >()->multitoken(), "rebuild only specific id.")
-		( "test,t", po::value<bool>()->default_value(false), "run test program.");
+		( "test,t", po::value<int>()->default_value(0), "run test program.");
 
 	bool parseOK = true ;
 	po::variables_map vm;
@@ -133,11 +154,14 @@ int main( int narg, char **argv ) {
 		errorAndHelp( general_opt ) ;
 		return -1 ;
 	}
-	if ( vm["test"].as<bool>() ) {
+	if ( vm["test"].as<int>() ) {
 		BillonTpl< arma::u8 > *pLabels ;
 		BillonTpl< arma::u16 > *pDist ;
 		
-		boost::tie( pLabels,pDist ) = gen_toy_problem() ;
+		if ( vm["test"].as<int>() == 1 )
+			boost::tie( pLabels,pDist ) = gen_toy_problemA() ;
+		else
+			boost::tie( pLabels,pDist ) = gen_toy_problemB( vm["test"].as<int>()-2 ) ;
 		IOPgm3d< arma::u8,qint8, false >::write( *pLabels, "toy_labels.pgm3d" ) ;
 		IOPgm3d< arma::u16,qint16, false >::write( *pDist, "toy_dist.pgm3d" ) ;
 
