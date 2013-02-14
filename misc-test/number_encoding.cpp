@@ -8,24 +8,141 @@
 #include <armadillo>
 #include <iomanip>
 
-void writing( const char * ) ;
-void reading( const char * ) ;
+void writingup( const char * ) ;
+void readingup( const char * ) ;
+
+void writingdown( const char * ) ;
+void readingdown( const char * ) ;
+
 
 using std::setw ;
 
 int main( int narg, char **argv ) {
-	writing( "/tmp/encoding.bin" ) ;
+	writingup( "/tmp/encoding.bin" ) ;
 	std::cout.flags ( std::ios::hex | std::ios::showbase );
-	reading( "/tmp/encoding.bin" ) ;
+	readingup( "/tmp/encoding.bin" ) ;
 	std::cout.flags ( std::ios::dec );
-	reading( "/tmp/encoding.bin" ) ;
+	readingup( "/tmp/encoding.bin" ) ;
+
+	writingdown( "/tmp/encoding.bin" ) ;
+	std::cout.flags ( std::ios::hex | std::ios::showbase );
+	readingdown( "/tmp/encoding.bin" ) ;
+	std::cout.flags ( std::ios::dec );
+	readingdown( "/tmp/encoding.bin" ) ;
 
 	return 0 ;
 }
 
 #define width_value 11
 
-void reading ( const char * filename ) {
+void readingdown( const char * filename ) {
+	arma::u8 anUnsignedChar ;
+	arma::s8 aSignedChar ;
+	arma::u16 anUnsignedShort ;
+	arma::s16 aSignedShort ;
+	arma::u32 anUnsignedInt ;
+	arma::s32 aSignedInt ;
+
+	qint8 aQtChar ;
+	qint16 aQtShort ;
+	qint32 aQtInt ;
+
+	QFile file( filename );
+	file.open( QIODevice::ReadOnly ) ;
+	QDataStream stream( &file ) ;
+	uint isSigned, iSpecificValue, iType ;
+	
+	for ( isSigned = 0 ; isSigned < 2 ; isSigned++ )
+		for ( iType = 0 ; iType < 2 ; iType++ )
+			for ( iSpecificValue = 0 ; iSpecificValue < 5 ; iSpecificValue++ ) {
+				stream >> aQtInt ;
+				anUnsignedChar  = aQtInt ;
+				aSignedChar     = aQtInt ;
+				anUnsignedShort = aQtInt ;
+				aSignedShort    = aQtInt ;
+				anUnsignedInt   = aQtInt ;
+				aSignedInt      = aQtInt ;
+				std::cout<<"["<<setw(width_value)<<aQtInt<<"]["<<setw(width_value)<<anUnsignedInt<<"]["
+																<<setw(width_value)<<aSignedInt<<"]["
+																<<setw(width_value)<<anUnsignedShort<<"]["
+																<<setw(width_value)<<aSignedShort<<"]";
+				if ( iType == 0 ) std::cout						<<"["<<setw(width_value)<<anUnsignedChar<<"]["
+																<<setw(width_value)<<aSignedChar<<"]";
+				std::cout										<<std::endl;
+
+				stream >> aQtShort ;
+				anUnsignedChar  = aQtShort ;
+				aSignedChar     = aQtShort ;
+				anUnsignedShort = aQtShort ;
+				aSignedShort    = aQtShort ;
+				anUnsignedInt   = aQtShort ;
+				aSignedInt      = aQtShort ;
+				std::cout<<"["<<setw(width_value)<<aQtShort<<"]["<<setw(width_value)<<anUnsignedInt<<"]["
+																<<setw(width_value)<<aSignedInt<<"]["
+																<<setw(width_value)<<anUnsignedShort<<"]["
+																<<setw(width_value)<<aSignedShort<<"]";
+				if ( iType == 0 ) std::cout						<<"["<<setw(width_value)<<anUnsignedChar<<"]["
+																<<setw(width_value)<<aSignedChar<<"]";
+				std::cout										<<std::endl;
+				
+				if ( iType == 0 ) {
+					stream >> aQtChar ;
+					anUnsignedChar  = aQtChar ;
+					aSignedChar     = aQtChar ;
+					anUnsignedShort = aQtChar ;
+					aSignedShort    = aQtChar ;
+					anUnsignedInt   = aQtChar ;
+					aSignedInt      = aQtChar ;
+					std::cout<<"["<<setw(width_value)<<aQtChar<<"]["<<setw(width_value)<<anUnsignedInt<<"]["
+																	<<setw(width_value)<<aSignedInt<<"]["
+																	<<setw(width_value)<<anUnsignedShort<<"]["
+																	<<setw(width_value)<<aSignedShort<<"]["
+																	<<setw(width_value)<<anUnsignedChar<<"]["
+																	<<setw(width_value)<<aSignedChar<<"]"<<std::endl;
+				}
+			}
+	file.close();
+}
+
+void writingdown( const char * filename ) {
+	arma::u16 anUnsignedShort ;
+	arma::s16 aSignedShort ;
+	arma::u32 anUnsignedInt ;
+	arma::s32 aSignedInt ;
+
+	QFile file( filename );
+	file.open( QIODevice::WriteOnly ) ;
+	QDataStream stream( &file ) ;
+
+	aSignedInt = 0 ;		stream << (qint32) aSignedInt ;		stream << (qint16) aSignedInt ;		stream << (qint8) aSignedInt ;
+	aSignedInt = 127 ;		stream << (qint32) aSignedInt ;		stream << (qint16) aSignedInt ; 	stream << (qint8) aSignedInt ;
+	aSignedInt = -128 ;		stream << (qint32) aSignedInt ;		stream << (qint16) aSignedInt ; 	stream << (qint8) aSignedInt ;
+	aSignedInt = -1 ;		stream << (qint32) aSignedInt ;		stream << (qint16) aSignedInt ; 	stream << (qint8) aSignedInt ;
+	aSignedInt = 255 ;		stream << (qint32) aSignedInt ;		stream << (qint16) aSignedInt ; 	stream << (qint8) aSignedInt ;
+
+	aSignedInt = 256 ;		stream << (qint32) aSignedInt ;		stream << (qint16) aSignedInt ;
+	aSignedInt = 32766 ;	stream << (qint32) aSignedInt ;		stream << (qint16) aSignedInt ;
+	aSignedInt = -32766 ;	stream << (qint32) aSignedInt ;		stream << (qint16) aSignedInt ;
+	aSignedInt = 32767 ;	stream << (qint32) aSignedInt ;		stream << (qint16) aSignedInt ;
+	aSignedInt = -32767 ;	stream << (qint32) aSignedInt ;		stream << (qint16) aSignedInt ;
+
+	
+	anUnsignedInt = 0 ;		stream << (qint32) anUnsignedInt ;	stream << (qint16) anUnsignedInt ;	stream << (qint8) anUnsignedInt ;
+	anUnsignedInt = 127 ;	stream << (qint32) anUnsignedInt ;	stream << (qint16) anUnsignedInt ;	stream << (qint8) anUnsignedInt ;
+	anUnsignedInt = 128 ;	stream << (qint32) anUnsignedInt ;	stream << (qint16) anUnsignedInt ;	stream << (qint8) anUnsignedInt ;
+	anUnsignedInt = 255 ;	stream << (qint32) anUnsignedInt ;	stream << (qint16) anUnsignedInt ;	stream << (qint8) anUnsignedInt ;
+	anUnsignedInt = 1 ;		stream << (qint32) anUnsignedInt ;	stream << (qint16) anUnsignedInt ;	stream << (qint8) anUnsignedInt ;
+	
+	anUnsignedInt = 256 ;	stream << (qint32) anUnsignedInt ;	stream << (qint16) anUnsignedInt ;
+	anUnsignedInt = 8348 ;	stream << (qint32) anUnsignedInt ;	stream << (qint16) anUnsignedInt ;
+	anUnsignedInt = 32766 ;	stream << (qint32) anUnsignedInt ;	stream << (qint16) anUnsignedInt ;
+	anUnsignedInt = 32767 ;	stream << (qint32) anUnsignedInt ;	stream << (qint16) anUnsignedInt ;
+	anUnsignedInt = 65535 ;	stream << (qint32) anUnsignedInt ;	stream << (qint16) anUnsignedInt ;
+
+	file.close();
+}
+
+void readingup ( const char * filename ) {
 	arma::u8 anUnsignedChar ;
 	arma::s8 aSignedChar ;
 	arma::u16 anUnsignedShort ;
@@ -85,7 +202,7 @@ void reading ( const char * filename ) {
 	file.close() ;
 }
 
-void writing( const char * filename ) {
+void writingup( const char * filename ) {
 	arma::u8 anUnsignedChar ;
 	arma::s8 aSignedChar ;
 	arma::u16 anUnsignedShort ;
@@ -105,8 +222,8 @@ void writing( const char * filename ) {
 
 	aSignedChar = 0 ;			stream << (qint8) aSignedChar ;
 	aSignedChar = 127 ;			stream << (qint8) aSignedChar ;
-	aSignedChar = 128 ;			stream << (qint8) aSignedChar ;
-	aSignedChar = 255 ;			stream << (qint8) aSignedChar ;
+	aSignedChar = -128 ;		stream << (qint8) aSignedChar ;
+	aSignedChar = -1 ;			stream << (qint8) aSignedChar ;
 	
 	/// char - 16 bits
 	anUnsignedChar = 0 ;		stream << (qint16) anUnsignedChar ;
@@ -116,8 +233,8 @@ void writing( const char * filename ) {
 	
 	aSignedChar = 0 ;			stream << (qint16) aSignedChar ;
 	aSignedChar = 127 ;			stream << (qint16) aSignedChar ;
-	aSignedChar = 128 ;			stream << (qint16) aSignedChar ;
-	aSignedChar = 255 ;			stream << (qint16) aSignedChar ;
+	aSignedChar = -128 ;		stream << (qint16) aSignedChar ;
+	aSignedChar = -1 ;			stream << (qint16) aSignedChar ;
 	
 	/// char - 32 bits
 	anUnsignedChar = 0 ;		stream << (qint32) anUnsignedChar ;
@@ -127,8 +244,8 @@ void writing( const char * filename ) {
 	
 	aSignedChar = 0 ;			stream << (qint32) aSignedChar ;
 	aSignedChar = 127 ;			stream << (qint32) aSignedChar ;
-	aSignedChar = 128 ;			stream << (qint32) aSignedChar ;
-	aSignedChar = 255 ;			stream << (qint32) aSignedChar ;
+	aSignedChar = -128 ;		stream << (qint32) aSignedChar ;
+	aSignedChar = -1 ;			stream << (qint32) aSignedChar ;
 
 
 
@@ -142,8 +259,8 @@ void writing( const char * filename ) {
 
 	aSignedShort = 0 ;			stream << (qint16) aSignedShort ;
 	aSignedShort = 32767 ;		stream << (qint16) aSignedShort ;
-	aSignedShort = 32768 ;		stream << (qint16) aSignedShort ;
-	aSignedShort = 65535 ;		stream << (qint16) aSignedShort ;
+	aSignedShort = -32768 ;		stream << (qint16) aSignedShort ;
+	aSignedShort = -1 ;			stream << (qint16) aSignedShort ;
 
 	/// short - 32 bis
 	anUnsignedShort = 0 ;		stream << (qint32) anUnsignedShort ;
@@ -153,8 +270,8 @@ void writing( const char * filename ) {
 
 	aSignedShort = 0 ;			stream << (qint32) aSignedShort ;
 	aSignedShort = 32767 ;		stream << (qint32) aSignedShort ;
-	aSignedShort = 32768 ;		stream << (qint32) aSignedShort ;
-	aSignedShort = 65535 ;		stream << (qint32) aSignedShort ;
+	aSignedShort = -32768 ;		stream << (qint32) aSignedShort ;
+	aSignedShort = -1 ;			stream << (qint32) aSignedShort ;
 
 	/// int - 32 bits
 	anUnsignedInt = 0 ;			stream << (qint32) anUnsignedInt ;
@@ -164,7 +281,7 @@ void writing( const char * filename ) {
 
 	aSignedInt = 0 ;			stream << (qint32) aSignedInt ;
 	aSignedInt = 2147483647 ;	stream << (qint32) aSignedInt ;
-	aSignedInt = 2147483648 ;	stream << (qint32) aSignedInt ;
-	aSignedInt = 4294967295 ;	stream << (qint32) aSignedInt ;
+	aSignedInt = -2147483648 ;	stream << (qint32) aSignedInt ;
+	aSignedInt = -1 ;			stream << (qint32) aSignedInt ;
 	file.close() ;
 }
