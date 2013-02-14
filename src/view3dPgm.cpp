@@ -225,7 +225,7 @@ int main( int narg, char **argv ) {
 		std::map< src_type, DigitalSet * > map_obj ;
 		for ( GrayLevelHistogram<src_type>::THistogram::const_iterator bin = h._bin.begin() ; bin != h._bin.end() ; bin ++ ) {
 			map_obj[ bin->first ] = new DigitalSet( domain ) ;
-			if ( vm["verbose"].as<bool>() ) std::cout<<bin->first<<" : "<<bin->second<<std::endl;
+			if ( vm["verbose"].as<bool>() ) std::cout<<(int)bin->first<<" : "<<(int)bin->second<<std::endl;
 		}
 		for ( int z = zmin ; z < zmax ; z++ )
 			for ( int y = ymin ; y < ymax ; y++ )
@@ -327,7 +327,7 @@ int main( int narg, char **argv ) {
 			delete map_obj[ bin->first ] ;
 			map_obj[ bin->first ] = 0 ;
 		}
-		std::cout<< h._bin.begin()->first<<" to "<<h._bin.rbegin()->first<<std::endl;
+		std::cout<< (int)h._bin.begin()->first<<" to "<<(int)h._bin.rbegin()->first<<std::endl;
 	} else {
 		Color cVoxel, cEdgel ;
 		cVoxel = Color( 128,128,0,240 );
