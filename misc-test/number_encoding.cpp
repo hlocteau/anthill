@@ -17,7 +17,41 @@ void readingdown( const char * ) ;
 
 using std::setw ;
 
+/**
+ * \note found at url : http://stackoverflow.com/questions/5123314/compile-time-checking-if-right-shift-is-arithmetic-on-signed-types
+ */
+template < typename T > bool is_signed() {
+	T vp = -1 ;
+	T vn = -1 ;
+	vn = vn >> 1 ;
+	return ( vp  == vn );
+}
+
+template < typename T > bool is_signed2() {
+	return std::numeric_limits<T>::is_signed ;
+}
+
+template < typename SRC, typename DST > DST cast_integer( SRC value ) {
+	uint size_t src_size = sizeof( SRC ) ;
+	uint size_t dst_size = sizeof( DST ) ;
+	if ( src_size == dst_size ) {
+	
+	} else if ( src_size > dst_size ) {
+	
+	} else {
+	
+	}
+}
+
 int main( int narg, char **argv ) {
+	std::cout<<"u8 : "<<is_signed<arma::u8>()<<" "<<is_signed2<arma::u8>()<<std::endl ;
+	std::cout<<"u16 : "<<is_signed<arma::u16>()<<" "<<is_signed2<arma::u16>()<<std::endl ;
+	std::cout<<"u32 : "<<is_signed<arma::u32>()<<" "<<is_signed2<arma::u32>()<<std::endl ;
+	std::cout<<"s8 : "<<is_signed<arma::s8>()<<" "<<is_signed2<arma::s8>()<<std::endl ;
+	std::cout<<"s16 : "<<is_signed<arma::s16>()<<" "<<is_signed2<arma::s16>()<<std::endl ;
+	std::cout<<"s32 : "<<is_signed<arma::s32>()<<" "<<is_signed2<arma::s32>()<<std::endl ;
+	return 0 ;
+
 	writingup( "/tmp/encoding.bin" ) ;
 	std::cout.flags ( std::ios::hex | std::ios::showbase );
 	readingup( "/tmp/encoding.bin" ) ;
@@ -134,9 +168,9 @@ void writingdown( const char * filename ) {
 	anUnsignedInt = 1 ;		stream << (qint32) anUnsignedInt ;	stream << (qint16) anUnsignedInt ;	stream << (qint8) anUnsignedInt ;
 	
 	anUnsignedInt = 256 ;	stream << (qint32) anUnsignedInt ;	stream << (qint16) anUnsignedInt ;
-	anUnsignedInt = 8348 ;	stream << (qint32) anUnsignedInt ;	stream << (qint16) anUnsignedInt ;
 	anUnsignedInt = 32766 ;	stream << (qint32) anUnsignedInt ;	stream << (qint16) anUnsignedInt ;
 	anUnsignedInt = 32767 ;	stream << (qint32) anUnsignedInt ;	stream << (qint16) anUnsignedInt ;
+	anUnsignedInt = 65534 ;	stream << (qint32) anUnsignedInt ;	stream << (qint16) anUnsignedInt ;
 	anUnsignedInt = 65535 ;	stream << (qint32) anUnsignedInt ;	stream << (qint16) anUnsignedInt ;
 
 	file.close();
