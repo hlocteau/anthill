@@ -2,7 +2,7 @@
 #define X_ADJ( voxel, neighbor ) (voxel).at(0) + ( (neighbor%9)/3 -1 )
 #define Z_ADJ( voxel, neighbor ) (voxel).at(2) + ( neighbor % 3 -1 )
 
-bool g_debug = false ;
+bool g_debug = true ;
 
 template <typename T, typename U, typename V> ConnexComponentRebuilder<T,U,V>::~ConnexComponentRebuilder( ) {
 	if ( _allocated_depth ) delete _depth ;
@@ -202,7 +202,10 @@ if ( g_debug ) std::cerr<<"[ Debug ] : "<<pt<<" @ line "<<__LINE__<<std::endl;
 					is_touching = ( img(pt) != 0 ) ;
 				} else
 					is_touching = false ;
-				if ( is_touching ) L.append( pt ) ;
+					if ( is_touching ) {
+						L.append( pt ) ;
+if ( g_debug ) std::cerr<<"[ Debug ] : "<<pt<<" @ line "<<__LINE__<<" ... will be removed"<<std::endl;
+					}
 			} while ( is_touching ) ;
 			dnext *= -1 ;
 		} while ( dnext < 0 ) ;
@@ -219,7 +222,10 @@ if ( g_debug ) std::cerr<<"[ Debug ] : "<<pt<<" @ line "<<__LINE__<<std::endl;
 						is_touching = ( img(pt) != 0 ) ;
 					} else
 						is_touching = false ;
-					if ( is_touching ) crop.append( pt ) ;
+					if ( is_touching ) {
+						L.append( pt ) ;
+if ( g_debug ) std::cerr<<"[ Debug ] : "<<pt<<" @ line "<<__LINE__<<" ... will be removed"<<std::endl;
+					}
 				} while ( is_touching ) ;
 				dnext *= -1 ;
 			} while ( dnext < 0 ) ;
@@ -240,7 +246,10 @@ if ( g_debug ) std::cerr<<"[ Debug ] : "<<pt<<" @ line "<<__LINE__<<std::endl;
 					is_touching = ( img(pt) != 0 ) ;
 				} else
 					is_touching = false ;
-				if ( is_touching ) L.append( pt ) ;
+					if ( is_touching ) {
+						L.append( pt ) ;
+if ( g_debug ) std::cerr<<"[ Debug ] : "<<pt<<" @ line "<<__LINE__<<" ... will be removed"<<std::endl;
+					}
 			} while ( is_touching ) ;
 			dnext *= -1 ;
 		} while ( dnext < 0 ) ;
@@ -257,7 +266,10 @@ if ( g_debug ) std::cerr<<"[ Debug ] : "<<pt<<" @ line "<<__LINE__<<std::endl;
 						is_touching = ( img(pt) != 0 ) ;
 					} else
 						is_touching = false ;
-					if ( is_touching ) crop.append( pt ) ;
+					if ( is_touching ) {
+						L.append( pt ) ;
+if ( g_debug ) std::cerr<<"[ Debug ] : "<<pt<<" @ line "<<__LINE__<<" ... will be removed"<<std::endl;
+					}
 				} while ( is_touching ) ;
 				dnext *= -1 ;
 			} while ( dnext < 0 ) ;
@@ -278,7 +290,10 @@ if ( g_debug ) std::cerr<<"[ Debug ] : "<<pt<<" @ line "<<__LINE__<<std::endl;
 					is_touching = ( img(pt) != 0 ) ;
 				} else
 					is_touching = false ;
-				if ( is_touching ) L.append( pt ) ;
+				if ( is_touching ) {
+					L.append( pt ) ;
+if ( g_debug ) std::cerr<<"[ Debug ] : "<<pt<<" @ line "<<__LINE__<<" ... will be removed"<<std::endl;
+				}
 			} while ( is_touching ) ;
 			dnext *= -1 ;
 		} while ( dnext < 0 ) ;
@@ -296,7 +311,10 @@ if ( g_debug ) std::cerr<<"[ Debug ] : "<<pt<<" @ line "<<__LINE__<<std::endl;
 						is_touching = ( img(pt) != 0 ) ;
 					} else
 						is_touching = false ;
-					if ( is_touching ) crop.append( pt ) ;
+					if ( is_touching ) {
+						L.append( pt ) ;
+if ( g_debug ) std::cerr<<"[ Debug ] : "<<pt<<" @ line "<<__LINE__<<" ... will be removed"<<std::endl;
+					}
 				} while ( is_touching ) ;
 				dnext *= -1 ;
 			} while ( dnext < 0 ) ;
@@ -403,6 +421,7 @@ template <typename T, typename U, typename V> bool ConnexComponentRebuilder<T,U,
 	historyRemoval.fill(0) ;
 	arma::u16 today = 1 ;
 	#endif
+	QList<Point> toRemove ;
 	for ( typename QSet<uint32_t>::ConstIterator adj_node = relations.begin() ; adj_node != relations.end() ; adj_node++ ) {
 		if ( selection < *adj_node ) {
 			me = &get_first ;
@@ -422,7 +441,7 @@ template <typename T, typename U, typename V> bool ConnexComponentRebuilder<T,U,
 			              + plane[2] * ((*other)(*loc).at(2)-_lower[ selection ].at(2)) ) ;
 if ( g_debug ) std::cerr<<"[ Debug ] : "<<plane[0]<<" "<<plane[1]<<" "<<plane[2]<<" "<<plane[3]<<" function "<<__FUNCTION__<<" @ line "<<__LINE__<<std::endl;
 if ( g_debug ) std::cerr<<"[ Debug ] : "<<(*other)(*loc)<<" (depth "<< (*_depth)((*other)(*loc).at(1),(*other)(*loc).at(0),(*other)(*loc).at(2))<<") versus "<<(*me)(*loc)<<" (depth "<< (*_depth)((*me)(*loc).at(1),(*me)(*loc).at(0),(*me)(*loc).at(2))<<")"<<std::endl;
-			QList<Point> crop, toRemove ;
+			QList<Point> crop ;
 			set_voxels( componentDGImg, plane, (*other)(*loc)-_lower[ selection ], crop, (*me)(*loc)-_lower[ selection ], (*_depth)((*me)(*loc).at(1),(*me)(*loc).at(0),(*me)(*loc).at(2)) ) ;
 			Point new_ref = (*other)(*loc)-_lower[ selection ] ;
 			uint shift_coord = 0 ;
@@ -439,21 +458,22 @@ if ( g_debug ) std::cerr<<"[ Debug ] : "<<(*other)(*loc)<<" (depth "<< (*_depth)
 					if ( g_debug ) std::cerr<<"[ Debug ] : "<<plane_intermediate[0]<<" "<<plane_intermediate[1]<<" "<<plane_intermediate[2]<<" "<<plane_intermediate[3]<<" function "<<__FUNCTION__<<" @ line "<<__LINE__<<std::endl;
 					if ( componentDGImg.domain().isInside( new_ref ) )
 						set_voxels( componentDGImg, plane_intermediate, new_ref, crop, (*me)(*loc)-_lower[ selection ], (*_depth)((*me)(*loc).at(1),(*me)(*loc).at(0),(*me)(*loc).at(2)) ) ;
+
+					#ifdef DEBUG_REMOVAL_EXT
+					for ( uint iVoxel = 0 ; iVoxel < crop.size() ; iVoxel++ )
+						if ( historyRemoval( crop.at(iVoxel).at(1),crop.at(iVoxel).at(0),crop.at(iVoxel).at(2) ) == 0 )
+							historyRemoval( crop.at(iVoxel).at(1),crop.at(iVoxel).at(0),crop.at(iVoxel).at(2) ) = today ;
+					today++ ;
+					if ( today == 0 ) std::cerr<<"[ Warning ] : used type is not big enough for storing the removal steps"<<std::endl;
+					#endif
 				}
 			} while ( !crop.isEmpty() ) ;
-if ( g_debug ) std::cerr<<"[ Debug ] : "<<toRemove.size()<<" voxels to remove function "<<__FUNCTION__<<" @ line "<<__LINE__<<std::endl;
-			while ( !toRemove.isEmpty() ) {
-				componentDGImg.setValue( toRemove.front(),0 ) ;
-				#ifdef DEBUG_REMOVAL_EXT
-				historyRemoval( toRemove.front().at(1),toRemove.front().at(0),toRemove.front().at(2) ) = today ;
-				#endif
-				toRemove.pop_front() ;
-			}
-			#ifdef DEBUG_REMOVAL_EXT
-			today++ ;
-			if ( today == 0 ) std::cerr<<"[ Warning ] : used type is not big enough for storing the removal steps"<<std::endl;
-			#endif
+			if ( g_debug ) std::cerr<<"[ Debug ] : "<<toRemove.size()<<" voxels to remove function "<<__FUNCTION__<<" @ line "<<__LINE__<<std::endl;
 		}
+	}
+	while ( !toRemove.isEmpty() ) {
+		componentDGImg.setValue( toRemove.front(),0 ) ;
+		toRemove.pop_front() ;
 	}
 	#ifdef DEBUG_REMOVAL_EXT
 	today-- ;
