@@ -20,8 +20,8 @@ public:
 	typedef std::pair< DigitalSet*, Domain* >					LayerType ;
 	typedef std::pair<Point,Point>								VoxelsPair ;
 	
-	ConnexComponentRebuilder			( const BillonTpl< T > & ) ;
-	ConnexComponentRebuilder			( const QString & ) ;
+	ConnexComponentRebuilder			( const BillonTpl< T > &, QList< T > *ignoring = 0 ) ;
+	ConnexComponentRebuilder			( const QString & , QList< T > *ignoring = 0) ;
 	~ConnexComponentRebuilder			( ) ;
 	
 	bool 					setDepth 	( BillonTpl< U > * ) ;
@@ -33,7 +33,7 @@ public:
 		return _result ;
 	}
 protected:
-	void					init 		( const BillonTpl< T > &) ;
+	void					init 		( const BillonTpl< T > &, QList< T > *ignoring) ;
 	bool					setBounds	( uint32_t selection ) ;
 	void                    set_voxels  ( const OutImage & img, const int * plane, const Point &seed, QList<Point> &crop, const Point &refPoint, U maxDist  ) ;
 private:

@@ -2,7 +2,7 @@
 #define X_ADJ( voxel, neighbor ) (voxel).at(0) + ( (neighbor%9)/3 -1 )
 #define Z_ADJ( voxel, neighbor ) (voxel).at(2) + ( neighbor % 3 -1 )
 
-bool g_debug = true ;
+bool g_debug = false ;
 
 template <typename T, typename U, typename V> ConnexComponentRebuilder<T,U,V>::~ConnexComponentRebuilder( ) {
 	if ( _allocated_depth ) delete _depth ;
@@ -74,7 +74,7 @@ for ( DigitalSet::ConstIterator pt = pts->begin() ; false && pt != pts->end(); p
 	return true ;
 }
 
-template <typename T, typename U, typename V> ConnexComponentRebuilder<T,U,V>::ConnexComponentRebuilder( const BillonTpl<T> & img ) : _result( img.n_rows, img.n_cols, img.n_slices ) {
+template <typename T, typename U, typename V> ConnexComponentRebuilder<T,U,V>::ConnexComponentRebuilder( const BillonTpl<T> & img, QList< T > *ignoring ) : _result( img.n_rows, img.n_cols, img.n_slices ) {
 	_n_labels = img.max() + 1 ;
 	_depth = 0 ;
 	_allocated_depth = false ;
@@ -82,10 +82,10 @@ template <typename T, typename U, typename V> ConnexComponentRebuilder<T,U,V>::C
 	_n_cols = img.n_cols ;
 	_n_slices = img.n_slices ;
 	_result.fill(0);
-	init( img ) ;
+	init( img, ignoring ) ;
 }
 
-template <typename T, typename U, typename V> ConnexComponentRebuilder<T,U,V>::ConnexComponentRebuilder( const QString & lblSkelFileName ) {
+template <typename T, typename U, typename V> ConnexComponentRebuilder<T,U,V>::ConnexComponentRebuilder( const QString & lblSkelFileName, QList< T > *ignoring ) {
 	
 	Pgm3dFactory< T > factory ;
 	BillonTpl< T > * pimg = factory.read( lblSkelFileName ) ;
@@ -97,11 +97,11 @@ template <typename T, typename U, typename V> ConnexComponentRebuilder<T,U,V>::C
 	_n_slices = pimg->n_slices ;
 	_result = BillonTpl<V>( _n_rows, _n_cols, _n_slices ) ;
 	_result.fill(0);
-	init( *pimg ) ;
+	init( *pimg, ignoring ) ;
 	delete pimg ;
 }
 
-template <typename T, typename U, typename V> void ConnexComponentRebuilder<T,U,V>::init( const BillonTpl< T > &img ) {
+template <typename T, typename U, typename V> void ConnexComponentRebuilder<T,U,V>::init( const BillonTpl< T > &img, QList< T > *ignoring ) {
 	Point *lower = new Point [ _n_labels ] ;
 	Point *upper = new Point [ _n_labels ] ;
 	uint32_t label ;
@@ -117,6 +117,9 @@ template <typename T, typename U, typename V> void ConnexComponentRebuilder<T,U,
 			for ( y = 0 ; y < _n_rows ; y++ ) {
 				label = img(y,x,z) ;
 				if ( label == 0 ) continue ;
+				if ( ignoring && ignoring->contains( label ) ) {
+					continue ;
+				}
 				pts[ label ].append( iCoord3D(x,y,z) ) ;
 				lower[ label ].at(0) = std::min( lower[ label ].at(0), x ) ;
 				lower[ label ].at(1) = std::min( lower[ label ].at(1), y ) ;
@@ -128,6 +131,12 @@ template <typename T, typename U, typename V> void ConnexComponentRebuilder<T,U,
 	
 	for ( label = 1 ; label < _n_labels ; label++ ) {
 		LayerType layer ;
+		if ( pts[ label ].isEmpty() ) {
+			layer.second = 0 ;
+			layer.first = 0 ;
+			_layers[ label ] = layer ;
+			continue ;
+		}
 		layer.second = new Domain( lower[label], upper[label] ) ;
 		layer.first  = new DigitalSet( * layer.second ) ;
 		_layers[ label ] = layer ;
@@ -144,6 +153,7 @@ template <typename T, typename U, typename V> void ConnexComponentRebuilder<T,U,
 	register int n ;
 	for ( uint32_t label = 1 ; label < _n_labels ; label++ ) {
 		const DigitalSet *pts = _layers[ label ].first ;
+		if ( pts == 0 ) continue ;
 		for ( DigitalSet::Iterator pt = pts->begin() ; pt != pts->end() ; pt++ )
 			for ( n = 0 ; n < 27 ; n++ ) {
 				if ( n == 13 ) continue ; /// this is *pt
@@ -155,8 +165,9 @@ template <typename T, typename U, typename V> void ConnexComponentRebuilder<T,U,
 				if ( z < 0 || z == _n_slices ) continue ;
 				adj_label = img(y,x,z) ;
 				if ( adj_label <= label ) continue ;
-				uint32_t key = label * _n_labels + adj_label ;
+				if ( _layers[ adj_label ].first == 0 ) continue ;
 				
+				uint32_t key = label * _n_labels + adj_label ;
 				if ( !_adjacency.contains( label ) ) _adjacency.insert( label, QSet<uint32_t>() ) ;
 				if ( !_adjacency[ label ].contains( adj_label ) ) {
 					_adjacency[ label ].insert( adj_label ) ;
@@ -174,8 +185,10 @@ template <typename T, typename U, typename V> void ConnexComponentRebuilder<T,U,
 }
 
 template <typename T, typename U, typename V> bool ConnexComponentRebuilder<T,U,V>::run( ) {
-	for ( uint32_t label = 1 ; label < _n_labels ; label++ )
+	for ( uint32_t label = 1 ; label < _n_labels ; label++ ) {
+		if ( _layers[ label ].first == 0 ) continue ;
 		if ( !run( label, label ) ) return false ;
+	}
 	return true ;
 }
 
@@ -194,11 +207,11 @@ template <typename T, typename U, typename V> void ConnexComponentRebuilder<T,U,
 		dnext = 1 ;
 		do {
 			pt = seed ;
-if ( g_debug ) std::cerr<<"[ Debug ] : "<<pt<<" @ line "<<__LINE__<<std::endl;
+if ( g_debug ) std::cerr<<"[ Debug ] : "<<pt<<" @ line "<<__LINE__<<" d("<<refPoint<<") = "<<(pt-refPoint).dot( pt-refPoint )<<std::endl;
 			do {
 				pt.at( (coord_not_null+1)%3 ) += dnext ;
-if ( g_debug ) std::cerr<<"[ Debug ] : "<<pt<<" @ line "<<__LINE__<<std::endl;
-				if ( img.domain().isInside(pt) && pt.dot( refPoint ) <= maxDist ) {
+if ( g_debug ) std::cerr<<"[ Debug ] : "<<pt<<" @ line "<<__LINE__<<" d("<<refPoint<<") = "<<(pt-refPoint).dot( pt-refPoint )<<std::endl;
+				if ( img.domain().isInside(pt) && (pt-refPoint).dot( pt-refPoint ) <= maxDist ) {
 					is_touching = ( img(pt) != 0 ) ;
 				} else
 					is_touching = false ;
@@ -209,40 +222,44 @@ if ( g_debug ) std::cerr<<"[ Debug ] : "<<pt<<" @ line "<<__LINE__<<" ... will b
 			} while ( is_touching ) ;
 			dnext *= -1 ;
 		} while ( dnext < 0 ) ;
-if ( false ) std::cin>>dnext;
+if ( g_debug ) std::cin>>dnext;
 		while ( !L.isEmpty() ) {
 			dnext = 1 ;
 			do {
 				pt = L.at(0) ;
-if ( g_debug ) std::cerr<<"[ Debug ] : "<<pt<<" @ line "<<__LINE__<<std::endl;
+if ( g_debug ) std::cerr<<"[ Debug ] : "<<pt<<" @ line "<<__LINE__<<" d("<<refPoint<<") = "<<(pt-refPoint).dot( pt-refPoint )<<std::endl;
 				do {
 					pt.at( (coord_not_null+2)%3 ) += dnext ;
-if ( g_debug ) std::cerr<<"[ Debug ] : "<<pt<<" @ line "<<__LINE__<<std::endl;
-					if ( img.domain().isInside(pt) && pt.dot( refPoint ) <= maxDist ) {
+if ( g_debug ) std::cerr<<"[ Debug ] : "<<pt<<" @ line "<<__LINE__<<" d("<<refPoint<<") = "<<(pt-refPoint).dot( pt-refPoint )<<std::endl;
+					if ( img.domain().isInside(pt) && (pt-refPoint).dot( pt-refPoint ) <= maxDist ) {
 						is_touching = ( img(pt) != 0 ) ;
 					} else
 						is_touching = false ;
 					if ( is_touching ) {
-						L.append( pt ) ;
+						crop.append( pt ) ;
 if ( g_debug ) std::cerr<<"[ Debug ] : "<<pt<<" @ line "<<__LINE__<<" ... will be removed"<<std::endl;
 					}
 				} while ( is_touching ) ;
 				dnext *= -1 ;
 			} while ( dnext < 0 ) ;
-			crop.append( L.takeFirst() ) ;
+			if ( img( L.at(0) ) && (L.at(0)-refPoint).dot( L.at(0)-refPoint ) <= maxDist ) {
+				crop.append( L.at(0) ) ;
+				if ( g_debug ) std::cerr<<"[ Debug ] : "<<L.at(0)<<" @ line "<<__LINE__<<" ... will be removed"<<std::endl;
+			}
+			L.pop_front();
 		}
-if ( false ) std::cin>>dnext;
+if ( g_debug ) std::cin>>dnext;
 	} else if ( config_plane == 2 ) {
 		coord_null = ( plane[0] == 0 ? 0 : ( plane[1] == 0 ? 1 : 2) ) ;
 		dnext = 1 ;
 		do {
 			pt = seed ;
-if ( g_debug ) std::cerr<<"[ Debug ] : "<<pt<<" @ line "<<__LINE__<<std::endl;
+if ( g_debug ) std::cerr<<"[ Debug ] : "<<pt<<" @ line "<<__LINE__<<" d("<<refPoint<<") = "<<(pt-refPoint).dot( pt-refPoint )<<std::endl;
 			do {
-				pt.at( (coord_null+1)%3 ) += dnext * plane[ (coord_null+1)%3 ];
-				pt.at( (coord_null+2)%3 ) += dnext * plane[ (coord_null+2)%3 ];
-if ( g_debug ) std::cerr<<"[ Debug ] : "<<pt<<" @ line "<<__LINE__<<std::endl;
-				if ( img.domain().isInside(pt) && pt.dot( refPoint ) <= maxDist ) {
+				pt.at( (coord_null+1)%3 ) += /*plane[ (coord_null+1)%3 ]*plane[ (coord_null+2)%3 ]<0?dnext:dnext*/dnext;
+				pt.at( (coord_null+2)%3 ) += plane[ (coord_null+1)%3 ]*plane[ (coord_null+2)%3 ]<0?dnext:-dnext;
+if ( g_debug ) std::cerr<<"[ Debug ] : "<<pt<<" @ line "<<__LINE__<<" d("<<refPoint<<") = "<<(pt-refPoint).dot( pt-refPoint )<<std::endl;
+				if ( img.domain().isInside(pt) && (pt-refPoint).dot( pt-refPoint ) <= maxDist ) {
 					is_touching = ( img(pt) != 0 ) ;
 				} else
 					is_touching = false ;
@@ -258,69 +275,82 @@ if ( false ) std::cin>>dnext;
 			dnext = 1 ;
 			do {
 				pt = L.at(0) ;
-if ( g_debug ) std::cerr<<"[ Debug ] : "<<pt<<" @ line "<<__LINE__<<std::endl;
+if ( g_debug ) std::cerr<<"[ Debug ] : "<<pt<<" @ line "<<__LINE__<<" d("<<refPoint<<") = "<<(pt-refPoint).dot( pt-refPoint )<<std::endl;
 				do {
 					pt.at( coord_null ) += dnext ;
-if ( g_debug ) std::cerr<<"[ Debug ] : "<<pt<<" @ line "<<__LINE__<<std::endl;
-					if ( img.domain().isInside(pt) && pt.dot( refPoint ) <= maxDist ) {
+if ( g_debug ) std::cerr<<"[ Debug ] : "<<pt<<" @ line "<<__LINE__<<" d("<<refPoint<<") = "<<(pt-refPoint).dot( pt-refPoint )<<std::endl;
+					if ( img.domain().isInside(pt) && (pt-refPoint).dot( pt-refPoint ) <= maxDist ) {
 						is_touching = ( img(pt) != 0 ) ;
 					} else
 						is_touching = false ;
 					if ( is_touching ) {
-						L.append( pt ) ;
+						crop.append( pt ) ;
 if ( g_debug ) std::cerr<<"[ Debug ] : "<<pt<<" @ line "<<__LINE__<<" ... will be removed"<<std::endl;
 					}
 				} while ( is_touching ) ;
 				dnext *= -1 ;
 			} while ( dnext < 0 ) ;
-			crop.append( L.takeFirst() ) ;
-if ( false ) std::cin>>dnext;
+			if ( img( L.at(0) ) && (L.at(0)-refPoint).dot( L.at(0)-refPoint ) <= maxDist ) {
+				crop.append( L.at(0) ) ;
+				if ( g_debug ) std::cerr<<"[ Debug ] : "<<L.at(0)<<" @ line "<<__LINE__<<" ... will be removed"<<std::endl;
+			}
+			L.pop_front();
+if ( g_debug ) std::cin>>dnext;
 		}
 	} else {
 		dnext = 1 ;
 		do {
 			pt = seed ;
-if ( g_debug ) std::cerr<<"[ Debug ] : "<<pt<<" @ line "<<__LINE__<<std::endl;
+if ( g_debug ) std::cerr<<"[ Debug ] : "<<pt<<" @ line "<<__LINE__<<" d("<<refPoint<<") = "<<(pt-refPoint).dot( pt-refPoint )<<std::endl;
 			do {
-				pt.at(0) += dnext * plane[0] ;
-				pt.at(1) += dnext * plane[1] ;
-				pt.at(2) = -( plane[3] + plane[0] * pt.at(0) + plane[1] * pt.at(1) ) / plane[2] ;
-if ( g_debug ) std::cerr<<"[ Debug ] : "<<pt<<" @ line "<<__LINE__<<std::endl;
-				if ( img.domain().isInside(pt) && pt.dot( refPoint ) <= maxDist ) {
-					is_touching = ( img(pt) != 0 ) ;
-				} else
-					is_touching = false ;
-				if ( is_touching ) {
-					L.append( pt ) ;
+				is_touching=false;
+				for ( uint iBridge=0;iBridge<2;iBridge++ ) {
+					bool is_touchingBridge ;
+					pt.at(iBridge) += dnext * plane[iBridge] ;
+					pt.at(2) = -( plane[3] + plane[0] * pt.at(0) + plane[1] * pt.at(1) ) / plane[2] ;
+if ( g_debug ) std::cerr<<"[ Debug ] : "<<pt<<" @ line "<<__LINE__<<" d("<<refPoint<<") = "<<(pt-refPoint).dot( pt-refPoint )<<std::endl;
+					if ( img.domain().isInside(pt) && (pt-refPoint).dot( pt-refPoint ) <= maxDist ) {
+						is_touchingBridge = ( img(pt) != 0 ) ;
+					} else
+						is_touchingBridge = false ;
+					if ( is_touchingBridge ) {
+						L.append( pt ) ;
+						is_touching=true;
 if ( g_debug ) std::cerr<<"[ Debug ] : "<<pt<<" @ line "<<__LINE__<<" ... will be removed"<<std::endl;
+					}
 				}
+				if ( g_debug ) {char c;std::cin>>c;}
 			} while ( is_touching ) ;
 			dnext *= -1 ;
 		} while ( dnext < 0 ) ;
-if ( false ) std::cin>>dnext;
+if ( g_debug ) std::cin>>dnext;
 		while ( !L.isEmpty() ) {
 			dnext = 1 ;
 			do {
 				pt = L.at(0) ;
-if ( g_debug ) std::cerr<<"[ Debug ] : "<<pt<<" @ line "<<__LINE__<<std::endl;
+if ( g_debug ) std::cerr<<"[ Debug ] : "<<pt<<" @ line "<<__LINE__<<" d("<<refPoint<<") = "<<(pt-refPoint).dot( pt-refPoint )<<std::endl;
 				do {
 					pt.at(0) += dnext * plane[0] ;
 					pt.at(1) = -( plane[3] + plane[0] * pt.at(0) + plane[2] * pt.at(2) ) / plane[1] ;
-if ( g_debug ) std::cerr<<"[ Debug ] : "<<pt<<" @ line "<<__LINE__<<std::endl;
-					if ( img.domain().isInside(pt) && pt.dot( refPoint ) <= maxDist ) {
+if ( g_debug ) std::cerr<<"[ Debug ] : "<<pt<<" @ line "<<__LINE__<<" d("<<refPoint<<") = "<<(pt-refPoint).dot( pt-refPoint )<<std::endl;
+					if ( img.domain().isInside(pt) && (pt-refPoint).dot( pt-refPoint ) <= maxDist ) {
 						is_touching = ( img(pt) != 0 ) ;
 					} else
 						is_touching = false ;
 					if ( is_touching ) {
-						L.append( pt ) ;
+						crop.append( pt ) ;
 if ( g_debug ) std::cerr<<"[ Debug ] : "<<pt<<" @ line "<<__LINE__<<" ... will be removed"<<std::endl;
 					}
 				} while ( is_touching ) ;
 				dnext *= -1 ;
 			} while ( dnext < 0 ) ;
-			crop.append( L.takeFirst() ) ;
+			if ( img( L.at(0) ) && (L.at(0)-refPoint).dot( L.at(0)-refPoint ) <= maxDist ) {
+				crop.append( L.at(0) ) ;
+				if ( g_debug ) std::cerr<<"[ Debug ] : "<<L.at(0)<<" @ line "<<__LINE__<<" ... will be removed"<<std::endl;
+			}
+			L.pop_front();
 		}
-if ( false ) std::cin>>dnext;
+if ( g_debug ) std::cin>>dnext;
 	}
 }
 
@@ -336,6 +366,9 @@ template <typename T, typename U, typename V> bool ConnexComponentRebuilder<T,U,
 	}
 	if ( !_lower.contains( selection ) )
 		setBounds( selection ) ;
+	
+	if ( _layers[ selection ].first == 0 ) return true ;
+	
 	Domain domain( Point(0,0,0), _upper[ selection ] - _lower[ selection ]) ;
 	Image 		*distances =new Image( domain ) ;
 	const DigitalSet * pts = _layers[ selection ].first ;
@@ -450,7 +483,7 @@ if ( g_debug ) std::cerr<<"[ Debug ] : "<<(*other)(*loc)<<" (depth "<< (*_depth)
 			do {
 				toRemove.append( crop ) ;
 				crop.clear() ;
-				for ( shift_coord = 0 ; shift_coord < config_plane ; shift_coord++ ) {
+				for ( shift_coord = 0 ; shift_coord < 3 ; shift_coord++ ) {
 					if ( plane[ shift_coord ] == 0 ) continue ;
 					new_ref.at( shift_coord ) += plane[ shift_coord ] ;
 					memcpy( plane_intermediate, plane, sizeof(int)*3 ) ;
@@ -463,13 +496,15 @@ if ( g_debug ) std::cerr<<"[ Debug ] : "<<(*other)(*loc)<<" (depth "<< (*_depth)
 					for ( uint iVoxel = 0 ; iVoxel < crop.size() ; iVoxel++ )
 						if ( historyRemoval( crop.at(iVoxel).at(1),crop.at(iVoxel).at(0),crop.at(iVoxel).at(2) ) == 0 )
 							historyRemoval( crop.at(iVoxel).at(1),crop.at(iVoxel).at(0),crop.at(iVoxel).at(2) ) = today ;
-					today++ ;
-					if ( today == 0 ) std::cerr<<"[ Warning ] : used type is not big enough for storing the removal steps"<<std::endl;
 					#endif
 				}
 			} while ( !crop.isEmpty() ) ;
 			if ( g_debug ) std::cerr<<"[ Debug ] : "<<toRemove.size()<<" voxels to remove function "<<__FUNCTION__<<" @ line "<<__LINE__<<std::endl;
 		}
+		#ifdef DEBUG_REMOVAL_EXT
+		today++ ;
+		if ( today == 0 ) std::cerr<<"[ Warning ] : used type is not big enough for storing the removal steps"<<std::endl;
+		#endif
 	}
 	while ( !toRemove.isEmpty() ) {
 		componentDGImg.setValue( toRemove.front(),0 ) ;
