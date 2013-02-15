@@ -28,6 +28,7 @@ void missingParam ( std::string param )
 }
 
 std::pair< BillonTpl< arma::u8 >*, BillonTpl< arma::u16 >* > gen_toy_problemB( uint cfg ) {
+	assert( cfg <= 12 ) ;
 	arma::s8 configs[] = { 1,0,0,  0,1,0,  0,0,1,  0,1,-1,  1,0,1,  -1,1,0,  0,1,1,  -1,0,1,  1,1,0,  -1,1,1,  1,-1,1,  1,1,-1,  1,1,1 } ;
 	BillonTpl< arma::u8 >* labels = new BillonTpl< arma::u8 >( 40, 40, 40 ) ;
 	labels->fill(0) ;
@@ -137,6 +138,7 @@ int main( int narg, char **argv ) {
 		( "depth,d", po::value<std::string>(), "Input depth map pgm filename." )
 		( "output,o", po::value<string>(),"Output pgm filename." )
 		( "selection", po::value< std::string >()->multitoken(), "rebuild only specific id.")
+		( "ignore",po::value< std::string >()->multitoken(), "rebuild ignoring specific id.")
 		( "test,t", po::value<int>()->default_value(0), "run test program.");
 
 	bool parseOK = true ;
@@ -197,9 +199,25 @@ int main( int narg, char **argv ) {
 			}
 			qSort( Labels.begin(), Labels.end(), qLess<arma::u32>() ) ;
 		}
-		
+		QList< arma::u32 > noLabels ;
+		if ( vm.count("ignore") ) {
+			QStringList selectedLabels = QString( "%1").arg( vm["ignore"].as< std::string >().c_str() ).split( " ", QString::SkipEmptyParts) ;
+			while ( !selectedLabels.isEmpty() ) {
+				int sep_interval = selectedLabels.at( 0 ).indexOf( ':') ;
+				if ( sep_interval == -1 )
+					noLabels.append( (arma::u32)selectedLabels.takeAt(0).toInt() ) ;
+				else {
+					QStringList interval = selectedLabels.takeAt(0).split( ":" ) ;
+					int interval_value = interval.takeAt(0).toInt() ;
+					int interval_end = interval.takeAt(0).toInt() ;
+					for ( ; interval_value <= interval_end ; interval_value++ )
+						noLabels.append( (arma::u32) interval_value ) ;
+				}
+			}
+			qSort( noLabels.begin(), noLabels.end(), qLess<arma::u32>() ) ;
+		}
 
-		ConnexComponentRebuilder< arma::u32, int32_t, arma::u32 > CCR( QString( inputFileName.c_str() ) );
+		ConnexComponentRebuilder< arma::u32, int32_t, arma::u32 > CCR( QString( inputFileName.c_str() ), &noLabels );
 		CCR.setDepth( QString( depthFileName.c_str() ) ) ;
 		trace.beginBlock("Reconstruction") ;
 		if ( !Labels.isEmpty() )
