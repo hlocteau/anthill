@@ -120,6 +120,13 @@ template <typename T > void extract_adjacency( const BillonTpl< T > &label, QMap
 									         sourceEnd = touching.end() ;
 	for ( ; source != sourceEnd ; source++ ) {
 		qSort( source.value().begin(), source.value().end(), qLess< T >( ) ) ;
+		for ( uint k = 0 ; k < source.value().size() ; k++ ) {
+			uint m = source.value().lastIndexOf( source.value().at(k) ) ;
+			while ( k != m ) {
+				source.value().removeAt(m) ; 
+				m-- ;
+			}
+		}
 	}
 }
 
@@ -407,142 +414,164 @@ std::cerr<<"[export rooms @"<<__LINE__<<"] trace max()="<<(int)label->max()<<" v
 	
 	
 	///
-	/// reconstruct each individual connected component to evaluate their volume
+	/// reconstruct each individual connected component being a room
 	///
-	#if 0
-	typedef ConnexComponentRebuilder< arma::u32, arma::u32, arma::u32 > TConnexComponentRebuilder ;
-	TConnexComponentRebuilder *ccr = new TConnexComponentRebuilder( *label ) ;
-	ccr->setDepth( QString( params._depthFilePath.c_str() ) ) ;
-	ccr->run() ;
-	BillonTpl< arma::u32 > *reconstruction = new BillonTpl< arma::u32 >( ccr->result() ) ;
-	delete ccr ;
-	GrayLevelHistogram<arma::u32> volumes_ext( *reconstruction ) ;
-	GrayLevelHistogram<arma::u32>::THistogram &volumes = volumes_ext._bin ;
-	/// build a sorted list of ccx (per type) wrt their volume
-	QList< arma::u32 > corridors, rooms ;
-	QList< arma::u32 > *ptr ;
-	QList< arma::u32 >::Iterator position ;
-	for ( GrayLevelHistogram<arma::u32>::THistogram::iterator it = volumes.begin() ; it != volumes.end() ; it++ ) {
-		ptr = & corridors ;
-		if ( it->first < from ) ptr = & rooms ;
-		position = ptr->begin() ;
-		while ( position != ptr->end() ) {
-			if ( volumes[ *position ] > it->second ) break ;
-			position++ ;
-		}
-		ptr->insert( position, it->first ) ;
+	QList< arma::u32> noLabels ;
+	for ( arma::u32 i=from;i<to;i++) 
+		noLabels.append( i ) ;
+	ConnexComponentRebuilder< arma::u32, int32_t, arma::u32 > CCR( *label, &noLabels );
+	CCR.setDepth( QString( params._depthFilePath.c_str() ) ) ;
+	trace.beginBlock("Reconstruction") ;
+	for ( arma::u32 i=1;i<from;i++) {
+		std::cerr<<"step "<<(int)i<<" / "<<(int)from<<std::endl;
+		CCR.run( i,i ) ;
 	}
-	#endif
-	/// criteria based on size...	
+	touching.clear() ;
 	
-	
-	if ( false ) {
-		///
-		/// for algorithm design only on MeMo0013/serie_2 ...
-		///
-		uint n_cols = label->n_cols,
-		     n_rows = label->n_rows,
-		     n_slices = label->n_slices ;
-		
-		uint nSamples ;
-		std::cout<<"Number of samples to discretize the y values : " ;
-		std::cin >> nSamples ;
-		
-		QMap< arma::u32, Interval<double> > *bounds = new QMap< arma::u32, Interval<double> >[ nSamples ] ;
-		
-		TRefLine refLine ;
-		refLine.x = 0 ;
-		refLine.z = 60 ;
-		refLine.dx = 287 ;
-		
-		refLine.dz = 433 ;
-		int best_dz = -1 ;
-		uint best_num = 0, nCluster ;
-		double qCluster ;
-		for ( refLine.dz = refLine.dx ; refLine.dz < 2 * refLine.dx ; refLine.dz += 10 ) {
-			refLine.len = sqrt( refLine.dx*refLine.dx+refLine.dz*refLine.dz ) ;
-			set_projections( refLine, bounds, nSamples, *label, from ) ;
-			boost::tie( nCluster, qCluster ) = eval_projections( bounds[ nSamples/2 ],0 ) ;
-			if ( nCluster > best_num ) {
-				best_dz = refLine.dz ;
-				best_num= nCluster ;
-			}
-			for ( uint iSample = 0 ; iSample < nSamples ; iSample ++ ) bounds[ iSample ].clear() ;
-		}
-		refLine.dz = best_dz ;
-		set_projections( refLine, bounds, nSamples, *label, from ) ;
-		std::cout<<"Optimal projection on line "<<refLine.x<<","<<refLine.z<<" - "<<refLine.dx<<","<<refLine.dz<<std::endl;
-		discriminate_projection( *label, bounds, nSamples ) ;
-		BillonTpl< arma::u8 > proj_xz( n_cols, n_slices,nSamples ) ;
-		BillonTpl< arma::u8 > proj_yz( n_rows, n_slices,nSamples ) ;
-		proj_xz.fill( 0 ) ;
-		proj_yz.fill( 0 ) ;
-		proj_xz.setMaxValue(1) ;
-		proj_yz.setMaxValue(1) ;
-		BillonTpl< arma::u32 >::const_iterator iterRoom = label->begin(),
-		                                       iterRoomEnd = label->end() ;
-		uint x=0,y=0,z=0 ;
-		for ( ; iterRoom != iterRoomEnd ; iterRoom++ ) {
-			if ( *iterRoom && *iterRoom < from ) {
-				if ( true /*y*4 > 0*n_rows && y*4 < 1*n_rows*/ )
-					proj_xz(x,z,y*nSamples/n_rows ) = y*nSamples/n_rows+1 ;
-				if ( true /*x*4 > 0*n_cols && x*4 < 1*n_cols*/ )
-					proj_yz(y,z,y*nSamples/n_rows ) = y*nSamples/n_rows+1 ;
-			}
-			y++ ;
-			if ( y == n_rows ) {
-				y = 0 ;
-				x++ ;
-			}
-			if ( x == n_cols ) {
-				x = 0 ;
-				z++ ;
-			}
-		}
-		
-		for ( uint iSample = 0 ; false && iSample < nSamples ; iSample++ ) {
-			std::cout<<"= begin =======;"<<iSample+1<<std::endl;
-			for ( QMap< arma::u32,Interval<double> >::ConstIterator it = bounds[iSample].begin() ; it != bounds[iSample].end() ; it++ )
-				std::cout<<";"<<(int)it.key()<<" ;"<<it.value().min()<<" "<<it.value().max()<<";"<<std::endl;
-			std::cout<<"======== end ==;"<<std::endl;
-		}
-		delete [] bounds ;
-		
-		for ( uint iCut = 0 ; false && iCut < 20 ; iCut++ ) {
-			unsigned int len ;
-			Z2i::Point *pts = Geom2D::computeD8Segment( Z2i::Point(0,(n_slices-1)/40*(iCut+18.5)), Z2i::Point(n_cols-1,(n_slices-1)/40*(iCut+0.5)), len  ) ;
-			for ( Z2i::Point *pt = pts ; pt != pts + len ; pt++ )
-				proj_xz( pt->at(0), pt->at(1), 0 ) = 64 ;
-			delete [] pts ;
-		}
-		uint len,c ;
-		Z2i::Point *pts = Geom2D::computeD8Segment( Z2i::Point(refLine.x,refLine.z), Z2i::Point(refLine.x+refLine.dx, refLine.z+refLine.dz ) , len  ) ;
-		for ( Z2i::Point *pt = pts ; pt != pts + len ; pt++ ) {
-			if ( pt->at(0) < n_cols && pt->at(1) < n_slices )
-				for ( c = 0 ; c < proj_xz.n_slices ; c++ )
-					proj_xz( pt->at(0), pt->at(1), c ) = 96 ;
-		}
-		delete [] pts ;
-		
-		IOPgm3d< arma::u8, qint8, false >::write ( proj_xz, "/tmp/proj_xz.pgm" ) ;
-		IOPgm3d< arma::u8, qint8, false >::write ( proj_yz, "/tmp/proj_yz.pgm" ) ;
-	}
-	
-	if ( false ) {
-		///
-		/// to easier vizualizing rooms
-		///
-		BillonTpl< arma::u32 >::iterator iterLbl = label->begin(),
-		                                 iterLblEnd = label->end() ;
-		for ( ; iterLbl != iterLblEnd ; iterLbl ++ )
-			if ( *iterLbl >= from ) *iterLbl = from + 1 ; /// only one label for all corridors
-	}
-	if ( (int)label->max() < (int)std::numeric_limits<unsigned int>::max() )
-		IOPgm3d< arma::u32, qint8, false >::write( *label, QString( params._outputFilePath.c_str() ) ) ;
-	else if ( (int)label->max() < (int)std::numeric_limits<unsigned short>::max() )
-		IOPgm3d< arma::u32, qint16, false >::write( *label, QString( params._outputFilePath.c_str() ) ) ;
+	/// save before renaming wrt adjacency relations
+	if ( CCR.result().max() & 0x00ff )
+		IOPgm3d< arma::u32, qint8, false >::write( CCR.result(), QString( "/tmp/rebuildfarbound.pgm3d" ) ) ;
+	else if ( label->max() & 0x0000ffff )
+		IOPgm3d< arma::u32, qint16, false >::write( CCR.result(), QString( "/tmp/rebuildfarbound.pgm3d" ) ) ;
 	else
-		IOPgm3d< arma::u32, qint32, false >::write( *label, QString( params._outputFilePath.c_str() ) ) ;
+		IOPgm3d< arma::u32, qint32, false >::write( CCR.result(), QString( "/tmp/rebuildfarbound.pgm3d" ) ) ;
+	
+	
+	extract_adjacency( CCR.result(), touching, (arma::u32)1 ) ;
+	
+	for ( iterRewrite = touching.begin() ; iterRewrite != touching.end() ; iterRewrite++ ) {
+		std::cout<<cast_integer<arma::u32, int>(iterRewrite.key())<<" : ";
+		for ( int k=0;k<iterRewrite.value().size();k++ )
+			std::cout<<cast_integer<arma::u32, int>(iterRewrite.value().at(k))<<" ";
+		std::cout<<std::endl;
+	}
+	
+	
+	iterRewrite = touching.begin() ;
+	
+	for ( ; iterRewrite != touching.end() ;  ) {
+		if ( iterRewrite.key() > iterRewrite.value().at(0) ) {
+			touching[ iterRewrite.value().at(0) ].append( iterRewrite.key() ) ;
+			touching[ iterRewrite.value().at(0) ].append( iterRewrite.value() ) ;
+			qSort( touching[ iterRewrite.value().at(0) ].begin(), touching[ iterRewrite.value().at(0) ].end(), qLess<arma::u32>() ) ;
+			iterRewrite = touching.erase( iterRewrite ) ;
+		} else
+			iterRewrite++;
+	}
+	iterRewrite = touching.begin() ;
+	for ( ; iterRewrite != touching.end() ; iterRewrite++ ) {
+		/**
+		 * \see code being used in connexcomponentextractor.ih
+		 */
+		QList< arma::u32 > &voisinage = iterRewrite.value() ;
+		QMap< arma::u32, arma::u32 > &tableEquiv = translation ;
+		arma::u32 mini = iterRewrite.key() ;
+		arma::u32 currentEquiv ;
+		
+		for ( int ind = 0 ; ind < voisinage.size() ; ind++ ) {
+			if ( voisinage[ ind ] == mini ) continue ;
+			if ( !tableEquiv.contains( voisinage[ ind ] ) ) {
+				tableEquiv[ voisinage[ind] ] = mini ;
+			} else {
+				currentEquiv = tableEquiv[ voisinage[ ind ] ] ;
+				if ( currentEquiv == mini ) continue ;
+				if ( mini > currentEquiv ) {
+					tableEquiv[ voisinage[ ind ] ] = mini ;
+					if ( tableEquiv.contains( mini ) ) {
+						while ( tableEquiv.contains( mini ) ) {
+							mini = tableEquiv[ mini ] ;
+						}
+					}
+					if ( currentEquiv < mini ) {
+						tableEquiv[ mini ] = currentEquiv ;
+						//labels.at(j,i) = currentEquiv ;
+						touching[ currentEquiv ].append( iterRewrite.value() ) ;
+					} else if ( currentEquiv > mini ) {
+						tableEquiv[ currentEquiv ] = mini ;
+						//labels.at(j,i) = mini ;
+						touching[ mini ].append( iterRewrite.value() ) ;
+					}
+				} else {
+					while ( tableEquiv.contains( currentEquiv ) )
+						currentEquiv = tableEquiv[ currentEquiv ] ;
+					if ( currentEquiv > mini ) {
+						tableEquiv[ currentEquiv ] = mini ;
+						//labels.at(j,i) = mini ;
+						touching[ mini ].append( iterRewrite.value() ) ;
+					} else if ( currentEquiv < mini ) {
+						tableEquiv[ mini ] = currentEquiv ;
+						//labels.at(j,i) = currentEquiv ;
+						touching[ currentEquiv ].append( iterRewrite.value() ) ;
+					}
+				}
+			}
+		}
+	}
+	{
+		QMap< arma::u32, arma::u32 > &tableEquiv = translation ;
+		QMapIterator<arma::u32, arma::u32> iter(tableEquiv) ;
+		while ( iter.hasNext() ) {
+			iter.next();
+			if ( tableEquiv.contains(iter.value()))
+				tableEquiv[iter.key()]=tableEquiv[iter.value()];
+		}		
+	}
+	
+	QList<arma::u32> terminal ;
+	/// insert isolated cc
+	for ( arma::u32 k=1;k<from;k++ ) {
+		if ( !translation.contains( k ) ) {
+			translation[k]=k;
+			terminal.append(k) ;
+		} else {
+			if ( translation[k] == k )
+				terminal.append(k) ;
+		}
+	}
+	/// minimal distinct values
+	{
+		for ( uint k = 1 ; k < from ; k++ ) {
+			translation[ k ] = terminal.indexOf( translation[ k ] ) + 1;
+		}
+	}
+	
+	BillonTpl< arma::u32 > ccRooms = CCR.result() ;
+	apply_translation( ccRooms, translation ) ;
+
+	/// remaining part is attached iff it is connected to a single region
+	BillonTpl< arma::u8 > sceneRemain( n_rows, n_cols, n_slices ) ;
+	sceneRemain.fill(0);
+	BillonTpl< arma::u32 >::const_iterator iterLabelCC = ccRooms.begin() ;
+	BillonTpl< arma::u32 >::const_iterator iterDepth = depthimg->begin() ;
+	BillonTpl< arma::u8 >::iterator iterRemain = sceneRemain.begin(),
+									iterRemainEnd = sceneRemain.begin() ;
+	while ( iterRermain != iterRemainEnd ) {
+		if ( *iterDepth ) {
+			if ( *iterLabelCC == 0 )
+				*iterRemain = 1 ;
+		}
+		iterDepth++ ;
+		iterLabelCC++;
+		iterRemain++;
+	}
+	ConnexComponentExtractor< arma::u8, arma::u32 > CCERemain ;
+	BillonTpl< arma::u32 > *lblRemain = CCERemain.run( sceneRemain ) ;
+	arma::u32 nSeeds = ccRooms.max() ;
+	*lblRemain += nSeeds ;
+	*lblRemain += ccRooms ;
+	extract_adjacency( lblRemain, touching, nSeeds ) ;
+
+	if ( ccRooms.max() & 0x00ff )
+		IOPgm3d< arma::u32, qint8, false >::write( ccRooms, QString( params._outputFilePath.c_str() ) ) ;
+	else if ( label->max() & 0x0000ffff )
+		IOPgm3d< arma::u32, qint16, false >::write( ccRooms, QString( params._outputFilePath.c_str() ) ) ;
+	else
+		IOPgm3d< arma::u32, qint32, false >::write( ccRooms, QString( params._outputFilePath.c_str() ) ) ;
+	
+	/** 
+	 * \todo should be a method of Pgm3dFactory
+	 * \brief we may used the masks 0x00ff, 0x0000ffff on label->max() to determiner what should be the encoding of the output file
+	 */
 	delete label ;
 	#if 0
 	delete reconstruction ;
