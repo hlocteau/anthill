@@ -21,15 +21,19 @@
 namespace fs=boost::filesystem;
 namespace po=boost::program_options ;
 
+typedef arma::u32 DepthType ;
+typedef arma::u32 LabelType ;
+
 typedef struct _TProgramArg {
-	fs::path _skelFilePath ;
-	fs::path _depthFilePath ;
-	fs::path _outputFilePath ;
-	int      _minDepth ;
-	int      _minSize ;
+	fs::path  _skelFilePath ;
+	fs::path  _depthFilePath ;
+	fs::path  _outputFilePath ;
+	bool      _high ;
+	DepthType _depthThreshold ;
+	int       _minSize ;
 } TProgramArg ;
 
-	typedef SkeletonGraph< arma::u8 > SG_u8 ;
+typedef SkeletonGraph< arma::u8 > SG_u8 ;
 
 void errorAndHelp( const po::options_description & general_opt ) {
 	std::cerr 	<< "Segmentation of the skeleton based on a min depth value."<<std::endl
@@ -48,6 +52,8 @@ bool process_arg( int narg, char **argv, TProgramArg &params ) {
 		( "skel,s", po::value<std::string>(), "Input colored skeleton pgm filename." )
 		( "depth,d", po::value<std::string>(), "Input depth map pgm filename." )
 		( "output,o", po::value<string>(),"Output pgm filename." )
+		( "high,h", po::value<bool>(),"seeds are voxels that have a distance-to-closed-boundary higher than <threshold>.")
+		( "low,l", po::value<bool>(),"seeds are voxels that have a distance-to-closed-boundary smaller than <threshold>.")
 		( "threshold,t", po::value<int>(),"threshold to be used for classification of skeleton's voxels based on their depth value." )
 		( "volume,v", po::value<int>()->default_value(0),"threshold to be used for reconstructed connected component regarding its size." );
 
@@ -72,25 +78,48 @@ bool process_arg( int narg, char **argv, TProgramArg &params ) {
 	if ( ! ( vm.count ( "depth" ) ) )  return missingParam ( "depth" );
 	if ( ! ( vm.count ( "output" ) ) ) return missingParam ( "output" );
 	if ( ! vm.count( "threshold" ) )   return missingParam ( "threshold" );
-
-	params._minDepth = vm["threshold"].as<int>() ;
+	if ( ! vm.count( "low" ) && ! vm.count( "high" ))   return missingParam ( "low|high" );
+	params._depthThreshold = vm["threshold"].as<int>() ;
 	params._minSize = vm["volume"].as<int>() ;
 	params._skelFilePath = vm["skel"].as<std::string>();
 	params._depthFilePath = vm["depth"].as<std::string>();
 	params._outputFilePath = vm["output"].as<std::string>();
+	if ( vm.count("high") )
+		params._high = vm["high"].as<bool>();
+	else
+		params._high = ! vm["low"].as<bool>();
 	return true ;
 }
 
-template < typename T > T do_labeling( SG_u8 * sg, BillonTpl< T > & result, T from ) {
-	const SG_u8::graph_t & graph = sg->graph() ;
-	
-	typename std::vector<T> component(num_vertices(graph));
-	T num = connected_components(graph, &component[0]);
-	for ( SkeletonGraph<arma::u8>::ConstVoxelIterator it = sg->encoding_begin() ; it != sg->encoding_end() ; it++ ) {
-		iCoord3D voxel = sg->from_linear_coord( it.key() ) ;
-		result( voxel.y, voxel.x, voxel.z ) = component[ it.value() ]+from ;
+template< typename T> void save_minspace( const BillonTpl<T> &img, QString filename ) {
+	if ( cast_integer<arma::u8,T>( cast_integer<T,arma::u8>( img.max() ) ) == img.max() ) {
+		IOPgm3d< T, qint8, false >::write( img, filename ) ;
+		std::cout<<"save as u8"<<std::endl;
+	} else if ( cast_integer<arma::u16,T>( cast_integer<T,arma::u16>( img.max() ) ) == img.max() ) {
+		IOPgm3d< T, qint16, false >::write( img, filename ) ;
+		std::cout<<"save as u16"<<std::endl;
+	} else {
+		IOPgm3d< T, qint32, false >::write( img, filename ) ;
+		std::cout<<"save as u32"<<std::endl;
 	}
-	return num + from ;
+}
+
+template < typename T > BillonTpl< T > * do_labeling( SG_u8 &sg ) {
+	typedef T elem_type ;
+	
+	const SG_u8::graph_t & graph = sg.graph() ;
+	int n_rows, n_cols, n_slices ;
+	sg.size( n_rows, n_cols, n_slices ) ;
+	BillonTpl< elem_type > * label = new BillonTpl< elem_type > ( n_rows, n_cols, n_slices ) ;
+	label->fill( 0 ) ;
+	
+	std::vector<elem_type> component(num_vertices(graph));
+	elem_type num = connected_components(graph, &component[0]);
+	for ( SkeletonGraph<arma::u8>::ConstVoxelIterator it = sg.encoding_begin() ; it != sg.encoding_end() ; it++ ) {
+		iCoord3D voxel = sg.from_linear_coord( it.key() ) ;
+		(*label)( voxel.y, voxel.x, voxel.z ) = component[ it.value() ]+1 ;
+	}
+	return label ;
 }
 
 template <typename T > void extract_adjacency( const BillonTpl< T > &label, QMap< T, QList< T > > &touching, T th ) {
@@ -140,6 +169,134 @@ template <typename T > void apply_translation( BillonTpl< T > &label, const QMap
 		if ( rule != undefined_rule )
 			*iterVoxel = rule.value() ;
 	}
+}
+
+template <typename T > void merge_adjacent_cc( BillonTpl< T > *label ) {
+	typedef T elem_type ;
+	
+	QMap< elem_type, QList< elem_type > >           touching ;
+	QMap< elem_type, elem_type >                    tableEquiv ;
+	typename QMap< elem_type, QList< elem_type > >::iterator iterRewrite ;
+	elem_type nSeeds = label->max() ;
+	extract_adjacency( *label, touching, nSeeds ) ;
+	
+	for ( iterRewrite = touching.begin() ; iterRewrite != touching.end() ; iterRewrite++ ) {
+		std::cout<<cast_integer<T, int>(iterRewrite.key())<<" : ";
+		for ( int k=0;k<iterRewrite.value().size();k++ )
+			std::cout<<cast_integer<T, int>(iterRewrite.value().at(k))<<" ";
+		std::cout<<std::endl;
+	}
+	
+	for ( iterRewrite = touching.begin() ; iterRewrite != touching.end() ;  ) {
+		if ( iterRewrite.key() > iterRewrite.value().at(0) ) {
+			touching[ iterRewrite.value().at(0) ].append( iterRewrite.key() ) ;
+			touching[ iterRewrite.value().at(0) ].append( iterRewrite.value() ) ;
+			qSort( touching[ iterRewrite.value().at(0) ].begin(), touching[ iterRewrite.value().at(0) ].end(), qLess<T>() ) ;
+			iterRewrite = touching.erase( iterRewrite ) ;
+		} else
+			iterRewrite++;
+	}
+
+	for ( iterRewrite = touching.begin() ; iterRewrite != touching.end() ; iterRewrite++ ) {
+		/**
+		 * \see code being used in connexcomponentextractor.ih
+		 */
+		QList< elem_type > &voisinage = iterRewrite.value() ;
+		elem_type mini = iterRewrite.key() ;
+		elem_type currentEquiv ;
+		
+		for ( int ind = 0 ; ind < voisinage.size() ; ind++ ) {
+			if ( voisinage[ ind ] == mini ) continue ;
+			if ( !tableEquiv.contains( voisinage[ ind ] ) ) {
+				tableEquiv[ voisinage[ind] ] = mini ;
+			} else {
+				currentEquiv = tableEquiv[ voisinage[ ind ] ] ;
+				if ( currentEquiv == mini ) continue ;
+				if ( mini > currentEquiv ) {
+					tableEquiv[ voisinage[ ind ] ] = mini ;
+					if ( tableEquiv.contains( mini ) ) {
+						while ( tableEquiv.contains( mini ) ) {
+							mini = tableEquiv[ mini ] ;
+						}
+					}
+					if ( currentEquiv < mini ) {
+						tableEquiv[ mini ] = currentEquiv ;
+						//labels.at(j,i) = currentEquiv ;
+						touching[ currentEquiv ].append( iterRewrite.value() ) ;
+					} else if ( currentEquiv > mini ) {
+						tableEquiv[ currentEquiv ] = mini ;
+						//labels.at(j,i) = mini ;
+						touching[ mini ].append( iterRewrite.value() ) ;
+					}
+				} else {
+					while ( tableEquiv.contains( currentEquiv ) )
+						currentEquiv = tableEquiv[ currentEquiv ] ;
+					if ( currentEquiv > mini ) {
+						tableEquiv[ currentEquiv ] = mini ;
+						//labels.at(j,i) = mini ;
+						touching[ mini ].append( iterRewrite.value() ) ;
+					} else if ( currentEquiv < mini ) {
+						tableEquiv[ mini ] = currentEquiv ;
+						//labels.at(j,i) = currentEquiv ;
+						touching[ currentEquiv ].append( iterRewrite.value() ) ;
+					}
+				}
+			}
+		}
+	}
+
+	QMapIterator<elem_type, elem_type> iter(tableEquiv) ;
+	while ( iter.hasNext() ) {
+		iter.next();
+		if ( tableEquiv.contains(iter.value()))
+			tableEquiv[iter.key()]=tableEquiv[iter.value()];
+	}
+
+	QList<elem_type> terminal ;
+	/// insert isolated cc
+	for ( elem_type k=1;k<nSeeds;k++ ) {
+		if ( !tableEquiv.contains( k ) ) {
+			tableEquiv[k]=k;
+			terminal.append(k) ;
+		} else {
+			if ( tableEquiv[k] == k )
+				terminal.append(k) ;
+		}
+	}
+	/// minimal distinct values
+	for ( elem_type k = 1 ; k < nSeeds ; k++ )
+		tableEquiv[ k ] = terminal.indexOf( tableEquiv[ k ] ) + 1;
+	
+	apply_translation<elem_type>( *label, tableEquiv ) ;
+}
+
+template <typename T > BillonTpl< LabelType > * do_labeling_complement( const BillonTpl<T> &ccLabelSeeds, QString filename ) {
+	Pgm3dFactory<DepthType > factory ;
+	BillonTpl< DepthType > *depthimg = factory.read( filename ) ;
+	factory.correctEncoding( depthimg ) ;
+	
+	int n_rows = depthimg->n_rows,
+	    n_cols = depthimg->n_cols,
+	    n_slices = depthimg->n_slices ;
+	
+	BillonTpl< arma::u8 > sceneRemain( n_rows, n_cols, n_slices ) ;
+	sceneRemain.fill(0);
+	typename BillonTpl< T >::const_iterator  iterLabelCC = ccLabelSeeds.begin() ;
+	BillonTpl< DepthType >::const_iterator   iterDepth = depthimg->begin() ;
+	BillonTpl< arma::u8 >::iterator          iterRemain = sceneRemain.begin(),
+									         iterRemainEnd = sceneRemain.end() ;
+	while ( iterRemain != iterRemainEnd ) {
+		if ( *iterDepth ) {
+			if ( *iterLabelCC == 0 )
+				*iterRemain = 1 ;
+		}
+		iterDepth++ ;
+		iterLabelCC++;
+		iterRemain++;
+	}
+	delete depthimg ;
+	ConnexComponentExtractor< arma::u8, LabelType > CCERemain ;
+	return new BillonTpl< LabelType > ( *CCERemain.run( sceneRemain ) );
 }
 
 typedef struct _TRefLine {
@@ -288,112 +445,144 @@ void discriminate_projection( const BillonTpl< arma::u32 > &label, const QMap< a
 	IOPgm3d< arma::u32, qint32, false >::write( gt, "/tmp/gt.pgm3d");
 }
 
+BillonTpl< arma::u8 > * load_maincc( QString filename ) {
+	Pgm3dFactory< arma::u8 > factory ;
+	BillonTpl< arma::u8 > *pimg = factory.read( filename ) ;
+	
+	/// keep only the biggest connected component
+	ConnexComponentExtractor< arma::u8,arma::u32 > cce ;
+	BillonTpl< arma::u32 > *lblImg = cce.run( *pimg ) ;
+	ConnexComponentExtractor< arma::u8,arma::u32 >::TMapVolume::ConstIterator iterVolume = cce.volumes().begin(),
+																			  iterVolumeEnd = cce.volumes().end(),
+																			  mainVolume ;
+	for ( mainVolume = iterVolume ; iterVolume != iterVolumeEnd ; iterVolume++ )
+		if ( mainVolume.value() < iterVolume.value() )
+			mainVolume = iterVolume ;
+	BillonTpl< arma::u32 >::const_iterator iterLbl = lblImg->begin(),
+										   iterLblEnd = lblImg->end() ;
+	BillonTpl< arma::u8 >::iterator        iterSkel = pimg->begin();
+	for ( ; iterLbl != iterLblEnd ; iterLbl++,iterSkel++ )
+		*iterSkel = ( *iterLbl == mainVolume.key() ? 1 : 0 ) ;
+	delete lblImg ;
+	return pimg ;
+}
+
+template < typename T > BillonTpl< T > * load_data_withmask( QString filename, const BillonTpl< arma::u8 > *pmask ) {
+	Pgm3dFactory< T > factory ;
+	BillonTpl< T > *pdata = factory.read( filename ) ;
+	factory.correctEncoding( pdata );
+	
+	assert( pmask->n_slices == pdata->n_slices && pmask->n_rows == pdata->n_rows && pmask->n_cols == pdata->n_cols ) ;
+	
+	BillonTpl< arma::u8 >::const_iterator iterMask = pmask->begin(),
+										  iterMaskEnd = pmask->end() ;
+	typename BillonTpl< T >::iterator iterData = pdata->begin() ;
+	for ( ; iterMask != iterMaskEnd ; iterMask++, iterData++ ) {
+		if ( ! *iterMask ) *iterData = 0 ;
+	}
+	return pdata ;
+}
+
+template<typename T> BillonTpl<arma::u8> * filter_low( const BillonTpl<T> &data, T th ) {
+	BillonTpl< arma::u8 > *plow = new BillonTpl< arma::u8 > ( data.n_rows, data.n_cols, data.n_slices ) ;
+	BillonTpl< arma::u8 >::iterator iterLow = plow->begin(),
+	                                iterLowEnd = plow->end() ;
+	typename BillonTpl< T >::const_iterator iterData = data.begin() ;
+	for ( ; iterLow != iterLowEnd ; iterLow++, iterData++ )
+		*iterLow = ( *iterData > 0 && *iterData < th ? 1 : 0 ) ;
+	return plow ;
+}
+template<typename T> BillonTpl<arma::u8> * filter_high( const BillonTpl<T> &data, T th ) {
+	BillonTpl< arma::u8 > *phigh = new BillonTpl< arma::u8 > ( data.n_rows, data.n_cols, data.n_slices ) ;
+	BillonTpl< arma::u8 >::iterator iterHigh = phigh->begin(),
+	                                iterHighEnd = phigh->end() ;
+	typename BillonTpl< T >::const_iterator iterData = data.begin() ;
+	for ( ; iterHigh != iterHighEnd ; iterHigh++, iterData++ )
+		*iterHigh = ( *iterData > th ? 1 : 0 ) ;
+	return phigh ;
+}
+
+#define SAFETY_MEMORY_CONSUPTION
+
 int main( int narg, char **argv ) {
 	TProgramArg params ;
 	if ( !process_arg( narg, argv, params ) ) return -1 ;
 	
-	BillonTpl< arma::u8 > * skelimg   ; /// ...
-	BillonTpl< arma::u32 > * depthimg ; /// ...
-	
+	BillonTpl< arma::u8 > * skelimg = load_maincc( QString( params._skelFilePath.c_str() ) ) ;
+	BillonTpl< DepthType > * depthimg = load_data_withmask< arma::u32>( QString( params._depthFilePath.c_str() ), skelimg ) ;
+	delete skelimg ;
 	{
-		Pgm3dFactory< arma::u8 > factory ;
-		skelimg = factory.read( QString( params._skelFilePath.c_str() ) ) ;
-		
-		/// keep only the biggest connected component
-		ConnexComponentExtractor< arma::u8,arma::u32 > cce ;
-		BillonTpl< arma::u32 > *lblSkelImg = cce.run( *skelimg ) ;
-		ConnexComponentExtractor< arma::u8,arma::u32 >::TMapVolume::ConstIterator iterVolume = cce.volumes().begin(),
-		                                                                          iterVolumeEnd = cce.volumes().end(),
-		                                                                          mainVolume ;
-		for ( mainVolume = iterVolume ; iterVolume != iterVolumeEnd ; iterVolume++ )
-			if ( mainVolume.value() < iterVolume.value() )
-				mainVolume = iterVolume ;
-		BillonTpl< arma::u32 >::const_iterator iterLbl = lblSkelImg->begin(),
-		                                       iterLblEnd = lblSkelImg->end() ;
-		BillonTpl< arma::u8 >::iterator        iterSkel = skelimg->begin();
-		for ( ; iterLbl != iterLblEnd ; iterLbl++,iterSkel++ )
-			*iterSkel = ( *iterLbl == mainVolume.key() ? 1 : 0 ) ;
-		delete lblSkelImg ;
-	}
-	{
-		Pgm3dFactory< arma::u32 > factory ;
-		depthimg = factory.read( QString( params._depthFilePath.c_str() ) ) ;
-		factory.correctEncoding( depthimg );
-		
-		/// histogram for debuging purpose
-		/// \note to be meaningful, we should only evaluate voxels that belong to the skeleton
-		{
-			BillonTpl< arma::u8 >::const_iterator iterSkel = skelimg->begin(),
-	                                              iterSkelEnd = skelimg->end() ;
-			BillonTpl< arma::u32 >::iterator iterDepth = depthimg->begin() ;
-			for ( ; iterSkel != iterSkelEnd ; iterSkel++, iterDepth++ ) {
-				if ( ! *iterSkel ) *iterDepth = 0 ;
-			}
-		}
-		GrayLevelHistogram< arma::u32 > h( *depthimg ) ;
-		for ( GrayLevelHistogram< arma::u32 >::THistogram::iterator bin = h._bin.begin() ; bin != h._bin.end() ; bin++ )
+		GrayLevelHistogram< DepthType > h( *depthimg ) ;
+		for ( GrayLevelHistogram< DepthType >::THistogram::iterator bin = h._bin.begin() ; bin != h._bin.end() ; bin++ )
 			std::cout<<(int) bin->first<<" : "<<(int) bin->second<<std::endl;
 	}	
-	assert( skelimg->n_slices == depthimg->n_slices && skelimg->n_rows == depthimg->n_rows && skelimg->n_cols == depthimg->n_cols ) ;
+
 	///
 	/// Initialization
 	///
-	std::cout<<"initialization..."<<std::endl;
-	BillonTpl< arma::u8 > * classifiedVoxel = new BillonTpl< arma::u8 > ( skelimg->n_rows, skelimg->n_cols, skelimg->n_slices ) ;
-	BillonTpl< arma::u8 >::const_iterator iterSkel = skelimg->begin(),
-	                                      iterSkelEnd = skelimg->end() ;
-	BillonTpl< arma::u32 >::const_iterator iterDepth = depthimg->begin() ;
-	BillonTpl< arma::u8 >::iterator       iterClassified = classifiedVoxel->begin() ;
+	trace.beginBlock("Preprocessing inputs");
+		BillonTpl< arma::u8 > * seedImg ;
+		if ( params._high ) seedImg = filter_high<DepthType>( *depthimg, params._depthThreshold ) ;
+		else                seedImg = filter_low<DepthType>( *depthimg, params._depthThreshold ) ;
+		delete depthimg ;
+	trace.endBlock() ;
 	
-	arma::u8 color_below = 1 ;
-	arma::u8 color_above = 2 ;
-	for ( ; iterSkel != iterSkelEnd ; iterSkel++, iterDepth++, iterClassified++ ) {
-		if ( *iterSkel ) {
-			*iterClassified = ( *iterDepth > params._minDepth ? color_above : color_below ) ;
-		} else {
-			*iterClassified = 0 ;
+	///
+	/// Extracting seeds
+	///
+	trace.beginBlock("Extracting seeds");
+		SG_u8 *sg_seed = new SG_u8( *seedImg, 1 ) ;
+		BillonTpl< LabelType > *labelSeed = do_labeling<LabelType>( *sg_seed ) ;
+		delete sg_seed ;
+		save_minspace<LabelType>( *labelSeed, QString( "/tmp/seeds.pgm3d" ) ) ;
+		delete seedImg ;
+	trace.endBlock() ;
+	
+	///
+	/// reconstruct each individual connected component being a seed
+	///
+	trace.beginBlock("Reconstructing seeds") ;
+		ConnexComponentRebuilder< LabelType, DepthType, LabelType > CCR( *labelSeed );
+		CCR.setDepth( QString( params._depthFilePath.c_str() ) ) ;
+		LabelType nSeeds = labelSeed->max() ;
+		for ( LabelType i=2;i<= nSeeds;i++) {
+			std::cerr<<"step "<<(int)i<<" / "<<(int)nSeeds<<std::endl;
+			CCR.run( i,i ) ;
 		}
-	}
+		delete labelSeed ;
+		labelSeed = new BillonTpl< LabelType >( CCR.result() ) ;
+		save_minspace<LabelType>( *labelSeed, QString( "/tmp/rebuild.seeds.pgm3d" ) ) ;
+		merge_adjacent_cc<LabelType>( labelSeed ) ;
+		save_minspace<LabelType>( *labelSeed, QString( "/tmp/rebuild.seeds.disconnected.pgm3d" ) ) ;
+		nSeeds = labelSeed->max() ;
+	trace.endBlock() ;
 	
-	delete skelimg ;
-	delete depthimg ;
+	trace.beginBlock("Processing remaining components");
+		BillonTpl< LabelType > *labelComp = do_labeling_complement<LabelType>( *labelSeed, QString( params._depthFilePath.c_str() ) ) ;
+		{
+			BillonTpl<LabelType>::iterator iterResult = labelComp->begin(),
+			                               iterResultEnd = labelComp->end(),
+			                               iterSeed = labelSeed->begin() ;
+			while ( iterResult != iterResultEnd ) {
+				if ( *iterResult ) *iterResult += nSeeds ;
+				*iterResult += *iterSeed ;
+				
+				iterResult++ ;
+				iterSeed++ ;
+			}
+		}
+		save_minspace<LabelType>( *labelComp, QString( params._outputFilePath.c_str() ) ) ;
+	trace.endBlock() ;
+	delete labelComp ;
+	delete labelSeed ;
 	
-	///
-	/// Extracting rooms
-	///
-	std::cout<<"extracting rooms..."<<std::endl;
-	BillonTpl< arma::u32 > * label = new BillonTpl< arma::u32 > ( classifiedVoxel->n_rows, classifiedVoxel->n_cols, classifiedVoxel->n_slices ) ;
-	label->fill( 0 ) ;
-	SG_u8 *sg_above = new SG_u8( *classifiedVoxel, color_above ) ;
-	arma::u32 from = 1 ;
-	from = do_labeling( sg_above, *label, from ) ;
-	delete sg_above ;
-	
-	if ( (int)label->max() < (int)std::numeric_limits<unsigned int>::max() ) {
-std::cerr<<"[export rooms @"<<__LINE__<<"] trace max()="<<(int)label->max()<<" vs "<<(int)from<<std::endl;
-		IOPgm3d< arma::u32, qint8, false >::write( *label, QString( "/tmp/rooms.pgm3d" ) ) ;
-	} else if ( (int)label->max() < (int)std::numeric_limits<unsigned short>::max() ) {
-std::cerr<<"[export rooms @"<<__LINE__<<"] trace max()="<<(int)label->max()<<" vs "<<(int)from<<std::endl;
-		IOPgm3d< arma::u32, qint16, false >::write( *label, QString( "/tmp/rooms.pgm3d" ) ) ;
-	} else {
-std::cerr<<"[export rooms @"<<__LINE__<<"] trace max()="<<(int)label->max()<<" vs "<<(int)from<<std::endl;
-		IOPgm3d< arma::u32, qint32, false >::write( *label, QString( "/tmp/rooms.pgm3d" ) ) ;
-	}
-	///
-	/// Extracting corridors
-	///
-	std::cout<<(int)from<<std::endl<<"extracting corridors..."<<std::endl;
-	SG_u8 *sg_below = new SG_u8( *classifiedVoxel, color_below ) ;
-	arma::u32 to = do_labeling( sg_below, *label, from ) ;
-	delete sg_below ;
-	delete classifiedVoxel ;
-	
+#if 0
 	///
 	/// Extracting candidate merge
 	///
 	std::cout<<(int)to<<std::endl<<"extracting adjacency relations..."<<std::endl;
 	QMap< arma::u32, QList< arma::u32 > > touching ;
-	extract_adjacency( *label, touching, from ) ;
+	extract_adjacency( CCR.result(), touching, nSeeds ) ;
 	
 	///
 	/// a corridor being only linked to a single room can be merged with that room
@@ -413,19 +602,6 @@ std::cerr<<"[export rooms @"<<__LINE__<<"] trace max()="<<(int)label->max()<<" v
 	translation.clear() ;
 	
 	
-	///
-	/// reconstruct each individual connected component being a room
-	///
-	QList< arma::u32> noLabels ;
-	for ( arma::u32 i=from;i<to;i++) 
-		noLabels.append( i ) ;
-	ConnexComponentRebuilder< arma::u32, int32_t, arma::u32 > CCR( *label, &noLabels );
-	CCR.setDepth( QString( params._depthFilePath.c_str() ) ) ;
-	trace.beginBlock("Reconstruction") ;
-	for ( arma::u32 i=1;i<from;i++) {
-		std::cerr<<"step "<<(int)i<<" / "<<(int)from<<std::endl;
-		CCR.run( i,i ) ;
-	}
 	touching.clear() ;
 	
 	/// save before renaming wrt adjacency relations
@@ -436,145 +612,13 @@ std::cerr<<"[export rooms @"<<__LINE__<<"] trace max()="<<(int)label->max()<<" v
 	else
 		IOPgm3d< arma::u32, qint32, false >::write( CCR.result(), QString( "/tmp/rebuildfarbound.pgm3d" ) ) ;
 	
-	
-	extract_adjacency( CCR.result(), touching, (arma::u32)1 ) ;
-	
-	for ( iterRewrite = touching.begin() ; iterRewrite != touching.end() ; iterRewrite++ ) {
-		std::cout<<cast_integer<arma::u32, int>(iterRewrite.key())<<" : ";
-		for ( int k=0;k<iterRewrite.value().size();k++ )
-			std::cout<<cast_integer<arma::u32, int>(iterRewrite.value().at(k))<<" ";
-		std::cout<<std::endl;
-	}
-	
-	
-	iterRewrite = touching.begin() ;
-	
-	for ( ; iterRewrite != touching.end() ;  ) {
-		if ( iterRewrite.key() > iterRewrite.value().at(0) ) {
-			touching[ iterRewrite.value().at(0) ].append( iterRewrite.key() ) ;
-			touching[ iterRewrite.value().at(0) ].append( iterRewrite.value() ) ;
-			qSort( touching[ iterRewrite.value().at(0) ].begin(), touching[ iterRewrite.value().at(0) ].end(), qLess<arma::u32>() ) ;
-			iterRewrite = touching.erase( iterRewrite ) ;
-		} else
-			iterRewrite++;
-	}
-	iterRewrite = touching.begin() ;
-	for ( ; iterRewrite != touching.end() ; iterRewrite++ ) {
-		/**
-		 * \see code being used in connexcomponentextractor.ih
-		 */
-		QList< arma::u32 > &voisinage = iterRewrite.value() ;
-		QMap< arma::u32, arma::u32 > &tableEquiv = translation ;
-		arma::u32 mini = iterRewrite.key() ;
-		arma::u32 currentEquiv ;
-		
-		for ( int ind = 0 ; ind < voisinage.size() ; ind++ ) {
-			if ( voisinage[ ind ] == mini ) continue ;
-			if ( !tableEquiv.contains( voisinage[ ind ] ) ) {
-				tableEquiv[ voisinage[ind] ] = mini ;
-			} else {
-				currentEquiv = tableEquiv[ voisinage[ ind ] ] ;
-				if ( currentEquiv == mini ) continue ;
-				if ( mini > currentEquiv ) {
-					tableEquiv[ voisinage[ ind ] ] = mini ;
-					if ( tableEquiv.contains( mini ) ) {
-						while ( tableEquiv.contains( mini ) ) {
-							mini = tableEquiv[ mini ] ;
-						}
-					}
-					if ( currentEquiv < mini ) {
-						tableEquiv[ mini ] = currentEquiv ;
-						//labels.at(j,i) = currentEquiv ;
-						touching[ currentEquiv ].append( iterRewrite.value() ) ;
-					} else if ( currentEquiv > mini ) {
-						tableEquiv[ currentEquiv ] = mini ;
-						//labels.at(j,i) = mini ;
-						touching[ mini ].append( iterRewrite.value() ) ;
-					}
-				} else {
-					while ( tableEquiv.contains( currentEquiv ) )
-						currentEquiv = tableEquiv[ currentEquiv ] ;
-					if ( currentEquiv > mini ) {
-						tableEquiv[ currentEquiv ] = mini ;
-						//labels.at(j,i) = mini ;
-						touching[ mini ].append( iterRewrite.value() ) ;
-					} else if ( currentEquiv < mini ) {
-						tableEquiv[ mini ] = currentEquiv ;
-						//labels.at(j,i) = currentEquiv ;
-						touching[ currentEquiv ].append( iterRewrite.value() ) ;
-					}
-				}
-			}
-		}
-	}
-	{
-		QMap< arma::u32, arma::u32 > &tableEquiv = translation ;
-		QMapIterator<arma::u32, arma::u32> iter(tableEquiv) ;
-		while ( iter.hasNext() ) {
-			iter.next();
-			if ( tableEquiv.contains(iter.value()))
-				tableEquiv[iter.key()]=tableEquiv[iter.value()];
-		}		
-	}
-	
-	QList<arma::u32> terminal ;
-	/// insert isolated cc
-	for ( arma::u32 k=1;k<from;k++ ) {
-		if ( !translation.contains( k ) ) {
-			translation[k]=k;
-			terminal.append(k) ;
-		} else {
-			if ( translation[k] == k )
-				terminal.append(k) ;
-		}
-	}
-	/// minimal distinct values
-	{
-		for ( uint k = 1 ; k < from ; k++ ) {
-			translation[ k ] = terminal.indexOf( translation[ k ] ) + 1;
-		}
-	}
-	
-	BillonTpl< arma::u32 > ccRooms = CCR.result() ;
-	apply_translation( ccRooms, translation ) ;
-
 	/// remaining part is attached iff it is connected to a single region
-	BillonTpl< arma::u8 > sceneRemain( n_rows, n_cols, n_slices ) ;
-	sceneRemain.fill(0);
-	BillonTpl< arma::u32 >::const_iterator iterLabelCC = ccRooms.begin() ;
-	BillonTpl< arma::u32 >::const_iterator iterDepth = depthimg->begin() ;
-	BillonTpl< arma::u8 >::iterator iterRemain = sceneRemain.begin(),
-									iterRemainEnd = sceneRemain.begin() ;
-	while ( iterRermain != iterRemainEnd ) {
-		if ( *iterDepth ) {
-			if ( *iterLabelCC == 0 )
-				*iterRemain = 1 ;
-		}
-		iterDepth++ ;
-		iterLabelCC++;
-		iterRemain++;
-	}
-	ConnexComponentExtractor< arma::u8, arma::u32 > CCERemain ;
-	BillonTpl< arma::u32 > *lblRemain = CCERemain.run( sceneRemain ) ;
-	arma::u32 nSeeds = ccRooms.max() ;
-	*lblRemain += nSeeds ;
-	*lblRemain += ccRooms ;
-	extract_adjacency( lblRemain, touching, nSeeds ) ;
 
-	if ( ccRooms.max() & 0x00ff )
-		IOPgm3d< arma::u32, qint8, false >::write( ccRooms, QString( params._outputFilePath.c_str() ) ) ;
-	else if ( label->max() & 0x0000ffff )
-		IOPgm3d< arma::u32, qint16, false >::write( ccRooms, QString( params._outputFilePath.c_str() ) ) ;
-	else
-		IOPgm3d< arma::u32, qint32, false >::write( ccRooms, QString( params._outputFilePath.c_str() ) ) ;
+
+
+	save_minspace( ccRooms, QString( params._outputFilePath.c_str() ) ) ;
 	
-	/** 
-	 * \todo should be a method of Pgm3dFactory
-	 * \brief we may used the masks 0x00ff, 0x0000ffff on label->max() to determiner what should be the encoding of the output file
-	 */
 	delete label ;
-	#if 0
-	delete reconstruction ;
-	#endif
+#endif
 	return 0 ;
 }
