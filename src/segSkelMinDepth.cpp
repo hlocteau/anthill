@@ -26,6 +26,7 @@ typedef arma::u32 LabelType ;
 
 typedef struct _TProgramArg {
 	fs::path  _skelFilePath ;
+	fs::path  _sceneFilePath ;
 	fs::path  _depthFilePath ;
 	fs::path  _outputFilePath ;
 	bool      _high ;
@@ -50,6 +51,7 @@ bool process_arg( int narg, char **argv, TProgramArg &params ) {
 	general_opt.add_options()
 		( "help,h", "display this message." )
 		( "skel,s", po::value<std::string>(), "Input colored skeleton pgm filename." )
+		( "inner,i", po::value<std::string>(), "Input inner scene pgm filename." )
 		( "depth,d", po::value<std::string>(), "Input depth map pgm filename." )
 		( "output,o", po::value<string>(),"Output pgm filename." )
 		( "high,h", po::value<bool>(),"seeds are voxels that have a distance-to-closed-boundary higher than <threshold>.")
@@ -76,6 +78,7 @@ bool process_arg( int narg, char **argv, TProgramArg &params ) {
 	//Parse options
 	if ( ! ( vm.count ( "skel" ) ) )   return missingParam ( "skel" );
 	if ( ! ( vm.count ( "depth" ) ) )  return missingParam ( "depth" );
+	if ( ! ( vm.count ( "inner" ) ) )  return missingParam ( "inner" );
 	if ( ! ( vm.count ( "output" ) ) ) return missingParam ( "output" );
 	if ( ! vm.count( "threshold" ) )   return missingParam ( "threshold" );
 	if ( ! vm.count( "low" ) && ! vm.count( "high" ))   return missingParam ( "low|high" );
@@ -83,6 +86,7 @@ bool process_arg( int narg, char **argv, TProgramArg &params ) {
 	params._minSize = vm["volume"].as<int>() ;
 	params._skelFilePath = vm["skel"].as<std::string>();
 	params._depthFilePath = vm["depth"].as<std::string>();
+	params._sceneFilePath = vm["inner"].as<std::string>();
 	params._outputFilePath = vm["output"].as<std::string>();
 	if ( vm.count("high") )
 		params._high = vm["high"].as<bool>();
@@ -271,32 +275,28 @@ template <typename T > void merge_adjacent_cc( BillonTpl< T > *label ) {
 }
 
 template <typename T > BillonTpl< LabelType > * do_labeling_complement( const BillonTpl<T> &ccLabelSeeds, QString filename ) {
-	Pgm3dFactory<DepthType > factory ;
-	BillonTpl< DepthType > *depthimg = factory.read( filename ) ;
-	factory.correctEncoding( depthimg ) ;
+	Pgm3dFactory< arma::u8 > factory ;
+	BillonTpl< arma::u8 > *sceneimg = factory.read( filename ) ;
 	
-	int n_rows = depthimg->n_rows,
-	    n_cols = depthimg->n_cols,
-	    n_slices = depthimg->n_slices ;
-	
-	BillonTpl< arma::u8 > sceneRemain( n_rows, n_cols, n_slices ) ;
-	sceneRemain.fill(0);
+	int n_rows = sceneimg->n_rows,
+	    n_cols = sceneimg->n_cols,
+	    n_slices = sceneimg->n_slices ;
+
 	typename BillonTpl< T >::const_iterator  iterLabelCC = ccLabelSeeds.begin() ;
-	BillonTpl< DepthType >::const_iterator   iterDepth = depthimg->begin() ;
-	BillonTpl< arma::u8 >::iterator          iterRemain = sceneRemain.begin(),
-									         iterRemainEnd = sceneRemain.end() ;
+	BillonTpl< arma::u8 >::iterator          iterRemain = sceneimg->begin(),
+									         iterRemainEnd = sceneimg->end() ;
 	while ( iterRemain != iterRemainEnd ) {
-		if ( *iterDepth ) {
-			if ( *iterLabelCC == 0 )
-				*iterRemain = 1 ;
+		if ( *iterRemain ) {
+			if ( *iterLabelCC != 0 )
+				*iterRemain = 0 ;
 		}
-		iterDepth++ ;
 		iterLabelCC++;
 		iterRemain++;
 	}
-	delete depthimg ;
 	ConnexComponentExtractor< arma::u8, LabelType > CCERemain ;
-	return new BillonTpl< LabelType > ( *CCERemain.run( sceneRemain ) );
+	BillonTpl< LabelType > *lblRemain = new BillonTpl< LabelType > ( *CCERemain.run( *sceneimg ) );
+	delete sceneimg ;
+	return lblRemain ;
 }
 
 typedef struct _TRefLine {
@@ -558,7 +558,7 @@ int main( int narg, char **argv ) {
 	trace.endBlock() ;
 	
 	trace.beginBlock("Processing remaining components");
-		BillonTpl< LabelType > *labelComp = do_labeling_complement<LabelType>( *labelSeed, QString( params._depthFilePath.c_str() ) ) ;
+		BillonTpl< LabelType > *labelComp = do_labeling_complement<LabelType>( *labelSeed, QString( params._sceneFilePath.c_str() ) ) ;
 		{
 			BillonTpl<LabelType>::iterator iterResult = labelComp->begin(),
 			                               iterResultEnd = labelComp->end(),
