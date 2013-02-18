@@ -83,7 +83,7 @@ int main( int narg, char **argv ) {
 						mySkel( y,x,z ) = 0 ;
 						if ( myskel_n_del_elem == skel_n_elem ) { std::cerr<<"Can not remove more elements than the inital number!"<<std::endl; z=mySkel.n_slices ; x = mySkel.n_cols;y=mySkel.n_rows;bUpdate=false;break;}
 						myskel_n_del_elem ++ ;
-						//bUpdate = true ;
+						bUpdate = true ;
 					}
 				}
 		nLoop++ ;
