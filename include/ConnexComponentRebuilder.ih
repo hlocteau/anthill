@@ -184,11 +184,14 @@ template <typename T, typename U, typename V> void ConnexComponentRebuilder<T,U,
 
 }
 
-template <typename T, typename U, typename V> bool ConnexComponentRebuilder<T,U,V>::run( ) {
+template <typename T, typename U, typename V> bool ConnexComponentRebuilder<T,U,V>::run( bool storeOverlaping ) {
 	for ( uint32_t label = 1 ; label < _n_labels ; label++ ) {
 		if ( _layers[ label ].first == 0 ) continue ;
-		if ( !run( label, label ) ) return false ;
+		if ( !run( label, label, storeOverlaping ) ) return false ;
 	}
+	if ( !storeOverlaping ) return true ;
+	
+	
 	return true ;
 }
 
@@ -355,7 +358,7 @@ if ( g_debug ) std::cin>>dnext;
 }
 
 
-template <typename T, typename U, typename V> bool ConnexComponentRebuilder<T,U,V>::run( uint32_t selection, V color ) {
+template <typename T, typename U, typename V> bool ConnexComponentRebuilder<T,U,V>::run( uint32_t selection, V color, bool storeOverlaping ) {
 	if ( !_depth ) {
 		std::cerr<<__FILE__<<" depth undefined"<<std::endl;
 		return false ;
@@ -393,6 +396,14 @@ template <typename T, typename U, typename V> bool ConnexComponentRebuilder<T,U,
 	OutImage componentDGImg( domain ) ;
 	RDT rdt ;
 	componentDGImg = rdt.reconstruction( *distances ) ;
+	
+	uint32_t volume = 0 ;
+	for ( Domain::ConstIterator pt = domain.begin() ; pt != domain.end(); pt++ )
+		if ( componentDGImg( *pt ) > 0 )
+			volume++ ;
+	_volumes[ selection ] = volume ;
+	
+	
 	delete distances ;
 #ifdef SAFETY_MEMORY_CONSUPTION
 	if ( !_depthfile.isEmpty() ) {
@@ -519,7 +530,16 @@ if ( g_debug ) std::cerr<<"[ Debug ] : "<<(*other)(*loc)<<" (depth "<< (*_depth)
 int32_t nVoxels = 0 ;
 	for ( Domain::ConstIterator pt = domain.begin() ; pt != domain.end(); pt++ )
 		if ( componentDGImg( *pt ) > 0 ) {
-			_result( (*pt).at(1)+_lower[selection].at(1),(*pt).at(0)+_lower[selection].at(0),(*pt).at(2)+_lower[selection].at(2) ) = color ;
+			Point ptShift( (*pt).at(0)+_lower[selection].at(0),(*pt).at(1)+_lower[selection].at(1),(*pt).at(2)+_lower[selection].at(2) ) ;
+			if ( storeOverlaping )
+				if ( _result( ptShift.at(1),ptShift.at(0),ptShift.at(2) ) > 0 ) {
+					if ( !_sharedVoxels.contains( color ) )
+						_sharedVoxels.insert( color, QMap< uint32_t, QList<Point> > () ) ;
+					if ( !_sharedVoxels[ color ].contains( _result( ptShift.at(1),ptShift.at(0),ptShift.at(2) ) ) )
+						_sharedVoxels[ color ].insert( _result( ptShift.at(1),ptShift.at(0),ptShift.at(2) ), QList<Point> () ) ;
+					_sharedVoxels[ color ][ _result( ptShift.at(1),ptShift.at(0),ptShift.at(2) ) ].append( ptShift ) ;
+				}
+			_result( ptShift.at(1),ptShift.at(0),ptShift.at(2) ) = color ;
 			nVoxels++ ;
 		}
 if ( g_debug ) std::cerr<<"[ Debug ] : "<<nVoxels<<" voxels remaining function "<<__FUNCTION__<<" @ line "<<__LINE__<<std::endl;

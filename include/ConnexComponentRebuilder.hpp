@@ -19,6 +19,12 @@ public:
 	typedef RDT::OutputImage									OutImage ;
 	typedef std::pair< DigitalSet*, Domain* >					LayerType ;
 	typedef std::pair<Point,Point>								VoxelsPair ;
+	typename typedef struct _IllRebuild {
+		QList< V > _seeds ;
+		QList< Point >     _voxels ;
+	} IllRebuild ;
+
+	
 	
 	ConnexComponentRebuilder			( const BillonTpl< T > &, QList< T > *ignoring = 0 ) ;
 	ConnexComponentRebuilder			( const QString & , QList< T > *ignoring = 0) ;
@@ -26,12 +32,17 @@ public:
 	
 	bool 					setDepth 	( BillonTpl< U > * ) ;
 	bool 					setDepth 	( const QString & ) ;
-	bool 					run			( ) ;
-	bool 					run			( uint32_t label, V color ) ;
+	bool 					run			( bool storeOverlaping = false ) ;
+	bool 					run			( uint32_t label, V color, bool storeOverlaping = false ) ;
 	
 	const BillonTpl< V > &	result		( ) 						const {
 		return _result ;
 	}
+	
+	QMap< uint32_t, uint32_t > &volumes() { return _volumes ; }
+	QMap< uint32_t,
+	       QMap< uint32_t, QList< Point > > > & sharedVoxels() { return _sharedVoxels ; }
+	
 protected:
 	void					init 		( const BillonTpl< T > &, QList< T > *ignoring) ;
 	bool					setBounds	( uint32_t selection ) ;
@@ -42,6 +53,9 @@ private:
 	bool									_allocated_depth ;
 	QMap< uint32_t, Point >					_lower ;
 	QMap< uint32_t, Point >					_upper ;
+	QMap< uint32_t, uint32_t >              _volumes ;
+	QMap< uint32_t,
+	       QMap< uint32_t, QList<Point> > > _sharedVoxels ;
 	uint32_t								_n_labels ;
 	uint32_t								_n_rows ;
 	uint32_t								_n_cols ;
