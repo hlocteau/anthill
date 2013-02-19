@@ -175,7 +175,7 @@ template <typename T > void apply_translation( BillonTpl< T > &label, const QMap
 	}
 }
 
-template <typename T > void merge_adjacent_cc( BillonTpl< T > *label ) {
+template <typename T > void merge_adjacent_cc( BillonTpl< T > *label, QMap< uint32_t,uint32_t > &volumes ) {
 	typedef T elem_type ;
 	
 	QMap< elem_type, QList< elem_type > >           touching ;
@@ -252,8 +252,9 @@ template <typename T > void merge_adjacent_cc( BillonTpl< T > *label ) {
 	QMapIterator<elem_type, elem_type> iter(tableEquiv) ;
 	while ( iter.hasNext() ) {
 		iter.next();
-		if ( tableEquiv.contains(iter.value()))
+		if ( tableEquiv.contains(iter.value())) {
 			tableEquiv[iter.key()]=tableEquiv[iter.value()];
+		}
 	}
 
 	QList<elem_type> terminal ;
@@ -267,11 +268,20 @@ template <typename T > void merge_adjacent_cc( BillonTpl< T > *label ) {
 				terminal.append(k) ;
 		}
 	}
+	
+	QMap< uint32_t,uint32_t > newvolumes ;
+	
 	/// minimal distinct values
-	for ( elem_type k = 1 ; k < nSeeds ; k++ )
+	for ( elem_type k = 1 ; k < nSeeds ; k++ ) {
 		tableEquiv[ k ] = terminal.indexOf( tableEquiv[ k ] ) + 1;
+		if ( !newvolumes.contains( tableEquiv[k] ) ) newvolumes.insert( tableEquiv[k] , (uint32_t) 0 ) ;
+		newvolumes[ tableEquiv[k] ] += volumes[ tableEquiv[k] ] ;
+	}
 	
 	apply_translation<elem_type>( *label, tableEquiv ) ;
+	
+	volumes = newvolumes ;
+	
 }
 
 template <typename T > BillonTpl< LabelType > * do_labeling_complement( const BillonTpl<T> &ccLabelSeeds, QString filename ) {
@@ -502,6 +512,97 @@ template<typename T> BillonTpl<arma::u8> * filter_high( const BillonTpl<T> &data
 	return phigh ;
 }
 
+
+void iterative_merge( BillonTpl< LabelType > &labelComp, LabelType nSeeds, QMap< uint32_t,uint32_t > &volumes) {
+	QMap< LabelType, QList< LabelType > > adjacencies ;
+	QList< LabelType >::iterator adj ;
+	QMap< LabelType, LabelType > tableEquiv ;
+	extract_adjacency( labelComp, adjacencies, (LabelType)1 ) ;
+	
+	
+	trace.info() << "== Volumes | Adjacencies =="<<std::endl;
+	for ( QMap< uint32_t, uint32_t >::iterator iterVol = volumes.begin() ; iterVol != volumes.end() ; iterVol++ ) {
+		trace.info() <<"cc # "<<(int) iterVol.key()<<" : "<<(int) iterVol.value()<<" | ";
+		if ( !adjacencies.contains( iterVol.key() ) ) continue ;
+		for ( adj = adjacencies[ iterVol.key() ].begin() ; adj != adjacencies[ iterVol.key() ].end() ; adj++ )
+			trace.info()<<*adj<<" " ;
+		trace.info()<<std::endl;
+	}
+	
+	
+	
+	/// a vertex - not corresponding to a seed - having degree 1 has to be merged
+	LabelType nRemains = 1 ;
+	QMap< uint32_t,uint32_t > newvolumes ;
+	QMap< LabelType, QList< LabelType > > newadjacencies ;
+	
+	std::cerr<<"Size of volume is "<<volumes.size()<<" @ line "<<__LINE__<<std::endl;
+	
+	for ( LabelType vertex = labelComp.max() ; vertex > nSeeds ; vertex-- ) {
+		if ( !adjacencies.contains( vertex ) ) {
+			/// exists?
+			continue ;
+		}
+		if ( adjacencies[ vertex ].size() == 1 ) {
+			LabelType theSeed = adjacencies[ vertex ].at(0) ;
+			assert( theSeed <= nSeeds ) ;
+			tableEquiv[ vertex ] = theSeed ;
+			if ( !newvolumes.contains( theSeed ) ) newvolumes.insert( theSeed, (uint32_t ) 0 ) ;
+			newvolumes[ theSeed ] += volumes[ vertex ] ;
+			volumes.remove( vertex ) ;
+			adjacencies[ theSeed ].removeAt( adjacencies[ theSeed ].indexOf(vertex) ) ;
+			assert( !adjacencies[ theSeed ].isEmpty() ) ;
+			adjacencies.remove( vertex ) ;
+		} else {
+			tableEquiv[ vertex ] = nSeeds + nRemains ;
+			newvolumes.insert( nSeeds + nRemains, volumes[ vertex ] ) ;
+			volumes.remove( vertex ) ;
+			nRemains++ ;
+		}
+	}
+	std::cerr<<"Number of non-seed regions remaining "<<nRemains-1<<std::endl;
+	std::cerr<<"Size of volume is "<<volumes.size()<<" @ line "<<__LINE__<<std::endl;
+	if ( !tableEquiv.isEmpty() ) {
+		std::cout<<tableEquiv.size()<<" merge operation(s)"<<std::endl;
+		apply_translation( labelComp, tableEquiv ) ;
+		save_minspace<LabelType>( labelComp, "/tmp/step0.pgm3d" ) ;
+		
+		for ( QMap< LabelType, QList< LabelType > >::ConstIterator vertex = adjacencies.begin() ; vertex != adjacencies.end() ; vertex++ ) {
+			LabelType key = vertex.key() ;
+			LabelType value ;
+			if ( tableEquiv.contains( vertex.key() ) ) key = tableEquiv[ vertex.key() ] ;
+			newadjacencies.insert( key, QList< LabelType >() ) ;
+			for ( uint k = vertex.value().size() ; k > 0 ; k-- ) {
+				value = vertex.value().at(k-1) ;
+				if ( tableEquiv.contains( vertex.value().at(k-1) ) )
+					value = tableEquiv[ vertex.value().at(k-1) ] ;
+				newadjacencies[ key ].append( value ) ;
+			}
+			qSort( newadjacencies[ key ] ) ;
+		}
+		adjacencies = newadjacencies ;
+	}
+	
+	std::cerr<<"Newvolumes first keys is "<<newvolumes.begin().key()<<std::endl;
+	
+	while ( !newvolumes.isEmpty() ) {
+		if ( !volumes.contains( newvolumes.begin().key() ) ) volumes.insert( newvolumes.begin().key(), (uint32_t) 0 ) ;
+		volumes[ newvolumes.begin().key() ] += newvolumes.begin().value() ;
+		
+		if ( newvolumes.size() == 1 ) std::cerr<<"Newvolumes last keys is "<<newvolumes.begin().key()<<std::endl;
+		
+		newvolumes.erase( newvolumes.begin() ) ;
+	}
+	trace.info() << "== Volumes =="<<std::endl;
+	for ( QMap< uint32_t, uint32_t >::iterator iterVol = volumes.begin() ; iterVol != volumes.end() ; iterVol++ ) {
+		trace.info() <<"cc # "<<(int) iterVol.key()<<" : "<<(int) iterVol.value()<<std::endl;
+		if ( !adjacencies.contains( iterVol.key() ) ) continue ;
+		for ( adj = adjacencies[ iterVol.key() ].begin() ; adj != adjacencies[ iterVol.key() ].end() ; adj++ )
+			trace.info()<<*adj<<" " ;
+		trace.info()<<std::endl;
+	}
+}
+
 #define SAFETY_MEMORY_CONSUPTION
 
 int main( int narg, char **argv ) {
@@ -545,14 +646,45 @@ int main( int narg, char **argv ) {
 		ConnexComponentRebuilder< LabelType, DepthType, LabelType > CCR( *labelSeed );
 		CCR.setDepth( QString( params._depthFilePath.c_str() ) ) ;
 		LabelType nSeeds = labelSeed->max() ;
-		for ( LabelType i=2;i<= nSeeds;i++) {
+		for ( LabelType i=1;i<= nSeeds;i++) {
 			std::cerr<<"step "<<(int)i<<" / "<<(int)nSeeds<<std::endl;
 			CCR.run( i,i ) ;
 		}
 		delete labelSeed ;
 		labelSeed = new BillonTpl< LabelType >( CCR.result() ) ;
+		QMap< LabelType, QMap < LabelType, QList<Point> > > IllDefined( CCR.sharedVoxels() );
+		QMap< LabelType, uint32_t > nShared ;
+		{
+			QMap< LabelType, QMap < LabelType, QList<Point> > >::ConstIterator iterIllDefined ;
+			QMap < LabelType, QList<Point> >::ConstIterator iterIllDefinedWith ;
+			
+			trace.info() << "== ill defined belonging =="<<std::endl;
+			for ( iterIllDefined = IllDefined.begin() ; iterIllDefined != IllDefined.end() ; iterIllDefined ++ )
+				for ( iterIllDefinedWith = iterIllDefined.value().begin() ; iterIllDefinedWith != iterIllDefined.value().end() ; iterIllDefinedWith++ ) {
+					trace.info() << iterIllDefined.key()<<" x "<<iterIllDefinedWith.key()<<" :" ;
+					for ( uint iVoxel = iterIllDefinedWith.value().size() ; iVoxel > 0 ; iVoxel-- )
+						trace.info()<<" "<<iterIllDefinedWith.value().at( iVoxel-1 ).at(0)<<","<<iterIllDefinedWith.value().at( iVoxel-1 ).at(1)<<","<<iterIllDefinedWith.value().at( iVoxel-1 ).at(2) ;
+					trace.info() << std::endl ;
+					if ( !nShared.contains( iterIllDefined.key() ) ) nShared.insert( iterIllDefined.key(), (uint32_t) 0 ) ;
+					if ( !nShared.contains( iterIllDefinedWith.key() ) ) nShared.insert( iterIllDefinedWith.key(), (uint32_t) 0 ) ;
+					nShared[ iterIllDefined.key() ] += iterIllDefinedWith.value().size() ;
+					nShared[ iterIllDefinedWith.key() ] += iterIllDefinedWith.value().size() ;
+				}
+		}
+		
+		
+		trace.info() << "== Volumes seeds (1) =="<<std::endl;
+		QMap< uint32_t, uint32_t > volumes( CCR.volumes() );
+		for ( QMap< uint32_t, uint32_t >::iterator iterVol = volumes.begin() ; iterVol != volumes.end() ; iterVol++ )
+			trace.info() <<"cc # "<<(int) iterVol.key()<<" : "<<(int) iterVol.value()<<"   "<<(int) ( nShared.contains( iterVol.key() ) ? nShared[ iterVol.key() ] : 0 ) <<std::endl;
+		
 		save_minspace<LabelType>( *labelSeed, QString( "/tmp/rebuild.seeds.pgm3d" ) ) ;
-		merge_adjacent_cc<LabelType>( labelSeed ) ;
+		merge_adjacent_cc<LabelType>( labelSeed, volumes ) ;
+		
+		trace.info() << "== Volumes seeds (2) =="<<std::endl;
+		for ( QMap< uint32_t, uint32_t >::iterator iterVol = volumes.begin() ; iterVol != volumes.end() ; iterVol++ )
+			trace.info() <<"cc # "<<(int) iterVol.key()<<" : "<<(int) iterVol.value()<<std::endl;
+		
 		save_minspace<LabelType>( *labelSeed, QString( "/tmp/rebuild.seeds.disconnected.pgm3d" ) ) ;
 		nSeeds = labelSeed->max() ;
 	trace.endBlock() ;
@@ -565,6 +697,10 @@ int main( int narg, char **argv ) {
 			                               iterSeed = labelSeed->begin() ;
 			while ( iterResult != iterResultEnd ) {
 				if ( *iterResult ) *iterResult += nSeeds ;
+				if ( *iterResult ) {
+					if ( !volumes.contains( *iterResult ) ) volumes.insert( (uint32_t) *iterResult, (uint32_t) 1 ) ;
+					else volumes[ *iterResult ]++ ;
+				}
 				*iterResult += *iterSeed ;
 				
 				iterResult++ ;
@@ -573,6 +709,12 @@ int main( int narg, char **argv ) {
 		}
 		save_minspace<LabelType>( *labelComp, QString( params._outputFilePath.c_str() ) ) ;
 	trace.endBlock() ;
+	
+	trace.beginBlock("Simplification of the scene");
+		iterative_merge( *labelComp, nSeeds, volumes );
+	trace.endBlock() ;
+	
+	
 	delete labelComp ;
 	delete labelSeed ;
 	
