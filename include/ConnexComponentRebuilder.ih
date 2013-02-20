@@ -4,6 +4,29 @@
 
 bool g_debug = false ;
 
+template <typename E> bool listcmp( const QList< E > &a, const QList< E > &b, uint position ) {
+	if ( a.size() <= position || b.size() <= position ) return false ;
+	uint k = 0 ;
+	while ( k <= position ) {
+		if ( a.at(k) != b.at(k) ) return false ;
+		k++ ;
+	}
+	return true ;
+}
+
+template <typename T, typename U, typename V> bool ConnexComponentRebuilder<T,U,V>::sortedListLessThan( const PtrIllDefinedInstance &a, const PtrIllDefinedInstance &b ) {
+	if ( a->_seeds.size() < b->_seeds.size() ) return true ;
+	if ( a->_seeds.size() > b->_seeds.size() ) return false ;
+	uint k = 0 ;
+	uint size = a->_seeds.size() ;
+	while ( k < size ) {
+		if ( a->_seeds.at(k) < b->_seeds.at(k) ) return true ;
+		if ( a->_seeds.at(k) > b->_seeds.at(k) ) return false ;
+		k++ ;
+	}
+	return false ;
+}
+
 template <typename T, typename U, typename V> ConnexComponentRebuilder<T,U,V>::~ConnexComponentRebuilder( ) {
 	if ( _allocated_depth ) delete _depth ;
 	
@@ -190,8 +213,128 @@ template <typename T, typename U, typename V> bool ConnexComponentRebuilder<T,U,
 		if ( !run( label, label, storeOverlaping ) ) return false ;
 	}
 	if ( !storeOverlaping ) return true ;
+	QList< IllDefinedInstance * > instances ;
+	for ( QMap< uint32_t, QMap< uint32_t, QList< Point > > >::ConstIterator source = _sharedVoxels.begin() ; source != _sharedVoxels.end() ; source++ ) {
+		if ( !_illDefined.contains( source.key() ) )
+			_illDefined.insert( source.key(), IllDefined() ) ;
+		IllDefined &src = _illDefined[ source.key() ] ;
+		for ( QMap< uint32_t, QList< Point > >::ConstIterator target = source.value().begin() ; target != source.value().end() ; target++ ) {
+			instances.append( new IllDefinedInstance ) ;
+			instances.back()->_seeds.append( source.key() ) ;
+			instances.back()->_seeds.append( target.key() ) ;
+			qSort( instances.back()->_seeds ) ;
+			src._instances.append( instances.back() ) ;
+			src._voxels.append( target.value() ) ;
+			
+			if ( !_illDefined.contains( target.key() ) )
+				_illDefined.insert( target.key(), IllDefined() ) ;
+
+			IllDefined &tgt = _illDefined[ target.key() ] ;
+			tgt._instances.append( instances.back() ) ;
+			tgt._voxels.append( target.value() ) ;
+		}
+	}
+	for ( typename QMap< uint32_t, IllDefined >::iterator iter = _illDefined.begin() ; iter != _illDefined.end() ; iter ++ ) {
+		qSort( iter.value()._voxels ) ;
+		/// remove duplicates
+		for ( uint v=0;v<iter.value()._voxels.size(); v++ )
+			while ( (v+1) <iter.value()._voxels.size() ) {
+				if ( iter.value()._voxels.at(v+1) ==iter.value()._voxels.at(v) )
+					iter.value()._voxels.removeAt( v+1 ) ;
+				else
+					break ;
+			}
+		
+	}
 	
+	/// instances having cardinality( _seeds ) = 2
 	
+	for ( typename QMap< uint32_t, IllDefined >::iterator iter = _illDefined.begin() ; iter != _illDefined.end() ; iter ++ )
+		for ( uint i = iter.value()._instances.size() ; i > 0 ; i-- ) {
+			if ( iter.value()._instances.at(i-1)->_seeds.at(0) != iter.key() ) continue ;
+			IllDefined & other = _illDefined[ iter.value()._instances.at(i-1)->_seeds.at(1) ] ;
+			for ( uint v = iter.value()._voxels.size() ; v > 0 ; v-- ) {
+				if ( other._voxels.contains( iter.value()._voxels.at( v-1 ) ) ) /// \note not optimal
+					iter.value()._instances.at(i-1)->_idxVoxels.insert( 0, v-1 ) ;
+			}
+		}
+	
+	/// instances having cardinality( _seeds ) > 2
+	bool newInstances = true ;
+	
+	qSort( instances.begin(), instances.end(), sortedListLessThan ) ;
+	
+	uint iBegin = 0,
+	     iEnd = instances.size() ;
+	while ( iBegin != iEnd ) {
+		uint length = instances.at( iBegin )->_seeds.size()-1 ;
+		for ( uint i = iBegin ; i < iEnd ; i++ ) {
+			IllDefinedInstance * r_instance_i = instances.at( i ) ;
+			
+			bool has_child = false ;
+			QList< uint > idx_child ;
+			for ( uint j=i+1 ; j < iEnd ; j++ ) {
+				IllDefinedInstance * r_instance_j = instances.at( j ) ;
+				if ( r_instance_j->_seeds.at(0) != r_instance_i->_seeds.at(0) )
+					break ;
+				if ( r_instance_j->_seeds.back() <= r_instance_i->_seeds.back() )
+					continue ;
+				if ( !listcmp<uint32_t>( r_instance_i->_seeds, r_instance_j->_seeds, length-1 ) )
+					continue ;
+				/// the only possibility to define this set
+				/// compute the intersection of voxels lists
+				QList< uint > idx ;
+				uint pos_i = r_instance_i->_idxVoxels.size(),
+					 pos_j = r_instance_j->_idxVoxels.size() ;
+				while ( pos_i > 0 && pos_j > 0 ) {
+					if ( r_instance_j->_idxVoxels.at( pos_j-1 ) == r_instance_i->_idxVoxels.at( pos_i-1 ) ) {
+						idx.insert( 0, r_instance_j->_idxVoxels.at( pos_j-1 ) ) ;
+						pos_i-- ;
+						pos_j-- ;
+					} else if ( r_instance_j->_idxVoxels.at( pos_j-1 ) > r_instance_i->_idxVoxels.at( pos_i-1 ) ) {
+						pos_j-- ;
+					} else {
+						pos_i-- ;
+					}
+				}
+				if ( idx.isEmpty() ) continue ;
+				has_child = true ;
+				instances.append( new IllDefinedInstance() ) ;
+				instances.back()->_seeds = r_instance_i->_seeds ;
+				instances.back()->_seeds.append( r_instance_j->_seeds.back() ) ;
+				instances.back()->_idxVoxels = idx ;
+				for ( int k = instances.back()->_seeds.size() ; k > 0 ; k-- ) _illDefined[ instances.back()->_seeds.at(k-1) ]._instances.append( instances.back() ) ;
+				
+				idx_child.append( idx ) ;
+				qSort( idx_child ) ;
+				/// remove duplicates
+				for ( uint k = 0 ; k < idx_child.size() ; k++ ) {
+					while ( k+1 < idx_child.size() ) {
+						if ( idx_child.at(k+1) == idx_child.at(k) )
+							idx_child.removeAt( k+1 ) ;
+						else
+							break ;
+					}
+				}
+			}
+			if ( has_child ) {
+				/// remove from S_1 x ... x S_n voxels being inside S_1 x ... x S_n x S_m
+				/// \warning elements have also to be removed from others fathers that do not contain all elements
+				uint pos = 0 ;
+				while ( ! idx_child.isEmpty() ) {
+					uint id = idx_child.takeFirst() ;
+					while ( r_instance_i->_idxVoxels.at( pos ) != id ) {
+						pos++ ;
+						assert( pos != r_instance_i->_idxVoxels.size() ) ;
+					}
+					r_instance_i->_idxVoxels.takeAt( pos ) ;
+				}
+			}
+			
+		}
+		iBegin = iEnd ;
+		iEnd = instances.size() ;
+	}
 	return true ;
 }
 
@@ -530,6 +673,7 @@ if ( g_debug ) std::cerr<<"[ Debug ] : "<<(*other)(*loc)<<" (depth "<< (*_depth)
 int32_t nVoxels = 0 ;
 	for ( Domain::ConstIterator pt = domain.begin() ; pt != domain.end(); pt++ )
 		if ( componentDGImg( *pt ) > 0 ) {
+			nVoxels++ ;
 			Point ptShift( (*pt).at(0)+_lower[selection].at(0),(*pt).at(1)+_lower[selection].at(1),(*pt).at(2)+_lower[selection].at(2) ) ;
 			if ( storeOverlaping )
 				if ( _result( ptShift.at(1),ptShift.at(0),ptShift.at(2) ) > 0 ) {
@@ -538,9 +682,9 @@ int32_t nVoxels = 0 ;
 					if ( !_sharedVoxels[ color ].contains( _result( ptShift.at(1),ptShift.at(0),ptShift.at(2) ) ) )
 						_sharedVoxels[ color ].insert( _result( ptShift.at(1),ptShift.at(0),ptShift.at(2) ), QList<Point> () ) ;
 					_sharedVoxels[ color ][ _result( ptShift.at(1),ptShift.at(0),ptShift.at(2) ) ].append( ptShift ) ;
+					continue ; // no overwrite, important!
 				}
 			_result( ptShift.at(1),ptShift.at(0),ptShift.at(2) ) = color ;
-			nVoxels++ ;
 		}
 if ( g_debug ) std::cerr<<"[ Debug ] : "<<nVoxels<<" voxels remaining function "<<__FUNCTION__<<" @ line "<<__LINE__<<std::endl;
 #endif

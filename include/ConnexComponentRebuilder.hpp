@@ -19,11 +19,19 @@ public:
 	typedef RDT::OutputImage									OutImage ;
 	typedef std::pair< DigitalSet*, Domain* >					LayerType ;
 	typedef std::pair<Point,Point>								VoxelsPair ;
-	typename typedef struct _IllRebuild {
+	typedef struct _IllDefinedInstance {
 		QList< V > _seeds ;
+		/// \def _idxVoxels indices of voxels that can be attached to any region enumerated in _seeds
+		/// the index values are those of the first region (i.e. _seeds.at(0))
+		/// \note if a voxel can be attached both to A, B and C, it does not appear in the instances (A,B), (B,C), (B,A) but only in (A,B,C).
+		///       Thus, if it can be attached too to D, it does not appear in (A,B,C) but in (A,B,C,D).
+		QList< uint >     _idxVoxels ;
+	} IllDefinedInstance ;
+	typedef IllDefinedInstance* PtrIllDefinedInstance ;
+	typedef struct _IllDefined {
+		QList< PtrIllDefinedInstance > _instances ;
 		QList< Point >     _voxels ;
-	} IllRebuild ;
-
+	} IllDefined ;
 	
 	
 	ConnexComponentRebuilder			( const BillonTpl< T > &, QList< T > *ignoring = 0 ) ;
@@ -43,10 +51,15 @@ public:
 	QMap< uint32_t,
 	       QMap< uint32_t, QList< Point > > > & sharedVoxels() { return _sharedVoxels ; }
 	
+	QMap< uint32_t, IllDefined > &              illDefined() { return _illDefined ; }
+	
 protected:
 	void					init 		( const BillonTpl< T > &, QList< T > *ignoring) ;
 	bool					setBounds	( uint32_t selection ) ;
 	void                    set_voxels  ( const OutImage & img, const int * plane, const Point &seed, QList<Point> &crop, const Point &refPoint, U maxDist  ) ;
+	
+	
+	static bool sortedListLessThan( const PtrIllDefinedInstance &a, const PtrIllDefinedInstance &b ) ;
 private:
 	QMap< uint32_t, LayerType > 			_layers ;
 	BillonTpl< U >							*_depth ;
@@ -56,6 +69,9 @@ private:
 	QMap< uint32_t, uint32_t >              _volumes ;
 	QMap< uint32_t,
 	       QMap< uint32_t, QList<Point> > > _sharedVoxels ;
+	
+	QMap< uint32_t, IllDefined >            _illDefined ;
+	
 	uint32_t								_n_labels ;
 	uint32_t								_n_rows ;
 	uint32_t								_n_cols ;
