@@ -643,23 +643,21 @@ int main( int narg, char **argv ) {
 	/// reconstruct each individual connected component being a seed
 	///
 	trace.beginBlock("Reconstructing seeds") ;
-		ConnexComponentRebuilder< LabelType, DepthType, LabelType > CCR( *labelSeed );
+		typedef ConnexComponentRebuilder< LabelType, DepthType, LabelType > CCRType ;
+		CCRType CCR( *labelSeed );
 		CCR.setDepth( QString( params._depthFilePath.c_str() ) ) ;
 		LabelType nSeeds = labelSeed->max() ;
-		for ( LabelType i=1;i<= nSeeds;i++) {
-			std::cerr<<"step "<<(int)i<<" / "<<(int)nSeeds<<std::endl;
-			CCR.run( i,i ) ;
-		}
+		CCR.run( true ) ;
 		delete labelSeed ;
 		labelSeed = new BillonTpl< LabelType >( CCR.result() ) ;
-		QMap< LabelType, QMap < LabelType, QList<Point> > > IllDefined( CCR.sharedVoxels() );
+		QMap< LabelType, QMap < LabelType, QList<Point> > > IllDefinedExt( CCR.sharedVoxels() );
 		QMap< LabelType, uint32_t > nShared ;
 		{
 			QMap< LabelType, QMap < LabelType, QList<Point> > >::ConstIterator iterIllDefined ;
 			QMap < LabelType, QList<Point> >::ConstIterator iterIllDefinedWith ;
 			
 			trace.info() << "== ill defined belonging =="<<std::endl;
-			for ( iterIllDefined = IllDefined.begin() ; iterIllDefined != IllDefined.end() ; iterIllDefined ++ )
+			for ( iterIllDefined = IllDefinedExt.begin() ; iterIllDefined != IllDefinedExt.end() ; iterIllDefined ++ )
 				for ( iterIllDefinedWith = iterIllDefined.value().begin() ; iterIllDefinedWith != iterIllDefined.value().end() ; iterIllDefinedWith++ ) {
 					trace.info() << iterIllDefined.key()<<" x "<<iterIllDefinedWith.key()<<" :" ;
 					for ( uint iVoxel = iterIllDefinedWith.value().size() ; iVoxel > 0 ; iVoxel-- )
@@ -670,6 +668,26 @@ int main( int narg, char **argv ) {
 					nShared[ iterIllDefined.key() ] += iterIllDefinedWith.value().size() ;
 					nShared[ iterIllDefinedWith.key() ] += iterIllDefinedWith.value().size() ;
 				}
+		}
+		QMap< LabelType, CCRType::IllDefined > &IllDefinedStrExt = CCR.illDefined() ;
+		for( QMap< LabelType, CCRType::IllDefined >::ConstIterator iter = IllDefinedStrExt.begin() ; iter != IllDefinedStrExt.end() ; iter++ ) {
+			std::cerr<< iter.key()<<" : "<<std::endl;
+			std::cerr<< "\tVoxels :";
+			for ( QList<Point>::ConstIterator v = iter.value()._voxels.begin() ; v != iter.value()._voxels.end() ; v++ )
+				std::cerr<<" "<<(*v).at(0)<<","<<(*v).at(1)<<","<<(*v).at(2) ;
+			std::cerr<<std::endl;
+			std::cerr<<"--"<<std::endl;
+			for ( QList<CCRType::IllDefinedInstance*>::ConstIterator inst = iter.value()._instances.begin() ; inst != iter.value()._instances.end() ; inst++ ) {
+				std::cerr<<"\t\tCC :";
+				for ( QList<LabelType>::ConstIterator s = (*inst)->_seeds.begin() ; s != (*inst)->_seeds.end() ; s++ )
+					std::cerr<<" "<<*s ;
+				std::cerr<<std::endl;
+				std::cerr<<"\t\tVI :";
+				for ( QList<uint>::ConstIterator v = (*inst)->_idxVoxels.begin() ; v != (*inst)->_idxVoxels.end() ; v++ )
+					std::cerr<<" "<<*v ;
+				std::cerr<<std::endl;
+				std::cerr<<"--"<<std::endl;
+			}
 		}
 		
 		
