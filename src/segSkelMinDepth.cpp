@@ -672,20 +672,11 @@ int main( int narg, char **argv ) {
 		QMap< LabelType, CCRType::IllDefined > &IllDefinedStrExt = CCR.illDefined() ;
 		for( QMap< LabelType, CCRType::IllDefined >::ConstIterator iter = IllDefinedStrExt.begin() ; iter != IllDefinedStrExt.end() ; iter++ ) {
 			std::cerr<< iter.key()<<" : "<<std::endl;
-			std::cerr<< "\tVoxels :";
-			for ( QList<Point>::ConstIterator v = iter.value()._voxels.begin() ; v != iter.value()._voxels.end() ; v++ )
-				std::cerr<<" "<<(*v).at(0)<<","<<(*v).at(1)<<","<<(*v).at(2) ;
-			std::cerr<<std::endl;
+			std::cerr<< "\tVoxels :"<<iter.value().voxels_as_string()<<std::endl;
 			std::cerr<<"--"<<std::endl;
 			for ( QList<CCRType::IllDefinedInstance*>::ConstIterator inst = iter.value()._instances.begin() ; inst != iter.value()._instances.end() ; inst++ ) {
-				std::cerr<<"\t\tCC :";
-				for ( QList<LabelType>::ConstIterator s = (*inst)->_seeds.begin() ; s != (*inst)->_seeds.end() ; s++ )
-					std::cerr<<" "<<*s ;
-				std::cerr<<std::endl;
-				std::cerr<<"\t\tVI :";
-				for ( QList<uint>::ConstIterator v = (*inst)->_idxVoxels.begin() ; v != (*inst)->_idxVoxels.end() ; v++ )
-					std::cerr<<" "<<*v ;
-				std::cerr<<std::endl;
+				std::cerr<<"\t\tCC :"<<(*inst)->seeds_as_string()<<std::endl;
+				std::cerr<<"\t\tVI :"<<(*inst)->voxels_as_string()<<std::endl;
 				std::cerr<<"--"<<std::endl;
 			}
 		}
