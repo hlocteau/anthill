@@ -27,6 +27,30 @@ template <typename T, typename U, typename V> bool ConnexComponentRebuilder<T,U,
 	return false ;
 }
 
+template <typename T, typename U, typename V> std::string ConnexComponentRebuilder<T,U,V>::IllDefinedInstance::voxels_as_string( ) const {
+	std::ostringstream s;
+	s << "VI ("<< _idxVoxels.size() <<") : ";
+	std::copy( _idxVoxels.begin(), _idxVoxels.end(), std::ostream_iterator< uint >( s, " " ) ) ;
+	return s.str() ;
+}
+
+template <typename T, typename U, typename V> std::string ConnexComponentRebuilder<T,U,V>::IllDefinedInstance::seeds_as_string( ) const {
+	std::ostringstream s;
+	s << "Seeds : ";
+	std::copy( _seeds.begin(), _seeds.end(), std::ostream_iterator< V >( s, " " ) ) ;
+	return s.str() ;
+}
+
+template <typename T, typename U, typename V> std::string ConnexComponentRebuilder<T,U,V>::IllDefined::voxels_as_string( ) const {
+	std::ostringstream s;
+	s << "Voxels ("<< _voxels.size() <<") : ";
+	for ( uint k=0;k<_voxels.size() ; k++ )
+		s<<" "<<_voxels.at(k).at(0)<<","<<_voxels.at(k).at(1)<<","<<_voxels.at(k).at(2) ;
+	return s.str() ;
+}
+
+
+
 template <typename T, typename U, typename V> ConnexComponentRebuilder<T,U,V>::~ConnexComponentRebuilder( ) {
 	if ( _allocated_depth ) delete _depth ;
 	
@@ -207,6 +231,110 @@ template <typename T, typename U, typename V> void ConnexComponentRebuilder<T,U,
 
 }
 
+/**
+ * \brief retrieve from the input set, the instance (father) being equal to elem (child) but the missing element
+ * \param [in] inst : the input set
+ * \param [in] seeds : the content of the child
+ * \param [in] missing : the label of the region that is omitted in the father
+ * \return the specific father of seeds
+ */
+template <typename T, typename U, typename V> uint ConnexComponentRebuilder<T,U,V>::index_of_parent( const QList < PtrIllDefinedInstance > & inst, const QList<V> &seeds, uint missing, bool &correct ) {
+	uint i_begin = 0 ;
+	uint i_end = inst.size() ;
+	uint length = seeds.size() - 1 ;
+	correct = false ;
+
+	while ( i_begin != i_end ) {
+		PtrIllDefinedInstance father = inst.at( i_begin ) ;
+		
+std::cout<<"Candidate "<<__FUNCTION__<<" "<< father->seeds_as_string()<<std::endl;
+		
+		if ( father->_seeds.size() == length ) {
+			uint iSeedChild = 0 ;
+			uint iSeed ;
+			for ( iSeed = 0 ; iSeed < length ; iSeed++ ) {
+				if ( seeds.at( iSeed ) == missing ) {
+					iSeedChild++ ;
+				}
+				if ( father->_seeds.at( iSeed ) != seeds.at( iSeedChild ) ) {
+					std::cout<<"\t\tno (value)"<<std::endl;
+					break ;
+				} else {
+					iSeedChild++ ;
+				}
+			}
+			if ( iSeed == length ) {
+				std::cout<<"\t\tyes"<<std::endl;
+				correct = true ;
+				return i_begin ;
+			}
+		} else {
+			std::cout<<"\t\tno (size)"<<std::endl;
+		}
+		i_begin++ ;
+	}
+	return 0 ;
+}
+
+/**
+ * \brief retrieve from the input set, the instance (father) being equal to elem (child) but the missing element
+ * \param [in] inst : the input set
+ * \param [in] elem : the child
+ * \param [in] missing : the label of the region that is omitted in the father
+ * \return the specific father of elem
+ */
+template <typename T, typename U, typename V> uint ConnexComponentRebuilder<T,U,V>::index_of_parent( const QList < PtrIllDefinedInstance > & inst, const PtrIllDefinedInstance elem, uint missing, bool &correct ) {
+	return index_of_parent( inst, elem->_seeds, missing,correct ) ;
+}
+
+template <typename T, typename U, typename V> 
+void ConnexComponentRebuilder<T,U,V>::translate_idxVoxel( const QList< uint > &idx_voxels, uint32_t ref, uint32_t newref, QList< uint > &idx_voxels_tr ) {
+	uint number = idx_voxels.size() ;
+	Point voxel ;
+	const IllDefined &refCC = _illDefined[ ref ] ;
+	const IllDefined &newRefCC = _illDefined[ newref ] ;
+	for ( uint i = 0 ; i < number ; i++ ) {
+		voxel = refCC._voxels.at( idx_voxels.at( i ) ) ;
+		int j = newRefCC._voxels.indexOf( voxel ) ;
+		if ( j != -1 )
+			idx_voxels_tr.append( (uint) j ) ;
+	}
+	qSort( idx_voxels_tr ) ;
+}
+
+template <typename T, typename U, typename V> 
+bool ConnexComponentRebuilder<T,U,V>::split_voxels( PtrIllDefinedInstance father, const QList< uint > childVoxels ) {
+	uint i_child = 0,
+	     i_father = 0,
+	     end_child = childVoxels.size() ;
+	
+	for ( ; i_child != end_child ; i_child++ ) {
+		while ( father->_idxVoxels.at( i_father ) < childVoxels.at( i_child ) ) {
+			i_father++ ;
+			if( i_father == father->_idxVoxels.size() ) break ;
+		}
+		if ( i_father == father->_idxVoxels.size() ) break ;
+		if ( father->_idxVoxels.at( i_father ) == childVoxels.at( i_child ) ) {
+			father->_idxVoxels.takeAt( i_father ) ;
+			if ( i_father == father->_idxVoxels.size() ) {
+				i_child++ ;
+				break ;
+			}
+		} else {
+			std::cerr<<"Warning : can not remove voxel "<<childVoxels.at( i_child )<<" from Region("<< father->seeds_as_string() ;
+			std::cerr<<") being on "<< father->_idxVoxels.at( i_father )<<std::endl;
+			//i_father++ ;
+		}
+	}
+	return ( i_child == end_child ) ;
+}
+
+template <typename T, typename U, typename V> 
+bool ConnexComponentRebuilder<T,U,V>::split_voxels( PtrIllDefinedInstance father, const PtrIllDefinedInstance child ) {
+	return split_voxels( father, child->_idxVoxels ) ;
+}
+
+
 template <typename T, typename U, typename V> bool ConnexComponentRebuilder<T,U,V>::run( bool storeOverlaping ) {
 	for ( uint32_t label = 1 ; label < _n_labels ; label++ ) {
 		if ( _layers[ label ].first == 0 ) continue ;
@@ -263,7 +391,18 @@ template <typename T, typename U, typename V> bool ConnexComponentRebuilder<T,U,
 	bool newInstances = true ;
 	
 	qSort( instances.begin(), instances.end(), sortedListLessThan ) ;
-	
+
+/// display 9 and 11 instances
+for ( uint kk = 9 ; kk <= 11 ; kk += 2 ) {
+	std::cout<<"Seed "<<kk<<std::endl;
+	for ( uint k = 0 ; k < _illDefined[ kk ]._instances.size() ; k++ )
+		std::cout<<"\t"<<_illDefined[ kk ]._instances.at( k )->seeds_as_string()<<std::endl;
+}
+
+
+
+
+
 	uint iBegin = 0,
 	     iEnd = instances.size() ;
 	while ( iBegin != iEnd ) {
@@ -272,6 +411,8 @@ template <typename T, typename U, typename V> bool ConnexComponentRebuilder<T,U,
 			IllDefinedInstance * r_instance_i = instances.at( i ) ;
 			
 			bool has_child = false ;
+			QList< PtrIllDefinedInstance > & inst = _illDefined[ r_instance_i->_seeds.at(0) ]._instances ;
+			uint child_begin = inst.size() ;
 			QList< uint > idx_child ;
 			for ( uint j=i+1 ; j < iEnd ; j++ ) {
 				IllDefinedInstance * r_instance_j = instances.at( j ) ;
@@ -298,10 +439,20 @@ template <typename T, typename U, typename V> bool ConnexComponentRebuilder<T,U,
 					}
 				}
 				if ( idx.isEmpty() ) continue ;
+if ( !has_child ) {
+	/// print father once
+	std::cout<<"Father generates : "<<r_instance_i->seeds_as_string()<<std::endl;
+}
 				has_child = true ;
 				instances.append( new IllDefinedInstance() ) ;
 				instances.back()->_seeds = r_instance_i->_seeds ;
 				instances.back()->_seeds.append( r_instance_j->_seeds.back() ) ;
+				
+	/// print generate child
+	std::cout<<"\tChild : "<<instances.back()->seeds_as_string()<<std::endl;
+				
+				
+				
 				instances.back()->_idxVoxels = idx ;
 				for ( int k = instances.back()->_seeds.size() ; k > 0 ; k-- ) _illDefined[ instances.back()->_seeds.at(k-1) ]._instances.append( instances.back() ) ;
 				
@@ -320,23 +471,136 @@ template <typename T, typename U, typename V> bool ConnexComponentRebuilder<T,U,
 			if ( has_child ) {
 				/// remove from S_1 x ... x S_n voxels being inside S_1 x ... x S_n x S_m
 				/// \warning elements have also to be removed from others fathers that do not contain all elements
-				uint pos = 0 ;
-				while ( ! idx_child.isEmpty() ) {
-					uint id = idx_child.takeFirst() ;
-					while ( r_instance_i->_idxVoxels.at( pos ) != id ) {
-						pos++ ;
-						assert( pos != r_instance_i->_idxVoxels.size() ) ;
+				bool found ;
+				uint child_end = inst.size() ;
+				PtrIllDefinedInstance parent ;
+				
+				for ( uint child = child_begin ; child != child_end ; child++ ) {
+
+	/// print child
+	std::cout<<"Child : "<<inst.at( child )->seeds_as_string()<<std::endl;
+
+
+					if ( !split_voxels( r_instance_i, inst.at( child ) ) ) {
+						std::cerr<<"Problem @ line "<<__LINE__<<std::endl;
+						for ( uint k=0;k<inst.at(child)->_seeds.size() ; k++ )
+							std::cerr<<"\t"<<_illDefined[ inst.at(child)->_seeds.at(k) ].voxels_as_string()<<std::endl;
+						std::cerr<<std::endl;
 					}
-					r_instance_i->_idxVoxels.takeAt( pos ) ;
+
+
+					for ( uint without = 1 ; without <= length ; without++ ) {
+						uint iparent = index_of_parent( inst, inst.at( child ), inst.at( child )->_seeds.at(without), found ) ;
+						if ( found ) {
+							parent = inst.at( iparent ) ;
+
+	/// print one of the parent
+	std::cout<<"\thas parent : "<<parent->seeds_as_string()<<std::endl;
+	std::cout<<"\t\tVoxels (before) : "<<parent->voxels_as_string()<<std::endl;
+							/// remove child's voxels from parent
+							if ( !split_voxels( parent, inst.at( child ) ) ) {
+								std::cerr<<"Problem @ line "<<__LINE__<<std::endl;
+								for ( uint k=0;k<inst.at(child)->_seeds.size() ; k++ )
+									std::cerr<<"\t"<<_illDefined[ inst.at(child)->_seeds.at(k) ].voxels_as_string()<<std::endl;
+								std::cerr<<std::endl;
+							}
+	std::cout<<"\t\tVoxels (after) : "<<parent->voxels_as_string()<<std::endl;
+						}
+					}
+					 /// we first need to translate indices! (not the same initial set of voxels)
+					uint iparent = index_of_parent( _illDefined[ r_instance_i->_seeds.at(1) ]._instances, inst.at( child ), r_instance_i->_seeds.at(0), found ) ;
+					if ( found ) {
+						parent = _illDefined[ r_instance_i->_seeds.at(1) ]._instances.at( iparent ) ;
+						QList< uint > idx_child_tr ;
+						translate_idxVoxel( idx_child, r_instance_i->_seeds.at(0), r_instance_i->_seeds.at(1), idx_child_tr ) ;
+
+
+	/// print one of the parent
+	std::cout<<"\thas parent : "<<parent->seeds_as_string()<<std::endl;
+	std::cout<<"\t\tVoxels (before) : "<<parent->voxels_as_string()<<std::endl;
+	std::cout<<"\t\tAiming to remove : ";
+	std::copy( idx_child_tr.begin(), idx_child_tr.end(), std::ostream_iterator< uint32_t >( std::cout, " " ) ) ;
+	std::cout<<std::endl;
+						/// remove child's voxels from parent
+						if (!split_voxels( parent, idx_child_tr ) ) {
+							std::cerr<<"Problem @ line "<<__LINE__<<std::endl;
+							for ( uint k=0;k<inst.at(child)->_seeds.size() ; k++ )
+								std::cerr<<"\t"<<_illDefined[ inst.at(child)->_seeds.at(k) ].voxels_as_string()<<std::endl;
+							std::cerr<<std::endl;							
+						}
+					}
 				}
+				
 			}
 			
 		}
 		iBegin = iEnd ;
 		iEnd = instances.size() ;
 	}
+	
+	for ( typename QMap< uint32_t, IllDefined >::ConstIterator iter= _illDefined.begin();iter!= _illDefined.end();iter++ ) {
+		int n = 0 ;
+		for ( int i_inst=0;i_inst != iter.value()._instances.size();i_inst++) {
+			const PtrIllDefinedInstance & inst = iter.value()._instances.at( i_inst ) ;
+			n += inst->_idxVoxels.size() ;
+		}
+		std::cerr<<"Key "<<iter.key()<<" total "<<iter.value()._voxels.size() <<" distributed "<< n <<" "<<( n == iter.value()._voxels.size() ? "correct" : "wrong" ) << std::endl ;
+		if ( n !=iter.value()._voxels.size() ) explicit_missed_voxels( iter.key() ) ;
+	}
+	
 	return true ;
 }
+template <typename T, typename U, typename V> 
+void ConnexComponentRebuilder<T,U,V>::explicit_missed_voxels( uint32_t key ) const {
+	typename QMap< uint32_t, IllDefined >::ConstIterator iter = _illDefined.constFind( key ) ;
+	typename QMap< uint32_t, IllDefined >::ConstIterator ref ;
+	QList< Point > distributedVoxels ;
+	for ( int i_inst=0;i_inst != iter.value()._instances.size();i_inst++) {
+		const PtrIllDefinedInstance & inst = iter.value()._instances.at( i_inst ) ;
+		ref = _illDefined.constFind( inst->_seeds.at(0) ) ;
+		for ( uint v = 0 ; v < inst->_idxVoxels.size() ; v++ )
+			distributedVoxels.append( ref.value()._voxels.at( inst->_idxVoxels.at( v ) ) ) ;
+	}
+	qSort( distributedVoxels ) ;
+	std::cerr<<distributedVoxels.size()<<" gathered"<<std::endl;
+	/// remove duplicates if any
+	for ( uint v=0;v<distributedVoxels.size(); v++ )
+		while ( (v+1) <distributedVoxels.size() ) {
+			if ( distributedVoxels.at(v+1) ==distributedVoxels.at(v) )
+				distributedVoxels.removeAt( v+1 ) ;
+			else
+				break ;
+		}
+	std::cerr<<distributedVoxels.size()<<" remaining after removing duplicates"<<std::endl;
+	
+	const QList< Point > & startingVoxels = iter.value()._voxels ;
+	
+	uint i_dist = 0,
+	     i_start = 0,
+	     end_dist = distributedVoxels.size(),
+	     end_start = startingVoxels.size() ;
+	while ( i_dist != end_dist && i_start != end_start ) {
+		if ( distributedVoxels.at( i_dist ) == startingVoxels.at( i_start ) ) {
+			i_dist++ ;
+			i_start++ ;
+		} else if ( distributedVoxels.at( i_dist ) > startingVoxels.at( i_start ) ) {
+			std::cerr<<"only in start : "<<startingVoxels.at( i_start )<<std::endl;
+			i_start++ ;
+		} else {
+			std::cerr<<"only in dist : "<<distributedVoxels.at( i_dist )<<std::endl;
+			i_dist++ ;
+		}
+	}
+	while ( i_dist != end_dist ) {
+		std::cerr<<"only in dist : "<<distributedVoxels.at( i_dist )<<std::endl;
+		i_dist++ ;
+	}
+	while ( i_start != end_start ) {
+		std::cerr<<"only in start : "<<startingVoxels.at( i_start )<<std::endl;
+		i_start++ ;
+	}
+}
+
 
 template <typename T, typename U, typename V> void ConnexComponentRebuilder<T,U,V>::set_voxels( const OutImage & img, const int * plane, const Point &seed, QList<Point> &crop, const Point &refPoint, U maxDist ) {
 	QList<Point> L ;
