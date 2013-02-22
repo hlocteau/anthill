@@ -512,6 +512,64 @@ template <typename T, typename U, typename V> void ConnexComponentRebuilder<T,U,
 	
 }
 
+template <typename T, typename U, typename V> void ConnexComponentRebuilder<T,U,V>::post_processing( ) {
+	if ( _illDefined.empty() ) return ;
+	
+	QList< PtrIllDefinedInstance > priorityProblem ;
+	typename QList< PtrIllDefinedInstance >::Iterator problem ;
+	QMap< uint32_t, uint32_t > penaltyVolume ;
+	for ( typename QMap< uint32_t, IllDefined >::ConstIterator iter= _illDefined.begin();iter!= _illDefined.end();iter++ ) {
+		/// seed's connected components are sorted in descending order of their size (pessimistic value)
+		penaltyVolume[ iter.key() ] = iter.value()._voxels.size() ;
+		
+		/// problems are sorted in descending order of their size
+		for ( uint k = 0 ; k < iter.value()._instances.size() ; k++ ) {
+			PtrIllDefinedInstance p_inst = iter.value()._instances.at( k ) ;
+			if ( p_inst->_seeds.at(0) != iter.key() ) continue ;
+			problem = priorityProblem.begin() ;
+
+			while ( problem != priorityProblem.end() ) {
+				if ( p_inst->_idxVoxels.size() > (*problem)->_idxVoxels.size() ) break ;
+				problem++ ;
+			}
+			priorityProblem.insert( problem, p_inst ) ;			
+		}
+	}
+	while ( ! priorityProblem.isEmpty() ) {
+		PtrIllDefinedInstance p_inst = priorityProblem.takeAt(0) ;
+		uint winner = p_inst->_seeds.at(0) ;
+		const QList< Point > &L = _illDefined[ winner ]._voxels ;
+		for ( uint s = 1 ; s < p_inst->_seeds.size() ; s++ ) {
+			if ( _volumes[ winner ] - penaltyVolume[ winner ] < _volumes[ p_inst->_seeds.at(s) ] - penaltyVolume[ p_inst->_seeds.at(s) ] )
+				winner = p_inst->_seeds.at(s) ;
+		}
+
+		for ( uint v = 0 ; v < p_inst->_idxVoxels.size() ; v++ ) {
+			Point voxel = L.at( p_inst->_idxVoxels.at(v) ) ;
+			_result( voxel.at(1),voxel.at(0),voxel.at(2) ) = winner ;
+		}
+		 
+		QList< V > Seeds = p_inst->_seeds ;
+		uint extra = p_inst->_idxVoxels.size() ;
+		for ( uint s = 0 ; s < Seeds.size() ; s++ ) {
+			penaltyVolume[ Seeds.at(s) ] -= extra ;
+			if ( Seeds.at(s) != winner )
+				_volumes[ Seeds.at(s) ] -= extra ;
+			_illDefined[ Seeds.at(s) ]._instances.removeOne( p_inst ) ;
+			if ( _illDefined[ Seeds.at(s) ]._instances.isEmpty() ) _illDefined[ Seeds.at(s) ]._voxels.clear() ;
+		}
+		delete p_inst ;
+	 }
+	/// remove empty regions
+	for ( typename QMap< V, IllDefined >::Iterator iter = _illDefined.begin() ; iter != _illDefined.end() ;  ) { 
+		if ( _volumes[ iter.key() ] == 0 ) {
+			_volumes.remove( iter.key() ) ;
+			iter = _illDefined.erase( iter ) ;
+		} else
+			iter++ ;
+	}
+}
+
 template <typename T, typename U, typename V> bool ConnexComponentRebuilder<T,U,V>::run( bool storeOverlaping ) {
 	for ( uint32_t label = 1 ; label < _n_labels ; label++ ) {
 		if ( _layers[ label ].first == 0 ) continue ;
@@ -886,6 +944,7 @@ for ( uint i_seed = 0 ; watch_dog && i_seed < instances.at( child )->_seeds.size
 			}
 		}
 	}
+	post_processing();
 	return true ;
 }
 template <typename T, typename U, typename V> 

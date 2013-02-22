@@ -52,6 +52,8 @@ public:
 		return _result ;
 	}
 	
+	void                    post_processing  ( ) ;
+	
 	QMap< uint32_t, uint32_t > &volumes() { return _volumes ; }
 	QMap< uint32_t,
 	       QMap< uint32_t, QList< Point > > > & sharedVoxels() { return _sharedVoxels ; }
