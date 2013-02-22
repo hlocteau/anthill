@@ -185,7 +185,7 @@ template <typename T > void merge_adjacent_cc( BillonTpl< T > *label, QMap< uint
 	extract_adjacency( *label, touching, nSeeds ) ;
 	
 	for ( iterRewrite = touching.begin() ; iterRewrite != touching.end() ; iterRewrite++ ) {
-		std::cout<<cast_integer<T, int>(iterRewrite.key())<<" : ";
+		std::cout<<__FUNCTION__<<" @ line "<<__LINE__<<" "<<cast_integer<T, int>(iterRewrite.key())<<" : ";
 		for ( int k=0;k<iterRewrite.value().size();k++ )
 			std::cout<<cast_integer<T, int>(iterRewrite.value().at(k))<<" ";
 		std::cout<<std::endl;
@@ -523,9 +523,10 @@ void iterative_merge( BillonTpl< LabelType > &labelComp, LabelType nSeeds, QMap<
 	trace.info() << "== Volumes | Adjacencies =="<<std::endl;
 	for ( QMap< uint32_t, uint32_t >::iterator iterVol = volumes.begin() ; iterVol != volumes.end() ; iterVol++ ) {
 		trace.info() <<"cc # "<<(int) iterVol.key()<<" : "<<(int) iterVol.value()<<" | ";
-		if ( !adjacencies.contains( iterVol.key() ) ) continue ;
-		for ( adj = adjacencies[ iterVol.key() ].begin() ; adj != adjacencies[ iterVol.key() ].end() ; adj++ )
-			trace.info()<<*adj<<" " ;
+		if ( !adjacencies.contains( iterVol.key() ) ) { std::cerr<<"0"<<std::endl;continue ;}
+		//for ( adj = adjacencies[ iterVol.key() ].begin() ; adj != adjacencies[ iterVol.key() ].end() ; adj++ )
+		//	trace.info()<<*adj<<" " ;
+		std::cerr<<adjacencies[ iterVol.key() ].size()<<std::endl;
 		trace.info()<<std::endl;
 	}
 	
@@ -595,12 +596,19 @@ void iterative_merge( BillonTpl< LabelType > &labelComp, LabelType nSeeds, QMap<
 	}
 	trace.info() << "== Volumes =="<<std::endl;
 	for ( QMap< uint32_t, uint32_t >::iterator iterVol = volumes.begin() ; iterVol != volumes.end() ; iterVol++ ) {
-		trace.info() <<"cc # "<<(int) iterVol.key()<<" : "<<(int) iterVol.value()<<std::endl;
-		if ( !adjacencies.contains( iterVol.key() ) ) continue ;
-		for ( adj = adjacencies[ iterVol.key() ].begin() ; adj != adjacencies[ iterVol.key() ].end() ; adj++ )
-			trace.info()<<*adj<<" " ;
-		trace.info()<<std::endl;
+		std::cerr <<"cc # "<<cast_integer<uint32_t,int32_t>( iterVol.key() )<<" : "<<cast_integer<uint32_t,int64_t>( iterVol.value() ) ;
+		if ( !adjacencies.contains( iterVol.key() ) ) { std::cerr<<" 0"<<std::endl; continue ; }
+		std::cerr<<" "<<adjacencies[ iterVol.key() ].size()<<" ";
+		//for ( adj = adjacencies[ iterVol.key() ].begin() ; adj != adjacencies[ iterVol.key() ].end() ; adj++ )
+		//	std::cerr<<*adj<<" " ;
+		std::cerr<<std::endl;
 	}
+	
+	
+	/// attach small region's voxels to a bigger one in it neighborhood
+
+	
+	
 }
 
 #define SAFETY_MEMORY_CONSUPTION
@@ -685,14 +693,15 @@ int main( int narg, char **argv ) {
 		trace.info() << "== Volumes seeds (1) =="<<std::endl;
 		QMap< uint32_t, uint32_t > volumes( CCR.volumes() );
 		for ( QMap< uint32_t, uint32_t >::iterator iterVol = volumes.begin() ; iterVol != volumes.end() ; iterVol++ )
-			trace.info() <<"cc # "<<(int) iterVol.key()<<" : "<<(int) iterVol.value()<<"   "<<(int) ( IllDefinedStrExt.contains( iterVol.key() ) ? IllDefinedStrExt[ iterVol.key() ]._voxels.size() : 0 ) <<std::endl;
+			trace.info() <<"cc # "<<(int) iterVol.key()<<" : "<<cast_integer<uint32_t,int64_t>( iterVol.value() )<<"   "<<(int) ( IllDefinedStrExt.contains( iterVol.key() ) ? IllDefinedStrExt[ iterVol.key() ]._voxels.size() : 0 ) <<std::endl;
 		
 		save_minspace<LabelType>( *labelSeed, QString( "/tmp/rebuild.seeds.pgm3d" ) ) ;
+		
 		merge_adjacent_cc<LabelType>( labelSeed, volumes ) ;
 		
 		trace.info() << "== Volumes seeds (2) =="<<std::endl;
 		for ( QMap< uint32_t, uint32_t >::iterator iterVol = volumes.begin() ; iterVol != volumes.end() ; iterVol++ )
-			trace.info() <<"cc # "<<(int) iterVol.key()<<" : "<<(int) iterVol.value()<<std::endl;
+			trace.info() <<"cc # "<<(int) iterVol.key()<<" : "<<cast_integer<uint32_t,int64_t>( iterVol.value() )<<std::endl;
 		
 		save_minspace<LabelType>( *labelSeed, QString( "/tmp/rebuild.seeds.disconnected.pgm3d" ) ) ;
 		nSeeds = labelSeed->max() ;
