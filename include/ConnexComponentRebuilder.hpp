@@ -81,7 +81,7 @@ private:
 	       QMap< uint32_t, QList<Point> > > _sharedVoxels ;
 	
 	QMap< uint32_t, IllDefined >            _illDefined ;
-	
+	QMap< Point, QList< V > >      _ill_per_voxel ;
 	uint32_t								_n_labels ;
 	uint32_t								_n_rows ;
 	uint32_t								_n_cols ;
