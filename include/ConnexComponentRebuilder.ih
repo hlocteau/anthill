@@ -27,6 +27,58 @@ template <typename T, typename U, typename V> bool ConnexComponentRebuilder<T,U,
 	return false ;
 }
 
+template< typename X> void diff_sorted_list( const QList<X> &a, const char *name_a, const QList<X> &b, const char *name_b ) {
+	bool display_once_warning = true ;
+	
+	bool have_been_displayed_only_a = false ;
+	bool have_been_displayed_only_b = false ;
+	
+	uint cur_a = 0,
+	     cur_b = 0,
+	     end_a = a.size(),
+	     end_b = b.size() ;
+	bool are_distinct = false ;
+	while ( cur_a != end_a && cur_b != end_b ) {
+		if ( a.at( cur_a ) == b.at( cur_b ) ) {
+			cur_a++ ;
+			cur_b++ ;
+		} else if ( a.at( cur_a ) > b.at( cur_b ) ) {
+			if ( !display_once_warning || !have_been_displayed_only_b ) {
+				have_been_displayed_only_b = true ;
+				std::cerr<<"only in "<<name_b<<" : "<<b.at( cur_b )<<std::endl;
+				are_distinct = true ;
+			}
+			cur_b++ ;
+		} else {
+			if ( !display_once_warning || !have_been_displayed_only_a ) {
+				have_been_displayed_only_a = true ;
+				std::cerr<<"only in "<<name_a<<" : "<<a.at( cur_a )<<std::endl;
+				are_distinct = true ;
+			}
+			cur_a++ ;
+		}
+	}
+	while ( cur_a != end_a ) {
+		if ( !display_once_warning || !have_been_displayed_only_a ) {
+			have_been_displayed_only_a = true ;
+			std::cerr<<"only in "<<name_a<<" : "<<a.at( cur_a )<<std::endl;
+			are_distinct = true ;
+		}
+		cur_a++ ;
+	}
+	while ( cur_b != end_b ) {
+		if ( !display_once_warning || !have_been_displayed_only_b ) {
+			have_been_displayed_only_b = true ;
+			std::cerr<<"only in "<<name_b<<" : "<<b.at( cur_b )<<std::endl;
+			are_distinct = true ;
+		}
+		cur_b++ ;
+	}
+	if ( !are_distinct ) {
+		std::cerr<<"same content for "<<name_a<<" and "<<name_b<<std::endl;
+	}
+}
+
 template <typename T, typename U, typename V> std::string ConnexComponentRebuilder<T,U,V>::IllDefinedInstance::voxels_as_string( ) const {
 	std::ostringstream s;
 	s << "VI ("<< _idxVoxels.size() <<") : ";
@@ -49,7 +101,43 @@ template <typename T, typename U, typename V> std::string ConnexComponentRebuild
 	return s.str() ;
 }
 
+template <typename T, typename U, typename V> bool ConnexComponentRebuilder<T,U,V>::IllDefined::first_child( PtrIllDefinedInstance * inst ) {
+	uint i_inst = 0 ;
+	while ( i_inst != _instances.size() ) {
+		if ( _instances.at( i_inst )->_seeds.size() > (*inst)->_seeds.size() ) {
+			bool is_child = true ;
+			for ( uint i_seed = 0 ; is_child && i_seed < (*inst)->_seeds.size() ; i_seed++ )
+				if ( !_instances.at( i_inst )->_seeds.contains( (*inst)->_seeds.at( i_seed ) ) ) is_child = false ;
+			if ( is_child ) {
+				*inst = _instances.at( i_inst ) ;
+				return true ;
+			}
+		}
+		i_inst++ ;
+	}
+	return false ;
+}
 
+template <typename T, typename U, typename V> bool ConnexComponentRebuilder<T,U,V>::IllDefined::next_child( const PtrIllDefinedInstance father, PtrIllDefinedInstance * child ) {
+	uint i_inst = 0 ;
+	
+	while ( _instances.at( i_inst ) != *child )
+		i_inst++ ;
+	i_inst++ ;
+	while ( i_inst != _instances.size() ) {
+		if ( _instances.at( i_inst )->_seeds.size() > father->_seeds.size() ) {
+			bool is_child = true ;
+			for ( uint i_seed = 0 ; is_child && i_seed < father->_seeds.size() ; i_seed++ )
+				if ( !_instances.at( i_inst )->_seeds.contains( father->_seeds.at( i_seed ) ) ) is_child = false ;
+			if ( is_child ) {
+				*child =  _instances.at( i_inst ) ;
+				return true ;
+			}
+		}
+		i_inst++ ;
+	}
+	return false ;
+}
 
 template <typename T, typename U, typename V> ConnexComponentRebuilder<T,U,V>::~ConnexComponentRebuilder( ) {
 	if ( _allocated_depth ) delete _depth ;
@@ -247,7 +335,7 @@ template <typename T, typename U, typename V> uint ConnexComponentRebuilder<T,U,
 	while ( i_begin != i_end ) {
 		PtrIllDefinedInstance father = inst.at( i_begin ) ;
 		
-std::cout<<"Candidate "<<__FUNCTION__<<" "<< father->seeds_as_string()<<std::endl;
+//std::cout<<"Candidate "<<__FUNCTION__<<" "<< father->seeds_as_string()<<std::endl;
 		
 		if ( father->_seeds.size() == length ) {
 			uint iSeedChild = 0 ;
@@ -257,19 +345,19 @@ std::cout<<"Candidate "<<__FUNCTION__<<" "<< father->seeds_as_string()<<std::end
 					iSeedChild++ ;
 				}
 				if ( father->_seeds.at( iSeed ) != seeds.at( iSeedChild ) ) {
-					std::cout<<"\t\tno (value)"<<std::endl;
+//					std::cout<<"\t\tno (value)"<<std::endl;
 					break ;
 				} else {
 					iSeedChild++ ;
 				}
 			}
 			if ( iSeed == length ) {
-				std::cout<<"\t\tyes"<<std::endl;
+//				std::cout<<"\t\tyes"<<std::endl;
 				correct = true ;
 				return i_begin ;
 			}
 		} else {
-			std::cout<<"\t\tno (size)"<<std::endl;
+//			std::cout<<"\t\tno (size)"<<std::endl;
 		}
 		i_begin++ ;
 	}
@@ -296,14 +384,21 @@ void ConnexComponentRebuilder<T,U,V>::translate_idxVoxel( const QList< uint > &i
 	for ( uint i = 0 ; i < number ; i++ ) {
 		voxel = refCC._voxels.at( idx_voxels.at( i ) ) ;
 		int j = newRefCC._voxels.indexOf( voxel ) ;
-		if ( j != -1 )
+		if ( j != -1 ) {
+			assert( voxel == newRefCC._voxels.at( j ) ) ;
 			idx_voxels_tr.append( (uint) j ) ;
+		} else {
+			std::cerr<<"[Error] : can not translate into new reference"<<std::endl;
+		}
 	}
 	qSort( idx_voxels_tr ) ;
 }
 
 template <typename T, typename U, typename V> 
-bool ConnexComponentRebuilder<T,U,V>::split_voxels( PtrIllDefinedInstance father, const QList< uint > childVoxels ) {
+bool ConnexComponentRebuilder<T,U,V>::split_voxels( PtrIllDefinedInstance father, const QList< uint > &childVoxels ) {
+	bool display_once_warning = true ;
+	
+	bool have_been_displayed = false ;
 	uint i_child = 0,
 	     i_father = 0,
 	     end_child = childVoxels.size() ;
@@ -321,8 +416,11 @@ bool ConnexComponentRebuilder<T,U,V>::split_voxels( PtrIllDefinedInstance father
 				break ;
 			}
 		} else {
-			std::cerr<<"Warning : can not remove voxel "<<childVoxels.at( i_child )<<" from Region("<< father->seeds_as_string() ;
-			std::cerr<<") being on "<< father->_idxVoxels.at( i_father )<<std::endl;
+			if ( !display_once_warning || !have_been_displayed ) {
+				have_been_displayed = true ;
+				std::cerr<<"Warning : can not remove voxel "<<childVoxels.at( i_child )<<" ["<< _illDefined[ father->_seeds.at(0)]._voxels.at(childVoxels.at( i_child ))<<"] from Region("<< father->seeds_as_string() ;
+				std::cerr<<") being on "<< father->_idxVoxels.at( i_father )<<std::endl;
+			}
 			//i_father++ ;
 		}
 	}
@@ -334,6 +432,85 @@ bool ConnexComponentRebuilder<T,U,V>::split_voxels( PtrIllDefinedInstance father
 	return split_voxels( father, child->_idxVoxels ) ;
 }
 
+template <typename T, typename U, typename V> void ConnexComponentRebuilder<T,U,V>::explicit_intersection( const PtrIllDefinedInstance inst ) {
+
+	QList< uint32_t > Seeds = inst->_seeds ;
+	uint i_seed = 0,
+	     n_seed = Seeds.size() ;
+	QList< Point > inter_voxels( _illDefined[ Seeds.at(0) ]._voxels );
+	i_seed++ ;
+	
+	/// compute the overall intersection from the voxel viewpoint
+	for ( ; i_seed != n_seed; i_seed++ ) {
+		const QList< Point > & comp_voxels = _illDefined[ Seeds.at( i_seed ) ]._voxels ;
+		uint cur_inter = 0,
+		     cur_comp = 0,
+		     end_comp = comp_voxels.size() ;
+		while ( cur_inter != inter_voxels.size() && cur_comp != end_comp ) {
+			if ( inter_voxels.at( cur_inter ) == comp_voxels.at( cur_comp ) ) {
+				cur_inter++ ;
+				cur_comp++ ;
+			} else if ( inter_voxels.at( cur_inter ) > comp_voxels.at( cur_comp ) ) {
+				cur_comp++ ;
+			} else {
+				inter_voxels.removeAt( cur_inter ) ;
+			}
+		}
+		while ( cur_inter != inter_voxels.size() )
+			inter_voxels.removeAt( cur_inter ) ;
+	}
+	Seeds.clear() ;
+	std::cerr<<inst->seeds_as_string()<<std::endl;
+	/// if inst has children, shrink this list
+	PtrIllDefinedInstance inst_child = const_cast<PtrIllDefinedInstance>( inst );
+	if ( _illDefined[ inst->_seeds.at(0) ].first_child( &inst_child ) ) {
+		do {
+			std::cerr<<"\t\thas child "<<inst_child->seeds_as_string()<<std::endl;
+			Seeds.append( inst_child->_seeds ) ;
+		} while ( _illDefined[ inst->_seeds.at(0) ].next_child( inst, &inst_child ) ) ;
+		qSort( Seeds ) ;
+		for ( uint k=0 ; k < Seeds.size()-1 ; ) {
+			if ( Seeds.at(k) == Seeds.at(k+1) )
+				Seeds.removeAt( k+1 ) ;
+			else
+				k++ ;
+		}
+		
+		for ( i_seed = 0 ; i_seed != n_seed; i_seed++ ) {
+			const QList< Point > & comp_voxels = _illDefined[ Seeds.at( i_seed ) ]._voxels ;
+			uint cur_inter = 0,
+				 cur_comp = 0,
+				 end_comp = comp_voxels.size() ;
+			while ( cur_inter != inter_voxels.size() && cur_comp != end_comp ) {
+				if ( inter_voxels.at( cur_inter ) == comp_voxels.at( cur_comp ) ) {
+					inter_voxels.removeAt( cur_inter ) ;
+					cur_comp++ ;
+				} else if ( inter_voxels.at( cur_inter ) > comp_voxels.at( cur_comp ) ) {
+					cur_comp++ ;
+				} else {
+					cur_inter++ ;
+				}
+			}
+		}
+		
+	}
+
+	
+	
+	/// translate the result into indices wrt the first seed's voxels
+	QList< uint > inter_indices ;
+	const QList< Point > & ref = _illDefined[ inst->_seeds.at(0) ]._voxels ;
+	uint cur_ref = 0,
+	     cur_read = 0,
+	     end_read = inter_voxels.size() ;
+	for ( ; cur_read != end_read ; cur_read++ ) {
+		Point pt = inter_voxels.at( cur_read ) ;
+		while ( ref.at( cur_ref ) != pt ) cur_ref++ ;
+		inter_indices.append( cur_ref ) ;
+	}
+	diff_sorted_list( inter_indices, "rebuild", inst->_idxVoxels, "instance" ) ;
+	
+}
 
 template <typename T, typename U, typename V> bool ConnexComponentRebuilder<T,U,V>::run( bool storeOverlaping ) {
 	for ( uint32_t label = 1 ; label < _n_labels ; label++ ) {
@@ -342,6 +519,81 @@ template <typename T, typename U, typename V> bool ConnexComponentRebuilder<T,U,
 	}
 	if ( !storeOverlaping ) return true ;
 	QList< IllDefinedInstance * > instances ;
+	
+	/// add shadow transitions
+	for ( QMap< uint32_t, QMap< uint32_t, QList< Point > > >::Iterator source = _sharedVoxels.begin() ; source != _sharedVoxels.end() ; source++ ) {
+		QList< uint32_t > Targets ;
+		for ( QMap< uint32_t, QList< Point > >::ConstIterator target = source.value().begin() ; target != source.value().end() ; target++ )
+			Targets.append( target.key() ) ;
+if ( source.key() == 13 ) {
+std::cerr<<"13's targets : ";std::copy( Targets.begin(),Targets.end(),std::ostream_iterator<uint32_t>( std::cerr, " " ) ) ;std::cerr<<std::endl;
+}
+		for ( uint tmp_source = 0 ; tmp_source < Targets.size()-1 ; tmp_source++ )
+			for ( uint tmp_target = tmp_source+1 ; tmp_target < Targets.size() ; tmp_target++ ) {
+				QList< Point > inter_voxels = source.value()[ Targets.at(tmp_source) ] ;
+				const QList< Point > & comp_voxels = source.value()[ Targets.at(tmp_target) ] ;
+if ( source.key() == 13 ) {
+	if ( Targets.at(tmp_source) == 19 && Targets.at(tmp_target) == 20 ) {
+		std::cerr<<"13|19 : ";std::copy( inter_voxels.begin(),inter_voxels.end(),std::ostream_iterator<Point>( std::cerr, " " ) ) ;std::cerr<<std::endl;
+		std::cerr<<"13|20 : ";std::copy( comp_voxels.begin(),comp_voxels.end(),std::ostream_iterator<Point>( std::cerr, " " ) ) ;std::cerr<<std::endl;
+	}
+}
+				uint cur_inter = 0,
+				     cur_comp = 0,
+				     end_comp = comp_voxels.size() ;
+				while ( cur_inter != inter_voxels.size() && cur_comp != end_comp ) {
+					if ( inter_voxels.at( cur_inter ) == comp_voxels.at( cur_comp ) ) {
+						cur_inter++ ;
+						cur_comp++ ;
+					} else if ( inter_voxels.at( cur_inter ) > comp_voxels.at( cur_comp ) ) {
+						cur_comp++ ;
+					} else {
+						inter_voxels.removeAt( cur_inter ) ;
+					}
+				}
+				while ( cur_inter != inter_voxels.size() ) {
+					inter_voxels.removeAt( cur_inter ) ;
+				}
+				
+if ( source.key() == 13 ) {
+	if ( Targets.at(tmp_source) == 19 && Targets.at(tmp_target) == 20 ) {
+		std::cerr<<"13|19x20 : ";std::copy( inter_voxels.begin(),inter_voxels.end(),std::ostream_iterator<Point>( std::cerr, " " ) ) ;std::cerr<<std::endl;
+	}
+}
+				
+				if ( inter_voxels.isEmpty() ) continue ;
+				bool b_is_new = false ;
+				if( !_sharedVoxels.contains( Targets.at(tmp_source) ) ) {
+					_sharedVoxels.insert( Targets.at(tmp_source), QMap< uint32_t, QList< Point > >() ) ;
+					b_is_new = true ;
+				}
+				if( !_sharedVoxels[ Targets.at(tmp_source) ].contains( Targets.at(tmp_target) ) ) {
+					_sharedVoxels[ Targets.at(tmp_source) ].insert( Targets.at(tmp_target), QList< Point >() ) ;
+					b_is_new = true ;
+				}
+				_sharedVoxels[ Targets.at(tmp_source) ][ Targets.at(tmp_target)].append( inter_voxels ) ;
+				if ( !b_is_new ) {
+					QList< Point > & L = _sharedVoxels[ Targets.at(tmp_source) ][ Targets.at(tmp_target)] ;
+					qSort( L ) ;
+					/// remove duplicates
+					for ( uint k = 0 ; k < L.size()-1 ; k++ ) {
+						while ( k+1 < L.size() ) {
+							if ( L.at(k+1) == L.at(k) )
+								L.removeAt( k+1 ) ;
+							else
+								break ;
+						}
+					}
+				}
+				
+				
+				if ( b_is_new ) std::cerr<<"[ Info ] : create shadow "<<Targets.at(tmp_source)<<"|"<<Targets.at(tmp_target)<<" wrt "<<source.key()<<std::endl;
+				else            std::cerr<<"[ Info ] : update shadow "<<Targets.at(tmp_source)<<"|"<<Targets.at(tmp_target)<<" wrt "<<source.key()<<std::endl;
+			}
+	}
+	
+	
+	
 	for ( QMap< uint32_t, QMap< uint32_t, QList< Point > > >::ConstIterator source = _sharedVoxels.begin() ; source != _sharedVoxels.end() ; source++ ) {
 		if ( !_illDefined.contains( source.key() ) )
 			_illDefined.insert( source.key(), IllDefined() ) ;
@@ -353,6 +605,8 @@ template <typename T, typename U, typename V> bool ConnexComponentRebuilder<T,U,
 			qSort( instances.back()->_seeds ) ;
 			src._instances.append( instances.back() ) ;
 			src._voxels.append( target.value() ) ;
+if ( source.key() == 13 || source.key() == 19 || source.key() == 20 ||source.key() == 21 )
+	std::cerr<<"[ Info ] : define seed "<<source.key()<<" from "<<source.key()<<"|"<<target.key()<<std::endl;
 			
 			if ( !_illDefined.contains( target.key() ) )
 				_illDefined.insert( target.key(), IllDefined() ) ;
@@ -360,6 +614,8 @@ template <typename T, typename U, typename V> bool ConnexComponentRebuilder<T,U,
 			IllDefined &tgt = _illDefined[ target.key() ] ;
 			tgt._instances.append( instances.back() ) ;
 			tgt._voxels.append( target.value() ) ;
+if ( target.key() == 13 || target.key() == 19 || target.key() == 20 ||target.key() == 21 )
+	std::cerr<<"[ Info ] : define seed "<<target.key()<<" from "<<source.key()<<"|"<<target.key()<<std::endl;
 		}
 	}
 	for ( typename QMap< uint32_t, IllDefined >::iterator iter = _illDefined.begin() ; iter != _illDefined.end() ; iter ++ ) {
@@ -374,7 +630,7 @@ template <typename T, typename U, typename V> bool ConnexComponentRebuilder<T,U,
 			}
 		
 	}
-	
+
 	/// instances having cardinality( _seeds ) = 2
 	
 	for ( typename QMap< uint32_t, IllDefined >::iterator iter = _illDefined.begin() ; iter != _illDefined.end() ; iter ++ )
@@ -386,7 +642,27 @@ template <typename T, typename U, typename V> bool ConnexComponentRebuilder<T,U,
 					iter.value()._instances.at(i-1)->_idxVoxels.insert( 0, v-1 ) ;
 			}
 		}
-	
+	QList<V> dbg_cc ;
+	Point dbg_voxel(213, 130, 80 ) ;
+
+	{
+		dbg_cc << 13 << 19 << 20 << 21 ;
+		for (int cc=0;cc<dbg_cc.size() ; cc++ ) {
+			std::cerr<<"DEBUG cc "<<dbg_cc.at(cc)<<" "<<(_illDefined[ dbg_cc.at(cc) ]._voxels.contains( dbg_voxel ) ? " yes":" no")<<std::endl;
+			for ( int i_inst = 0 ; i_inst < _illDefined[ dbg_cc.at(cc) ]._instances.size() ; i_inst++ ) {
+				if ( dbg_cc.contains( _illDefined[ dbg_cc.at(cc) ]._instances.at( i_inst )->_seeds.at(0) ) &&
+					 dbg_cc.contains( _illDefined[ dbg_cc.at(cc) ]._instances.at( i_inst )->_seeds.at(1) ) ) {
+					int idx_voxel = _illDefined[ _illDefined[ dbg_cc.at(cc) ]._instances.at( i_inst )->_seeds.at(0) ]._voxels.indexOf( dbg_voxel ) ;
+					std::cerr<<"DEBUG "<<_illDefined[ dbg_cc.at(cc) ]._instances.at( i_inst )->seeds_as_string()<<" ... "<<std::endl;
+					if ( _illDefined[ dbg_cc.at(cc) ]._instances.at( i_inst )->_idxVoxels.contains( idx_voxel ) )
+						std::cerr<<"      \t\tok"<<std::endl;
+					else
+						std::cerr<<"      \t\tno"<<std::endl;
+				}
+			}
+		}
+	}
+
 	/// instances having cardinality( _seeds ) > 2
 	bool newInstances = true ;
 	
@@ -420,13 +696,23 @@ for ( uint kk = 9 ; kk <= 11 ; kk += 2 ) {
 					break ;
 				if ( r_instance_j->_seeds.back() <= r_instance_i->_seeds.back() )
 					continue ;
-				if ( !listcmp<uint32_t>( r_instance_i->_seeds, r_instance_j->_seeds, length-1 ) )
+				if ( !listcmp<V>( const_cast<const PtrIllDefinedInstance>(r_instance_i)->_seeds, const_cast<const PtrIllDefinedInstance>(r_instance_j)->_seeds, length-1 ) )
 					continue ;
 				/// the only possibility to define this set
 				/// compute the intersection of voxels lists
 				QList< uint > idx ;
 				uint pos_i = r_instance_i->_idxVoxels.size(),
 					 pos_j = r_instance_j->_idxVoxels.size() ;
+				bool bDebug = false ;
+				if ( r_instance_i->_seeds.size() == 2 && r_instance_j->_seeds.size() == 2 ) {
+					bDebug = ( r_instance_i->_seeds.at(0) == 13 && r_instance_i->_seeds.at(1) == 19 && r_instance_j->_seeds.at(1) == 20 ) ;
+				}
+				if ( bDebug ) {
+					std::cerr<<"[ Debug ] : "<<r_instance_i->seeds_as_string()<<std::endl
+							<< "            "<<r_instance_i->voxels_as_string()<<std::endl
+							<< "            "<<r_instance_j->seeds_as_string()<<std::endl
+							<< "            "<<r_instance_j->voxels_as_string()<<std::endl;
+				}
 				while ( pos_i > 0 && pos_j > 0 ) {
 					if ( r_instance_j->_idxVoxels.at( pos_j-1 ) == r_instance_i->_idxVoxels.at( pos_i-1 ) ) {
 						idx.insert( 0, r_instance_j->_idxVoxels.at( pos_j-1 ) ) ;
@@ -441,7 +727,7 @@ for ( uint kk = 9 ; kk <= 11 ; kk += 2 ) {
 				if ( idx.isEmpty() ) continue ;
 if ( !has_child ) {
 	/// print father once
-	std::cout<<"Father generates : "<<r_instance_i->seeds_as_string()<<std::endl;
+	std::cerr<<"Father generates : "<<r_instance_i->seeds_as_string()<<std::endl;
 }
 				has_child = true ;
 				instances.append( new IllDefinedInstance() ) ;
@@ -449,11 +735,15 @@ if ( !has_child ) {
 				instances.back()->_seeds.append( r_instance_j->_seeds.back() ) ;
 				
 	/// print generate child
-	std::cout<<"\tChild : "<<instances.back()->seeds_as_string()<<std::endl;
+	std::cerr<<"\tChild : "<<instances.back()->seeds_as_string()<<std::endl;
 				
 				
 				
 				instances.back()->_idxVoxels = idx ;
+				if ( bDebug ) {
+					std::cerr<<"[ Debug ] \t\t VI "<<instances.back()->voxels_as_string()<<std::endl;
+				}
+				
 				for ( int k = instances.back()->_seeds.size() ; k > 0 ; k-- ) _illDefined[ instances.back()->_seeds.at(k-1) ]._instances.append( instances.back() ) ;
 				
 				idx_child.append( idx ) ;
@@ -476,13 +766,17 @@ if ( !has_child ) {
 				PtrIllDefinedInstance parent ;
 				
 				for ( uint child = child_begin ; child != child_end ; child++ ) {
-
+bool watch_dog = true ;
+for ( uint i_seed = 0 ; watch_dog && i_seed < inst.at( child )->_seeds.size() ; i_seed++ ) {
+	watch_dog = dbg_cc.contains( inst.at( child )->_seeds.at( i_seed ) ) ;
+	if (!watch_dog) std::cout<<"\tdo not pay attention as cc "<<inst.at( child )->_seeds.at( i_seed )<<" is there"<<std::endl;
+}
 	/// print child
 	std::cout<<"Child : "<<inst.at( child )->seeds_as_string()<<std::endl;
 
 
 					if ( !split_voxels( r_instance_i, inst.at( child ) ) ) {
-						std::cerr<<"Problem @ line "<<__LINE__<<std::endl;
+						std::cerr<<"Problem @ line "<<__LINE__<<" "<<inst.at( child )->seeds_as_string()<<std::endl;
 						for ( uint k=0;k<inst.at(child)->_seeds.size() ; k++ )
 							std::cerr<<"\t"<<_illDefined[ inst.at(child)->_seeds.at(k) ].voxels_as_string()<<std::endl;
 						std::cerr<<std::endl;
@@ -496,15 +790,19 @@ if ( !has_child ) {
 
 	/// print one of the parent
 	std::cout<<"\thas parent : "<<parent->seeds_as_string()<<std::endl;
-	std::cout<<"\t\tVoxels (before) : "<<parent->voxels_as_string()<<std::endl;
+	//std::cout<<"\t\tVoxels (before) : "<<parent->voxels_as_string()<<std::endl;
 							/// remove child's voxels from parent
 							if ( !split_voxels( parent, inst.at( child ) ) ) {
-								std::cerr<<"Problem @ line "<<__LINE__<<std::endl;
+								std::cerr<<"Problem @ line "<<__LINE__<<" "<<inst.at( child )->seeds_as_string()<<std::endl;
 								for ( uint k=0;k<inst.at(child)->_seeds.size() ; k++ )
 									std::cerr<<"\t"<<_illDefined[ inst.at(child)->_seeds.at(k) ].voxels_as_string()<<std::endl;
 								std::cerr<<std::endl;
 							}
-	std::cout<<"\t\tVoxels (after) : "<<parent->voxels_as_string()<<std::endl;
+	//std::cout<<"\t\tVoxels (after) : "<<parent->voxels_as_string()<<std::endl;
+							if ( watch_dog ) {
+								uint idx_dbgvoxel = _illDefined[ parent->_seeds.at( 0 ) ]._voxels.indexOf( dbg_voxel ) ;
+								std::cout<<"parent contains "<<dbg_voxel<<" ? "<<( parent->_idxVoxels.contains( idx_dbgvoxel ) ? "yes":"no")<<std::endl;
+							}
 						}
 					}
 					 /// we first need to translate indices! (not the same initial set of voxels)
@@ -517,17 +815,24 @@ if ( !has_child ) {
 
 	/// print one of the parent
 	std::cout<<"\thas parent : "<<parent->seeds_as_string()<<std::endl;
-	std::cout<<"\t\tVoxels (before) : "<<parent->voxels_as_string()<<std::endl;
-	std::cout<<"\t\tAiming to remove : ";
-	std::copy( idx_child_tr.begin(), idx_child_tr.end(), std::ostream_iterator< uint32_t >( std::cout, " " ) ) ;
-	std::cout<<std::endl;
+	//std::cout<<"\t\tVoxels (before) : "<<parent->voxels_as_string()<<std::endl;
+	//std::cout<<"\t\tAiming to remove : ";
+	//std::copy( idx_child_tr.begin(), idx_child_tr.end(), std::ostream_iterator< uint32_t >( std::cout, " " ) ) ;
+	//std::cout<<std::endl;
 						/// remove child's voxels from parent
 						if (!split_voxels( parent, idx_child_tr ) ) {
-							std::cerr<<"Problem @ line "<<__LINE__<<std::endl;
-							for ( uint k=0;k<inst.at(child)->_seeds.size() ; k++ )
-								std::cerr<<"\t"<<_illDefined[ inst.at(child)->_seeds.at(k) ].voxels_as_string()<<std::endl;
-							std::cerr<<std::endl;							
+							std::cerr<<"Problem @ line "<<__LINE__<<" "<<inst.at( child )->seeds_as_string()<<std::endl;
+	//						for ( uint k=0;k<inst.at(child)->_seeds.size() ; k++ )
+	//							std::cerr<<"\t"<<_illDefined[ inst.at(child)->_seeds.at(k) ].voxels_as_string()<<std::endl;
+	//						std::cerr<<std::endl;							
 						}
+						
+						
+						if ( watch_dog ) {
+							uint idx_dbgvoxel = _illDefined[ parent->_seeds.at( 0 ) ]._voxels.indexOf( dbg_voxel ) ;
+							std::cout<<"parent contains "<<dbg_voxel<<" ? "<<( parent->_idxVoxels.contains( idx_dbgvoxel ) ? "yes":"no")<<std::endl;
+						}
+						
 					}
 				}
 				
@@ -545,9 +850,14 @@ if ( !has_child ) {
 			n += inst->_idxVoxels.size() ;
 		}
 		std::cerr<<"Key "<<iter.key()<<" total "<<iter.value()._voxels.size() <<" distributed "<< n <<" "<<( n == iter.value()._voxels.size() ? "correct" : "wrong" ) << std::endl ;
-		if ( n !=iter.value()._voxels.size() ) explicit_missed_voxels( iter.key() ) ;
+		if ( n !=iter.value()._voxels.size() ) {
+			explicit_missed_voxels( iter.key() ) ;
+			for ( int i_inst=iter.value()._instances.size();i_inst != 0 ;i_inst--){
+				const PtrIllDefinedInstance & inst = iter.value()._instances.at( i_inst-1 ) ;
+				explicit_intersection( inst ) ;
+			}
+		}
 	}
-	
 	return true ;
 }
 template <typename T, typename U, typename V> 
@@ -555,11 +865,24 @@ void ConnexComponentRebuilder<T,U,V>::explicit_missed_voxels( uint32_t key ) con
 	typename QMap< uint32_t, IllDefined >::ConstIterator iter = _illDefined.constFind( key ) ;
 	typename QMap< uint32_t, IllDefined >::ConstIterator ref ;
 	QList< Point > distributedVoxels ;
+	bool first_time = true ;
+	Point dbg_voxel(213, 130, 80 ) ;
+	
 	for ( int i_inst=0;i_inst != iter.value()._instances.size();i_inst++) {
 		const PtrIllDefinedInstance & inst = iter.value()._instances.at( i_inst ) ;
 		ref = _illDefined.constFind( inst->_seeds.at(0) ) ;
-		for ( uint v = 0 ; v < inst->_idxVoxels.size() ; v++ )
+		for ( uint v = 0 ; v < inst->_idxVoxels.size() ; v++ ) {
+			if ( distributedVoxels.contains( ref.value()._voxels.at( inst->_idxVoxels.at( v ) ) ) && first_time ) {
+				first_time = false ;
+				std::cerr<<"[ Debug ] : voxel "<<ref.value()._voxels.at( inst->_idxVoxels.at( v ) )<<" will be duplicated! wrt "<<inst->seeds_as_string()<<std::endl ;
+				std::cerr<<"            previous instances were :"<<std::endl;
+				for ( int j_inst=0;j_inst<i_inst;j_inst++ )
+					std::cerr<<"                 "<<iter.value()._instances.at( j_inst )->seeds_as_string()<<std::endl ;
+				exit(666);
+			}
+			if ( ref.value()._voxels.at( inst->_idxVoxels.at( v ) ) == dbg_voxel ) std::cerr<<"[ Debug ] : Voxel "<<dbg_voxel<<" belongs to "<<inst->seeds_as_string()<<std::endl ;
 			distributedVoxels.append( ref.value()._voxels.at( inst->_idxVoxels.at( v ) ) ) ;
+		}
 	}
 	qSort( distributedVoxels ) ;
 	std::cerr<<distributedVoxels.size()<<" gathered"<<std::endl;
@@ -575,30 +898,8 @@ void ConnexComponentRebuilder<T,U,V>::explicit_missed_voxels( uint32_t key ) con
 	
 	const QList< Point > & startingVoxels = iter.value()._voxels ;
 	
-	uint i_dist = 0,
-	     i_start = 0,
-	     end_dist = distributedVoxels.size(),
-	     end_start = startingVoxels.size() ;
-	while ( i_dist != end_dist && i_start != end_start ) {
-		if ( distributedVoxels.at( i_dist ) == startingVoxels.at( i_start ) ) {
-			i_dist++ ;
-			i_start++ ;
-		} else if ( distributedVoxels.at( i_dist ) > startingVoxels.at( i_start ) ) {
-			std::cerr<<"only in start : "<<startingVoxels.at( i_start )<<std::endl;
-			i_start++ ;
-		} else {
-			std::cerr<<"only in dist : "<<distributedVoxels.at( i_dist )<<std::endl;
-			i_dist++ ;
-		}
-	}
-	while ( i_dist != end_dist ) {
-		std::cerr<<"only in dist : "<<distributedVoxels.at( i_dist )<<std::endl;
-		i_dist++ ;
-	}
-	while ( i_start != end_start ) {
-		std::cerr<<"only in start : "<<startingVoxels.at( i_start )<<std::endl;
-		i_start++ ;
-	}
+	diff_sorted_list( distributedVoxels, "distributedVoxels", startingVoxels, "startingVoxels" ) ;
+	
 }
 
 
@@ -939,13 +1240,15 @@ int32_t nVoxels = 0 ;
 		if ( componentDGImg( *pt ) > 0 ) {
 			nVoxels++ ;
 			Point ptShift( (*pt).at(0)+_lower[selection].at(0),(*pt).at(1)+_lower[selection].at(1),(*pt).at(2)+_lower[selection].at(2) ) ;
+			if ( ptShift == Point(213, 130, 80) ) std::cerr<<"[ DEBUG VOXEL "<<ptShift.at(0)<<","<<ptShift.at(1)<<","<<ptShift.at(2)<<" : "<<color<<std::endl;
 			if ( storeOverlaping )
 				if ( _result( ptShift.at(1),ptShift.at(0),ptShift.at(2) ) > 0 ) {
-					if ( !_sharedVoxels.contains( color ) )
-						_sharedVoxels.insert( color, QMap< uint32_t, QList<Point> > () ) ;
-					if ( !_sharedVoxels[ color ].contains( _result( ptShift.at(1),ptShift.at(0),ptShift.at(2) ) ) )
-						_sharedVoxels[ color ].insert( _result( ptShift.at(1),ptShift.at(0),ptShift.at(2) ), QList<Point> () ) ;
-					_sharedVoxels[ color ][ _result( ptShift.at(1),ptShift.at(0),ptShift.at(2) ) ].append( ptShift ) ;
+					/// \todo should be easier to manage a QMap< Point, QList< V > > !
+					if ( !_sharedVoxels.contains( /*color*/_result( ptShift.at(1),ptShift.at(0),ptShift.at(2) ) ) )
+						_sharedVoxels.insert( /*color*/_result( ptShift.at(1),ptShift.at(0),ptShift.at(2) ), QMap< uint32_t, QList<Point> > () ) ;
+					if ( !_sharedVoxels[ /*color*/_result( ptShift.at(1),ptShift.at(0),ptShift.at(2) ) ].contains( color/*_result( ptShift.at(1),ptShift.at(0),ptShift.at(2) )*/ ) )
+						_sharedVoxels[ /*color*/_result( ptShift.at(1),ptShift.at(0),ptShift.at(2) ) ].insert( /*_result( ptShift.at(1),ptShift.at(0),ptShift.at(2) )*/color, QList<Point> () ) ;
+					_sharedVoxels[ /*color*/_result( ptShift.at(1),ptShift.at(0),ptShift.at(2) ) ][ /*_result( ptShift.at(1),ptShift.at(0),ptShift.at(2) )*/color ].append( ptShift ) ;
 					continue ; // no overwrite, important!
 				}
 			_result( ptShift.at(1),ptShift.at(0),ptShift.at(2) ) = color ;

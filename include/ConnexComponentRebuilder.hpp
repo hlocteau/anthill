@@ -34,6 +34,8 @@ public:
 		QList< PtrIllDefinedInstance > _instances ;
 		QList< Point >     _voxels ;
 		std::string  voxels_as_string( ) const ;
+		bool first_child( PtrIllDefinedInstance * inst ) ;
+		bool next_child( const PtrIllDefinedInstance father, PtrIllDefinedInstance * child ) ;
 	} IllDefined ;
 	
 	
@@ -64,8 +66,9 @@ protected:
 	uint                  index_of_parent    ( const QList < PtrIllDefinedInstance > & inst, const PtrIllDefinedInstance elem, uint missing, bool & ) ;
 	uint                  index_of_parent    ( const QList < PtrIllDefinedInstance > & inst, const QList<V > &elem, uint missing, bool & ) ;
 	bool                  split_voxels       ( PtrIllDefinedInstance father, const PtrIllDefinedInstance child ) ;
-	bool                  split_voxels       ( PtrIllDefinedInstance father, const QList< uint > childVoxels ) ;
+	bool                  split_voxels       ( PtrIllDefinedInstance father, const QList< uint > &childVoxels ) ;
 	void                  translate_idxVoxel ( const QList< uint > &idx_voxels, uint32_t ref, uint32_t newref, QList< uint > &idx_voxels_tr ) ;
+	void              explicit_intersection  ( const PtrIllDefinedInstance inst ) ;
 	static bool           sortedListLessThan ( const PtrIllDefinedInstance &a, const PtrIllDefinedInstance &b ) ;
 private:
 	QMap< uint32_t, LayerType > 			_layers ;
