@@ -685,7 +685,7 @@ int main( int narg, char **argv ) {
 		trace.info() << "== Volumes seeds (1) =="<<std::endl;
 		QMap< uint32_t, uint32_t > volumes( CCR.volumes() );
 		for ( QMap< uint32_t, uint32_t >::iterator iterVol = volumes.begin() ; iterVol != volumes.end() ; iterVol++ )
-			trace.info() <<"cc # "<<(int) iterVol.key()<<" : "<<(int) iterVol.value()<<"   "<<(int) ( nShared.contains( iterVol.key() ) ? nShared[ iterVol.key() ] : 0 ) <<std::endl;
+			trace.info() <<"cc # "<<(int) iterVol.key()<<" : "<<(int) iterVol.value()<<"   "<<(int) ( IllDefinedStrExt.contains( iterVol.key() ) ? IllDefinedStrExt[ iterVol.key() ]._voxels.size() : 0 ) <<std::endl;
 		
 		save_minspace<LabelType>( *labelSeed, QString( "/tmp/rebuild.seeds.pgm3d" ) ) ;
 		merge_adjacent_cc<LabelType>( labelSeed, volumes ) ;
