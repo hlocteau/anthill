@@ -67,7 +67,7 @@ void print( GraphAdj & g ) {
 	boost::tie( vb,ve ) = boost::vertices( g ) ;
 	for ( ; vb != ve ; vb++ ) {
 		NodeData & data = node_map[ *vb ] ;
-		std::cout<< data.id()<< " "<< data.volume()<<std::endl;
+		std::cout<< "vertex descriptor "<<*vb<<"  property "<<data.id()<< " "<< data.volume()<<std::endl;
 	}
 }
 
@@ -89,9 +89,9 @@ assert( g ) ;
 	print( *g ) ;
 	IOPgm3d< arma::u8, qint8, false >::write( *img, "/tmp/test_rag2.pgm3d" ) ;
 	
-	merge_nodes( 2,3, *g ) ;
+	merge_nodes( atoi( argv[1]),atoi( argv[2]), *g ) ;
 	reset_img( img ) ;
-	redraw( *img, (arma::u8)3,(arma::u8)2 ) ;
+	redraw( *img, (arma::u8)atoi( argv[2]),(arma::u8)atoi( argv[1]) ) ;
 	print( *g ) ;
 	draw<arma::u8>( *img, *g ) ;
 	IOPgm3d< arma::u8, qint8, false >::write( *img, "/tmp/test_rag3.pgm3d" ) ;
