@@ -5,7 +5,8 @@
 #include <SkeletonGraph.hpp>
 #include <io/IOPgm3d.h>
 #include <io/Pgm3dFactory.h>
-#include <GrayLevelHistogram.h>
+#include <io/IOUtils.h>
+#include <utils.h>
 #include <connexcomponentextractor.h>
 #include <ConnexComponentRebuilder.hpp>
 #include <geom2d.h>
@@ -95,18 +96,7 @@ bool process_arg( int narg, char **argv, TProgramArg &params ) {
 	return true ;
 }
 
-template< typename T> void save_minspace( const BillonTpl<T> &img, QString filename ) {
-	if ( cast_integer<arma::u8,T>( cast_integer<T,arma::u8>( img.max() ) ) == img.max() ) {
-		IOPgm3d< T, qint8, false >::write( img, filename ) ;
-		std::cout<<"save as u8"<<std::endl;
-	} else if ( cast_integer<arma::u16,T>( cast_integer<T,arma::u16>( img.max() ) ) == img.max() ) {
-		IOPgm3d< T, qint16, false >::write( img, filename ) ;
-		std::cout<<"save as u16"<<std::endl;
-	} else {
-		IOPgm3d< T, qint32, false >::write( img, filename ) ;
-		std::cout<<"save as u32"<<std::endl;
-	}
-}
+
 
 template < typename T > BillonTpl< T > * do_labeling( SG_u8 &sg ) {
 	typedef T elem_type ;
@@ -144,23 +134,20 @@ template <typename T > void extract_adjacency( const BillonTpl< T > &label, QMap
 						adj_value = label( y + (n/9-1), x + ( (n%9)/3 -1 ), z + ( n % 3 -1 ) ) ;
 						if ( adj_value && adj_value != cur_value ) {
 							if ( !touching.contains( cur_value ) ) touching.insert( cur_value, QList<T>() ) ;
-							touching[ cur_value ].append( adj_value ) ;
+							uint k =  0;
+							uint end = touching[ cur_value ].size() ;
+							while ( k < end ) {
+								if ( touching[ cur_value ].at(k) >= adj_value ) break ;
+								k++ ;
+							}
+							if ( k < end ) {
+								if ( touching[ cur_value ].at(k) != adj_value )
+									touching[ cur_value ].insert( k, adj_value ) ;
+							} else
+								touching[ cur_value ].append( adj_value ) ;
 						}
 					}
 			}
-	/// remove duplicates
-	typename QMap< T, QList< T > >::Iterator source = touching.begin(),
-									         sourceEnd = touching.end() ;
-	for ( ; source != sourceEnd ; source++ ) {
-		qSort( source.value().begin(), source.value().end(), qLess< T >( ) ) ;
-		for ( uint k = 0 ; k < source.value().size() ; k++ ) {
-			uint m = source.value().lastIndexOf( source.value().at(k) ) ;
-			while ( k != m ) {
-				source.value().removeAt(m) ; 
-				m-- ;
-			}
-		}
-	}
 }
 
 template <typename T > void apply_translation( BillonTpl< T > &label, const QMap< T, T > &translation ) {
@@ -455,62 +442,9 @@ void discriminate_projection( const BillonTpl< arma::u32 > &label, const QMap< a
 	IOPgm3d< arma::u32, qint32, false >::write( gt, "/tmp/gt.pgm3d");
 }
 
-BillonTpl< arma::u8 > * load_maincc( QString filename ) {
-	Pgm3dFactory< arma::u8 > factory ;
-	BillonTpl< arma::u8 > *pimg = factory.read( filename ) ;
-	
-	/// keep only the biggest connected component
-	ConnexComponentExtractor< arma::u8,arma::u32 > cce ;
-	BillonTpl< arma::u32 > *lblImg = cce.run( *pimg ) ;
-	ConnexComponentExtractor< arma::u8,arma::u32 >::TMapVolume::ConstIterator iterVolume = cce.volumes().begin(),
-																			  iterVolumeEnd = cce.volumes().end(),
-																			  mainVolume ;
-	for ( mainVolume = iterVolume ; iterVolume != iterVolumeEnd ; iterVolume++ )
-		if ( mainVolume.value() < iterVolume.value() )
-			mainVolume = iterVolume ;
-	BillonTpl< arma::u32 >::const_iterator iterLbl = lblImg->begin(),
-										   iterLblEnd = lblImg->end() ;
-	BillonTpl< arma::u8 >::iterator        iterSkel = pimg->begin();
-	for ( ; iterLbl != iterLblEnd ; iterLbl++,iterSkel++ )
-		*iterSkel = ( *iterLbl == mainVolume.key() ? 1 : 0 ) ;
-	delete lblImg ;
-	return pimg ;
-}
 
-template < typename T > BillonTpl< T > * load_data_withmask( QString filename, const BillonTpl< arma::u8 > *pmask ) {
-	Pgm3dFactory< T > factory ;
-	BillonTpl< T > *pdata = factory.read( filename ) ;
-	factory.correctEncoding( pdata );
-	
-	assert( pmask->n_slices == pdata->n_slices && pmask->n_rows == pdata->n_rows && pmask->n_cols == pdata->n_cols ) ;
-	
-	BillonTpl< arma::u8 >::const_iterator iterMask = pmask->begin(),
-										  iterMaskEnd = pmask->end() ;
-	typename BillonTpl< T >::iterator iterData = pdata->begin() ;
-	for ( ; iterMask != iterMaskEnd ; iterMask++, iterData++ ) {
-		if ( ! *iterMask ) *iterData = 0 ;
-	}
-	return pdata ;
-}
 
-template<typename T> BillonTpl<arma::u8> * filter_low( const BillonTpl<T> &data, T th ) {
-	BillonTpl< arma::u8 > *plow = new BillonTpl< arma::u8 > ( data.n_rows, data.n_cols, data.n_slices ) ;
-	BillonTpl< arma::u8 >::iterator iterLow = plow->begin(),
-	                                iterLowEnd = plow->end() ;
-	typename BillonTpl< T >::const_iterator iterData = data.begin() ;
-	for ( ; iterLow != iterLowEnd ; iterLow++, iterData++ )
-		*iterLow = ( *iterData > 0 && *iterData < th ? 1 : 0 ) ;
-	return plow ;
-}
-template<typename T> BillonTpl<arma::u8> * filter_high( const BillonTpl<T> &data, T th ) {
-	BillonTpl< arma::u8 > *phigh = new BillonTpl< arma::u8 > ( data.n_rows, data.n_cols, data.n_slices ) ;
-	BillonTpl< arma::u8 >::iterator iterHigh = phigh->begin(),
-	                                iterHighEnd = phigh->end() ;
-	typename BillonTpl< T >::const_iterator iterData = data.begin() ;
-	for ( ; iterHigh != iterHighEnd ; iterHigh++, iterData++ )
-		*iterHigh = ( *iterData > th ? 1 : 0 ) ;
-	return phigh ;
-}
+
 
 
 void iterative_merge( BillonTpl< LabelType > &labelComp, LabelType nSeeds, QMap< uint32_t,uint32_t > &volumes) {
