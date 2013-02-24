@@ -72,6 +72,9 @@ ${BUILD}/buildScene : ${OBJ}/buildScene.o ${OBJ}/utils.o ${OBJ}/geom2d.o ${OBJ}/
 ${BUILD}/innerSkelOnly : ${OBJ}/innerSkelOnly.o ${OBJ}/IOPgm3d.o
 	${LINK} ${OBJ}/innerSkelOnly.o ${OBJ}/IOPgm3d.o -o "$@" -lQtCore ${LIB_BOOST} ${LIB_DGTAL}
 
+${BUILD}/innerScene : ${OBJ}/innerScene.o ${OBJ}/IOPgm3d.o
+	${LINK} ${OBJ}/innerScene.o ${OBJ}/IOPgm3d.o -o "$@" -lQtCore ${LIB_BOOST} ${LIB_BOOST_PARAM} ${LIB_DGTAL}
+
 ${BUILD}/pgmcrop : ${OBJ}/pgmcrop.o ${OBJ}/IOPgm3d.o
 	${LINK} ${OBJ}/pgmcrop.o ${OBJ}/IOPgm3d.o -o "$@" -lQtCore ${LIB_BOOST} ${LIB_BOOST_PARAM}
 
@@ -81,15 +84,25 @@ ${BUILD}/minpath : ${OBJ}/minpath.o ${OBJ}/IOPgm3d.o
 ${BUILD}/catchSkel : ${OBJ}/catchskel.o ${OBJ}/IOPgm3d.o
 	${LINK} ${OBJ}/catchskel.o ${OBJ}/IOPgm3d.o -o "$@" -lQtCore ${LIB_BOOST} ${LIB_BOOST_PARAM} ${LIB_DGTAL}
 
-${BUILD}/segSkelMinDepth : ${OBJ}/segSkelMinDepth.o ${OBJ}/IOPgm3d.o ${OBJ}/geom2d.o
-	${LINK} ${OBJ}/segSkelMinDepth.o ${OBJ}/IOPgm3d.o ${OBJ}/geom2d.o -o "$@" -lQtCore ${LIB_BOOST} ${LIB_BOOST_PARAM} ${LIB_DGTAL} -larmadillo
+${BUILD}/segSkelMinDepth : ${OBJ}/segSkelMinDepth.o ${OBJ}/IOPgm3d.o ${OBJ}/geom2d.o ${OBJ}/IOUtils.o
+	${LINK} ${OBJ}/segSkelMinDepth.o ${OBJ}/IOPgm3d.o ${OBJ}/geom2d.o ${OBJ}/IOUtils.o -o "$@" -lQtCore ${LIB_BOOST} ${LIB_BOOST_PARAM} ${LIB_DGTAL} -larmadillo
 
 ${BUILD}/test_minmax : ${OBJ}/test_minmax.o
 	${LINK} ${OBJ}/test_minmax.o -o "$@" -lQtCore
 
+${BUILD}/test_rag : ${OBJ}/test_rag.o ${OBJ}/rag.o ${OBJ}/IOUtils.o ${OBJ}/IOPgm3d.o
+	${LINK} -g ${OBJ}/test_rag.o ${OBJ}/rag.o ${OBJ}/IOUtils.o ${OBJ}/IOPgm3d.o -o "$@" -lQtCore ${LIB_DGTAL}
+
 clean:
 	rm ${OBJ}/*.o
 # compilation files
+
+${OBJ}/test_rag.o : misc-test/test_rag.cpp
+	${COMPILE} -g $< -o "$@"
+
+
+${OBJ}/innerScene.o : src/innerScene.cpp
+	${COMPILE} $< -o "$@"
 
 ${OBJ}/segSkelMinDepth.o : src/segSkelMinDepth.cpp
 	${COMPILE} $< -o "$@"
@@ -174,3 +187,9 @@ ${OBJ}/utils.o : src/utils.cpp
 
 ${OBJ}/consecutivecc.o : src/consecutive_z_floors.cpp
 	${COMPILE} $< -o "$@"
+
+${OBJ}/IOUtils.o : src/io/IOUtils.cpp
+	${COMPILE} $< -o "$@"
+
+${OBJ}/rag.o : src/rag.cpp
+	${COMPILE} -g $< -o "$@"
