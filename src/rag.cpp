@@ -191,8 +191,10 @@ void merge_nodes( GraphAdj::vertex_descriptor growing, GraphAdj::vertex_descript
 	
 	boost::tie( e, existing ) = boost::edge( other, growing, g ) ;
 	assert( existing ) ;
+	edge_map[ e ].reset() ;
 	boost::remove_edge( e, g ) ;
 	
 	boost::clear_vertex( other, g ) ;
-	boost::remove_vertex( other, g ) ;
+	//boost::remove_vertex( other, g ) ;
+	node_map[ other ] = NodeData();
 }
