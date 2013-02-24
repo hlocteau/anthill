@@ -67,7 +67,8 @@ void print( GraphAdj & g ) {
 	boost::tie( vb,ve ) = boost::vertices( g ) ;
 	for ( ; vb != ve ; vb++ ) {
 		NodeData & data = node_map[ *vb ] ;
-		std::cout<< "vertex descriptor "<<*vb<<"  property "<<data.id()<< " "<< data.volume()<<std::endl;
+		if ( data.id() != -1 )
+			std::cout<< "vertex descriptor "<<*vb<<"  property "<<data.id()<< " "<< data.volume()<<std::endl;
 	}
 }
 
