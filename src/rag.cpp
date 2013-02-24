@@ -4,23 +4,31 @@ NodeData::NodeData( ) {
 	_id = -1 ;
 	_category = -1 ;
 	_volume = 0 ;
+	#ifdef DEV_RAG_METHODS
 	std::cout<<"Default constructor Node "<<(int)_id<<std::endl;
+	#endif
 }
 NodeData::~NodeData() {
+	#ifdef DEV_RAG_METHODS
 	std::cout<<"Destructor Node "<<_id<<std::endl;
+	#endif
 }
 NodeData::NodeData( const NodeData & o ) {
 	_id = o._id;
 	_volume = o._volume ;
 	_category = o._category ;
+	#ifdef DEV_RAG_METHODS
 	std::cout<<"Copy constructor Node "<<_id<<std::endl;
+	#endif
 }
 NodeData & NodeData::operator = ( const NodeData &o ) {
 	if ( this != &o ) {
 		_id = o._id ;
 		_volume = o._volume ;
 		_category = o._category ;
+		#ifdef DEV_RAG_METHODS
 		std::cout<<"copy operator Node "<<_id<<std::endl;
+		#endif
 	}
 	return *this ;
 }
@@ -135,7 +143,9 @@ EdgeData & EdgeData::operator += ( const EdgeData & other ) {
 }
 
 void merge_nodes( GraphAdj::vertex_descriptor growing, GraphAdj::vertex_descriptor other, GraphAdj & g ) {
+	#ifdef DEV_RAG_METHODS
 	std::cout<<__FUNCTION__<<" vertex "<<other<<" attached to "<<growing<<std::endl;
+	#endif
 	boost::property_map< GraphAdj, _NodeTag >::type node_map  = boost::get( _NodeTag(), g ) ;
 	boost::property_map< GraphAdj, _EdgeTag >::type edge_map  = boost::get( _EdgeTag(), g ) ;
 	
@@ -147,13 +157,17 @@ void merge_nodes( GraphAdj::vertex_descriptor growing, GraphAdj::vertex_descript
 	bool existing,creation ;
 	boost::tie( in_edge, in_edge_end ) = boost::in_edges(other, g) ;
 	for ( ; in_edge != in_edge_end ; in_edge++ ) {
+		#ifdef DEV_RAG_METHODS
 		std::cout<<"\tinfo edge "<<boost::source( *in_edge, g )<<" "<<boost::target( *in_edge, g )<<" in loop"<<std::endl;
 		assert( boost::target( *in_edge, g ) == other ) ;
+		#endif
 		opposite = boost::source( *in_edge, g ) ;
 		EdgeData & ed = edge_map[ *in_edge ] ;
 		
 		if ( opposite == growing ) {
+			#ifdef DEV_RAG_METHODS
 			std::cout<<"\t\tinfo edge link specific pair of vertices"<<std::endl;
+			#endif
 			ed.reset() ;
 			continue ;
 		}
@@ -163,25 +177,33 @@ void merge_nodes( GraphAdj::vertex_descriptor growing, GraphAdj::vertex_descript
 		
 		boost::tie( e, existing ) = boost::edge( opposite, growing, g ) ;
 		if ( !existing ) {
-			std::cout<<"\t\tinfo edge has to be created"<<std::endl;
 			boost::tie( e, creation ) = boost::add_edge( opposite, growing, g ) ;
+			#ifdef DEV_RAG_METHODS
+			std::cout<<"\t\tinfo edge has to be created"<<std::endl;
 			assert( boost::source(e,g) == opposite ) ;
 			assert( boost::target(e,g) == growing ) ;
+			#endif
 			if ( ed.target_id() == other )
 				ed.setTarget( growing ) ;
 			else
 				ed.setSource( growing ) ;
 			edge_map[ e ] = ed ;
 		} else {
+			#ifdef DEV_RAG_METHODS
 			std::cout<<"\t\tinfo edge has to be updated"<<std::endl;
 			assert( boost::source(e,g) == opposite ) ;
 			assert( boost::target(e,g) == growing ) ;
 			std::cerr<<"\t\t\tinfo : ed "<<ed.source_id()<<" - "<<ed.target_id()<<std::endl;
+			#endif
 			EdgeData & edg = edge_map[ e ] ;
+			#ifdef DEV_RAG_METHODS
 			std::cerr<<"\t\t\tinfo : edg "<<edg.source_id()<<" - "<<edg.target_id()<<std::endl;
+			#endif
 			if ( ed.target_id() == other ) ed.setTarget( growing ) ;
 			if ( ed.source_id() == other ) ed.setSource( growing ) ;
+			#ifdef DEV_RAG_METHODS
 			std::cerr<<"\t\t\tinfo : ed "<<ed.source_id()<<" - "<<ed.target_id()<<std::endl;
+			#endif
 			edg += ed ;
 		}
 		ed.reset() ;
@@ -195,6 +217,7 @@ void merge_nodes( GraphAdj::vertex_descriptor growing, GraphAdj::vertex_descript
 	boost::remove_edge( e, g ) ;
 	
 	boost::clear_vertex( other, g ) ;
+	/// \warning DO NOT USE remove_vertex as it implies a shift on vertex_descriptor
 	//boost::remove_vertex( other, g ) ;
 	node_map[ other ] = NodeData();
 }

@@ -70,7 +70,9 @@ class EdgeData {
 				_per_side[0] = boost::shared_ptr< QList<DGtal::Z3i::Point> >( new QList<DGtal::Z3i::Point> );
 				_per_side[1] = boost::shared_ptr< QList<DGtal::Z3i::Point> >( new QList<DGtal::Z3i::Point> );
 			}
+			#ifdef DEV_RAG_METHODS
 			std::cout<<"def ("<<_source_id<<","<<_target_id<<") adr "<<_per_side[0]<<" "<<_per_side[1]<<std::endl;
+			#endif
 			#endif
 		}
 		void setTarget   ( uint target_id ) {
@@ -80,7 +82,9 @@ class EdgeData {
 				_per_side[0] = boost::shared_ptr< QList<DGtal::Z3i::Point> >( new QList<DGtal::Z3i::Point> );
 				_per_side[1] = boost::shared_ptr< QList<DGtal::Z3i::Point> >( new QList<DGtal::Z3i::Point> );
 			}
+			#ifdef DEV_RAG_METHODS
 			std::cout<<"def ("<<_source_id<<","<<_target_id<<") adr "<<_per_side[0]<<" "<<_per_side[1]<<std::endl;
+			#endif
 			#endif
 		}
 		
@@ -151,7 +155,9 @@ template <typename T > GraphAdj * init_rag( const BillonTpl< T > &label, T th ) 
 							if ( !existing ) boost::tie(edge_adj,creation) = boost::add_edge( vertex_cur, vertex_adj, *g ) ;
 							EdgeData & edge_data = EdgePropertyMap[ edge_adj ] ;
 							if ( !existing && creation ) {
-std::cout<<"really define edge "<<cast_integer<T,int>( cur_value ) <<" "<<cast_integer<T,int>( adj_value ) << std::endl;
+								#ifdef DEV_RAG_METHODS
+								std::cout<<"really define edge "<<cast_integer<T,int>( cur_value ) <<" "<<cast_integer<T,int>( adj_value ) << std::endl;
+								#endif
 								edge_data.setSource( cur_value ) ;
 								edge_data.setTarget( adj_value ) ;
 							}
