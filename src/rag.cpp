@@ -1,0 +1,197 @@
+#include <rag.hpp>
+
+NodeData::NodeData( ) {
+	_id = -1 ;
+	_category = -1 ;
+	_volume = 0 ;
+	std::cout<<"Default constructor Node "<<(int)_id<<std::endl;
+}
+NodeData::~NodeData() {
+	std::cout<<"Destructor Node "<<_id<<std::endl;
+}
+NodeData::NodeData( const NodeData & o ) {
+	_id = o._id;
+	_volume = o._volume ;
+	_category = o._category ;
+	std::cout<<"Copy constructor Node "<<_id<<std::endl;
+}
+NodeData & NodeData::operator = ( const NodeData &o ) {
+	if ( this != &o ) {
+		_id = o._id ;
+		_volume = o._volume ;
+		_category = o._category ;
+		std::cout<<"copy operator Node "<<_id<<std::endl;
+	}
+	return *this ;
+}
+
+NodeData & NodeData::operator += ( const NodeData & other ) {
+	_volume += other._volume ;
+	return *this ;
+}
+
+EdgeData::EdgeData( ) {
+	_source_id = -1 ;
+	_target_id = -1 ;
+	#ifdef STORAGE_VOXEL
+	QList<DGtal::Z3i::Point> *null_ptr  = 0 ;
+	_per_side[ 0 ] = boost::shared_ptr< QList<DGtal::Z3i::Point>  >(null_ptr) ;
+	_per_side[ 1 ] = boost::shared_ptr< QList<DGtal::Z3i::Point>  >(null_ptr) ;
+	#endif
+	std::cout<<"Default constructor Edge"<<std::endl;
+}
+EdgeData::~EdgeData() {
+	std::cout<<"before reset "<<_source_id<<" "<<_target_id<<"  adr "<<_per_side[0]<<std::endl;
+	reset() ;
+	std::cout<<"Destructor Edge ";
+	std::cout<<std::endl;
+}
+EdgeData::EdgeData( const EdgeData & o ) {
+	_source_id = o._source_id;
+	_target_id = o._target_id ;
+	#ifdef STORAGE_VOXEL
+	_per_side[ 0 ] = o._per_side[ 0 ] ;
+	_per_side[ 1 ] = o._per_side[ 1 ] ;
+	std::cout<<"Copy constructor Edge ("<<_source_id<<","<<_target_id <<")";
+	std::cout<<std::endl;
+	#endif
+}
+
+EdgeData & EdgeData::operator = ( const EdgeData &o ) {
+	if ( this != &o ) {
+		reset();
+		_source_id = o._source_id;
+		_target_id = o._target_id ;
+		#ifdef STORAGE_VOXEL
+		_per_side[ 0 ] = o._per_side[ 0 ] ;
+		_per_side[ 1 ] = o._per_side[ 1 ] ;
+		std::cout<<"copy operator Edge " ;
+		std::cout<<std::endl;
+		#endif
+	}
+	return *this ;
+}
+
+void EdgeData::reset( ) {
+	_source_id = -1 ;
+	_target_id = -1 ;
+	#ifdef STORAGE_VOXEL
+	std::cout<<"line "<<__LINE__<<std::endl;
+	_per_side[0].reset() ;
+	_per_side[1].reset() ;
+	std::cout<<"line "<<__LINE__<<std::endl;
+	#endif
+}
+#ifdef STORAGE_VOXEL
+void EdgeData::append( uint id, DGtal::Z3i::Point v ) {
+	boost::shared_ptr< QList< DGtal::Z3i::Point > > L = _per_side[ ( id == _source_id ? 0 : 1 ) ] ;
+	uint size = L->size() ;
+	uint position = 0 ;
+	while ( position < size ) {
+		if ( v <= L->at( position ) ) break ;
+		position++ ;
+	}
+	if ( position != size ) {
+		if ( v != L->at( position ) ) L->insert( position, v ) ;
+	} else {
+		L->append( v ) ;
+	}
+}
+#endif
+
+EdgeData & EdgeData::operator += ( const EdgeData & other ) {
+	assert( _source_id == other._source_id );
+	assert( _target_id == other._target_id );
+	
+	for ( uint s = 0 ; s < 2 ; s++ ) {
+		uint pos_this = 0,
+		     pos_other = 0,
+		     size_this = _per_side[ s ]->size(),
+		     size_other = other._per_side[ s ]->size() ;
+		while ( pos_other != size_other && pos_this != size_this ) {
+			if ( _per_side[ s ]->at( pos_this ) == other._per_side[ s ]->at( pos_other ) ) {
+				pos_this++ ;
+				pos_other++ ;
+			} else if ( _per_side[ s ]->at( pos_this ) > other._per_side[ s ]->at( pos_other ) ) {
+				_per_side[ s ]->insert( pos_this, other._per_side[ s ]->at( pos_other ) ) ;
+				pos_this++ ;
+			} else {
+				pos_this++ ;
+			}
+		}
+		while ( pos_other != size_other ) {
+			_per_side[ s ]->append( other._per_side[ s ]->at( pos_other ) ) ;
+			pos_other++ ;
+		}
+	}
+	
+	return *this ;
+}
+
+void merge_nodes( GraphAdj::vertex_descriptor growing, GraphAdj::vertex_descriptor other, GraphAdj & g ) {
+	std::cout<<__FUNCTION__<<" vertex "<<other<<" attached to "<<growing<<std::endl;
+	boost::property_map< GraphAdj, _NodeTag >::type node_map  = boost::get( _NodeTag(), g ) ;
+	boost::property_map< GraphAdj, _EdgeTag >::type edge_map  = boost::get( _EdgeTag(), g ) ;
+	
+	NodeData & nd = node_map[ growing ] ;
+			
+	GraphAdj::in_edge_iterator in_edge, in_edge_end ;
+	GraphAdj::edge_descriptor e ;
+	GraphAdj::vertex_descriptor opposite ;
+	bool existing,creation ;
+	boost::tie( in_edge, in_edge_end ) = boost::in_edges(other, g) ;
+	for ( ; in_edge != in_edge_end ; in_edge++ ) {
+		std::cout<<"info edge "<<boost::source( *in_edge, g )<<" "<<boost::target( *in_edge, g )<<" in loop"<<std::endl;
+		assert( boost::target( *in_edge, g ) == other ) ;
+		opposite = boost::source( *in_edge, g ) ;
+		EdgeData & ed = edge_map[ *in_edge ] ;
+		
+		if ( opposite == growing ) {
+			std::cout<<"info edge link specific pair of vertices"<<std::endl;
+			ed.reset() ;
+			continue ;
+		}
+				
+		/// case 1 : there is no edge (growing,opposite)
+		/// case 2 : there is already an edge (growing,opposite)
+		
+		boost::tie( e, existing ) = boost::edge( opposite, growing, g ) ;
+		if ( !existing ) {
+			std::cout<<"info edge has to be created"<<std::endl;
+			boost::tie( e, creation ) = boost::add_edge( opposite, growing, g ) ;
+			assert( boost::source(e,g) == opposite ) ;
+			assert( boost::target(e,g) == growing ) ;
+			
+			ed.setTarget( growing ) ;
+			edge_map[ e ] = ed ;
+		} else {
+			std::cout<<"info edge has to be updated"<<std::endl;
+			assert( boost::source(e,g) == opposite ) ;
+			assert( boost::target(e,g) == growing ) ;
+			std::cerr<<"info : ed "<<ed.source_id()<<" - "<<ed.target_id()<<std::endl;
+			EdgeData & edg = edge_map[ e ] ;
+			std::cerr<<"info : edg "<<edg.source_id()<<" - "<<edg.target_id()<<std::endl;
+			if ( edg.source_id() == boost::target(e,g) && boost::source(e,g) == edg.target_id() ) {
+				edg.setSource( boost::source(e,g) ) ;
+				edg.setTarget( boost::target(e,g) ) ;
+				std::cerr<<"info : reverse edge"<<std::endl;
+			}
+			std::cerr<<"info : edg "<<edg.source_id()<<" - "<<edg.target_id()<<std::endl;
+			ed.setTarget( growing ) ;
+			std::cerr<<"info : edg "<<edg.source_id()<<" - "<<edg.target_id()<<std::endl;
+			assert( boost::source(e,g) == edg.source_id() &&
+			        boost::target(e,g) == edg.target_id() ) ;
+			edg += ed ;
+		}
+		ed.reset() ;
+	}
+	NodeData & ndo = node_map[ other ] ;
+	nd += ndo ;
+	
+	boost::tie( e, existing ) = boost::edge( other, growing, g ) ;
+	assert( existing ) ;
+	boost::remove_edge( e, g ) ;
+	
+	boost::clear_vertex( other, g ) ;
+	boost::remove_vertex( other, g ) ;
+}
