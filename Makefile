@@ -84,8 +84,8 @@ ${BUILD}/minpath : ${OBJ}/minpath.o ${OBJ}/IOPgm3d.o
 ${BUILD}/catchSkel : ${OBJ}/catchskel.o ${OBJ}/IOPgm3d.o
 	${LINK} ${OBJ}/catchskel.o ${OBJ}/IOPgm3d.o -o "$@" -lQtCore ${LIB_BOOST} ${LIB_BOOST_PARAM} ${LIB_DGTAL}
 
-${BUILD}/segSkelMinDepth : ${OBJ}/segSkelMinDepth.o ${OBJ}/IOPgm3d.o ${OBJ}/geom2d.o ${OBJ}/IOUtils.o
-	${LINK} ${OBJ}/segSkelMinDepth.o ${OBJ}/IOPgm3d.o ${OBJ}/geom2d.o ${OBJ}/IOUtils.o -o "$@" -lQtCore ${LIB_BOOST} ${LIB_BOOST_PARAM} ${LIB_DGTAL} -larmadillo
+${BUILD}/segSkelMinDepth : ${OBJ}/segSkelMinDepth.o ${OBJ}/IOPgm3d.o ${OBJ}/geom2d.o ${OBJ}/IOUtils.o ${OBJ}/rag.o
+	${LINK} ${OBJ}/segSkelMinDepth.o ${OBJ}/IOPgm3d.o ${OBJ}/geom2d.o ${OBJ}/IOUtils.o ${OBJ}/rag.o -o "$@" -lQtCore ${LIB_BOOST} ${LIB_BOOST_PARAM} ${LIB_DGTAL} -larmadillo -lQtGui
 
 ${BUILD}/test_minmax : ${OBJ}/test_minmax.o
 	${LINK} ${OBJ}/test_minmax.o -o "$@" -lQtCore
