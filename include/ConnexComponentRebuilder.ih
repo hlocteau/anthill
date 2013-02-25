@@ -514,7 +514,7 @@ template <typename T, typename U, typename V> void ConnexComponentRebuilder<T,U,
 
 template <typename T, typename U, typename V> void ConnexComponentRebuilder<T,U,V>::post_processing( ) {
 	if ( _illDefined.empty() ) return ;
-	
+	IOPgm3d< V, qint16, false>::write( _result, "/tmp/ccrbrute.pgm3d" ) ;
 	QList< PtrIllDefinedInstance > priorityProblem ;
 	typename QList< PtrIllDefinedInstance >::Iterator problem ;
 	QMap< uint32_t, uint32_t > penaltyVolume ;
