@@ -138,8 +138,10 @@ int main( int narg, char **argv ) {
 				for ( zo = 0 ; zo < params._zunit; zo++ )
 					for ( yo = 0; yo < params._yunit; yo++ )
 						for ( xo = 0; xo < params._xunit; xo++ )
-							if ( res( yo,xo,zo ) )
+							if ( res( yo,xo,zo ) ) {
 								scene( yo+y-margin,xo+x-margin,zo+z-margin ) = 1 ;
+								assert( (*Depth)( yo+y-margin,xo+x-margin,zo+z-margin )>0 ) ;
+							}
 			}
 	delete Img ;
 	delete Depth ;
