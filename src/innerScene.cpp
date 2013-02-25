@@ -102,7 +102,7 @@ int main( int narg, char **argv ) {
 	}
 	
 
-	DistType margin = Depth->max() ;
+	DistType margin = (int)floor( sqrt( Depth->max() ) + 1. );
 	
 	if ( std::min( params._xunit, std::min(params._yunit,params._zunit) ) < 2*margin ) {
 		std::cerr<<"[ Error ] : as max depth is "<<cast_integer<DistType,int>(margin)<<", grid is too small"<<std::endl;
