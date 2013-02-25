@@ -116,7 +116,7 @@ struct _EdgeTag {
 typedef boost::property< _NodeTag, NodeData > NodeProperty ;
 typedef boost::property< _EdgeTag, EdgeData > EdgeProperty ;
 
-typedef boost::adjacency_list<boost::listS, boost::listS, boost::undirectedS, NodeProperty, EdgeProperty > GraphAdj;
+typedef boost::adjacency_list<boost::listS, boost::vecS, boost::undirectedS, NodeProperty, EdgeProperty > GraphAdj;
 
 
 template <typename T > GraphAdj * init_rag( const BillonTpl< T > &label, T th ) {
