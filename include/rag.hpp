@@ -116,14 +116,15 @@ struct _EdgeTag {
 typedef boost::property< _NodeTag, NodeData > NodeProperty ;
 typedef boost::property< _EdgeTag, EdgeData > EdgeProperty ;
 
-typedef boost::adjacency_list<boost::listS, boost::vecS, boost::undirectedS, NodeProperty, EdgeProperty > GraphAdj;
+typedef boost::adjacency_list<boost::listS, boost::listS, boost::undirectedS, NodeProperty, EdgeProperty > GraphAdj;
 
 
 template <typename T > GraphAdj * init_rag( const BillonTpl< T > &label, T th ) {
 	uint max_value = cast_integer< T, uint>( label.max() );
 	if ( max_value < th ) return 0 ;
-	
+	std::cout<<__FUNCTION__<<std::endl;
 	GraphAdj * g = new GraphAdj( max_value+1 ) ;
+	std::cout<<max_value+1<<" nodes have been inserted in the graph..."<<std::endl;
 	boost::property_map< GraphAdj, _NodeTag >::type NodePropertyMap  = boost::get( _NodeTag(), *g ) ;
 	boost::property_map< GraphAdj, _EdgeTag >::type EdgePropertyMap  = boost::get( _EdgeTag(), *g ) ;
 	bool creation,

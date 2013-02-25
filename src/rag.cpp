@@ -74,7 +74,7 @@ EdgeData & EdgeData::operator = ( const EdgeData &o ) {
 		_per_side[ 0 ] = o._per_side[ 0 ] ;
 		_per_side[ 1 ] = o._per_side[ 1 ] ;
 		//std::cout<<"copy operator Edge " ;
-		std::cout<<std::endl;
+		//std::cout<<std::endl;
 		#endif
 	}
 	return *this ;
@@ -150,7 +150,8 @@ void merge_nodes( GraphAdj::vertex_descriptor growing, GraphAdj::vertex_descript
 	boost::property_map< GraphAdj, _EdgeTag >::type edge_map  = boost::get( _EdgeTag(), g ) ;
 	
 	NodeData & nd = node_map[ growing ] ;
-			
+	NodeData & ndo = node_map[ other ] ;
+				
 	GraphAdj::in_edge_iterator in_edge, in_edge_end ;
 	GraphAdj::edge_descriptor e ;
 	GraphAdj::vertex_descriptor opposite ;
@@ -183,10 +184,10 @@ void merge_nodes( GraphAdj::vertex_descriptor growing, GraphAdj::vertex_descript
 			assert( boost::source(e,g) == opposite ) ;
 			assert( boost::target(e,g) == growing ) ;
 			#endif
-			if ( ed.target_id() == other )
-				ed.setTarget( growing ) ;
+			if ( ed.target_id() == ndo.id() )
+				ed.setTarget( nd.id() ) ;
 			else
-				ed.setSource( growing ) ;
+				ed.setSource( nd.id() ) ;
 			edge_map[ e ] = ed ;
 		} else {
 			#ifdef DEV_RAG_METHODS
@@ -199,8 +200,8 @@ void merge_nodes( GraphAdj::vertex_descriptor growing, GraphAdj::vertex_descript
 			#ifdef DEV_RAG_METHODS
 			std::cerr<<"\t\t\tinfo : edg "<<edg.source_id()<<" - "<<edg.target_id()<<std::endl;
 			#endif
-			if ( ed.target_id() == other ) ed.setTarget( growing ) ;
-			if ( ed.source_id() == other ) ed.setSource( growing ) ;
+			if ( ed.target_id() == ndo.id() ) ed.setTarget( nd.id() ) ;
+			if ( ed.source_id() == ndo.id() ) ed.setSource( nd.id() ) ;
 			#ifdef DEV_RAG_METHODS
 			std::cerr<<"\t\t\tinfo : ed "<<ed.source_id()<<" - "<<ed.target_id()<<std::endl;
 			#endif
@@ -208,9 +209,8 @@ void merge_nodes( GraphAdj::vertex_descriptor growing, GraphAdj::vertex_descript
 		}
 		ed.reset() ;
 	}
-	NodeData & ndo = node_map[ other ] ;
+
 	nd += ndo ;
-	
 	boost::tie( e, existing ) = boost::edge( other, growing, g ) ;
 	assert( existing ) ;
 	edge_map[ e ].reset() ;
@@ -219,5 +219,5 @@ void merge_nodes( GraphAdj::vertex_descriptor growing, GraphAdj::vertex_descript
 	boost::clear_vertex( other, g ) ;
 	/// \warning DO NOT USE remove_vertex as it implies a shift on vertex_descriptor
 	//boost::remove_vertex( other, g ) ;
-	node_map[ other ] = NodeData();
+	ndo = NodeData();
 }
