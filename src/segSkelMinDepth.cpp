@@ -18,6 +18,7 @@
 #include <boost/filesystem.hpp>
 
 #include <boost/graph/connected_components.hpp>
+#include <rag.hpp>
 
 namespace fs=boost::filesystem;
 namespace po=boost::program_options ;
@@ -283,6 +284,8 @@ template <typename T > BillonTpl< LabelType > * do_labeling_complement( const Bi
 	BillonTpl< arma::u8 >::iterator          iterRemain = sceneimg->begin(),
 									         iterRemainEnd = sceneimg->end() ;
 	while ( iterRemain != iterRemainEnd ) {
+		if ( *iterLabelCC != 0 )
+			assert( *iterRemain != 0 ) ;
 		if ( *iterRemain ) {
 			if ( *iterLabelCC != 0 )
 				*iterRemain = 0 ;
@@ -545,6 +548,85 @@ void iterative_merge( BillonTpl< LabelType > &labelComp, LabelType nSeeds, QMap<
 	
 }
 
+void threshold_size( BillonTpl< LabelType > &labelComp, LabelType nSeeds ) {
+	GraphAdj * pg = init_rag( labelComp, (LabelType)1 ) ;
+	std::cout<<"graph created"<<std::endl;
+	boost::property_map< GraphAdj, _NodeTag >::type node_map  = boost::get( _NodeTag(), *pg ) ;
+	boost::property_map< GraphAdj, _EdgeTag >::type edge_map  = boost::get( _EdgeTag(), *pg ) ;
+	
+	GraphAdj::vertex_iterator vi, vi_end ;
+	GraphAdj::vertex_descriptor v ;
+	boost::tie( vi,vi_end) = boost::vertices( *pg ) ;
+	QList< GraphAdj::vertex_descriptor > sorted_vertices ;
+	/// set label and define priority queue
+	for ( ; vi != vi_end ; vi++ ) {
+		v = * vi ;
+		NodeData & nd = node_map[ v ] ;
+		if ( nd.id() <= nSeeds ) nd.setCategory( 2 ) ;
+		else nd.setCategory( 1 ) ;
+		
+		uint pos = 0 ;
+		uint length = sorted_vertices.size() ;
+		while ( pos != length ) {
+			NodeData & ndpos = node_map[ sorted_vertices.at( pos ) ] ;
+			if ( nd.volume() <= ndpos.volume() ) break ;
+			pos++ ;
+		}
+		sorted_vertices.insert( pos, v ) ;
+	}
+	std::cout<<"labels' nodes and priority queue defined"<<std::endl;
+	uint pos = 0 ;
+	GraphAdj::adjacency_iterator adj, adj_end ;
+	GraphAdj::vertex_descriptor biggest;
+	QMap< LabelType, LabelType > tableEquiv ;
+	QMap< LabelType, LabelType > tableEquivRemain ;
+	while ( node_map[ sorted_vertices.at( pos ) ].volume() < 100 ) {
+		if ( node_map[ sorted_vertices.at( pos ) ].volume() > 0 ) {
+			boost::tie( adj, adj_end ) = boost::adjacent_vertices( sorted_vertices.at( pos ), *pg) ;
+			biggest = *adj ;
+			for ( ; adj != adj_end ; adj++ )
+				if ( node_map[ *adj ].volume() > node_map[ biggest ].volume() )
+					biggest = *adj ;
+			NodeData & ndb = node_map[ biggest ] ;		
+			tableEquiv[ node_map[ sorted_vertices.at( pos ) ].id() ] = ndb.id() ;
+			merge_nodes( biggest, sorted_vertices.at( pos ), *pg ) ;
+			/// update position of biggest
+			uint pos_biggest = pos ; /// at least
+			while ( sorted_vertices.at( pos_biggest ) != biggest ) { pos_biggest++ ; assert( pos_biggest <sorted_vertices.size() ) ; }
+			if ( pos_biggest != sorted_vertices.size()-1 ) {
+				sorted_vertices.removeAt( pos_biggest ) ;
+				while ( node_map[ sorted_vertices.at( pos_biggest ) ].volume() < ndb.volume() ) {
+					pos_biggest++ ;
+					if ( pos_biggest == sorted_vertices.size() ) break ;
+				}
+				sorted_vertices.insert( pos_biggest, biggest ) ;
+			}
+		} else {
+			pos++ ;
+		}
+	}
+
+
+	for ( pos = sorted_vertices.size() ; pos > 0 ; pos-- ) {
+		NodeData & nd = node_map[ sorted_vertices.at( pos-1 ) ] ;
+		if ( nd.id() == -1 ) continue ;
+		if ( nd.volume() == 0 ) break ;
+		tableEquivRemain[ nd.id() ] = tableEquivRemain.size()+1 ;
+		std::cerr<<"Node "<<nd.id()<<" : "<<nd.volume()<<std::endl;
+	}
+	
+	for ( QMap< LabelType, LabelType >::iterator iter = tableEquiv.begin() ; iter != tableEquiv.end() ; iter++ ) {
+		LabelType value = iter.value() ;
+		while ( tableEquiv.contains( value ) )
+			value = tableEquiv.find( value ).value() ;
+		assert( tableEquivRemain.contains( value ) ) ;
+		tableEquivRemain[ iter.key() ] = tableEquivRemain[ value ] ;
+	}
+	apply_translation( labelComp, tableEquivRemain ) ;
+	save_minspace< LabelType >( labelComp, "/tmp/stepFinal.pgm3d" ) ;
+	delete pg ;
+}
+
 #define SAFETY_MEMORY_CONSUPTION
 
 int main( int narg, char **argv ) {
@@ -592,45 +674,8 @@ int main( int narg, char **argv ) {
 		CCR.run( true ) ;
 		delete labelSeed ;
 		labelSeed = new BillonTpl< LabelType >( CCR.result() ) ;
-		QMap< LabelType, QMap < LabelType, QList<Point> > > IllDefinedExt( CCR.sharedVoxels() );
-		QMap< LabelType, uint32_t > nShared ;
-		{
-			QMap< LabelType, QMap < LabelType, QList<Point> > >::ConstIterator iterIllDefined ;
-			QMap < LabelType, QList<Point> >::ConstIterator iterIllDefinedWith ;
-			
-			trace.info() << "== ill defined belonging =="<<std::endl;
-			for ( iterIllDefined = IllDefinedExt.begin() ; iterIllDefined != IllDefinedExt.end() ; iterIllDefined ++ )
-				for ( iterIllDefinedWith = iterIllDefined.value().begin() ; iterIllDefinedWith != iterIllDefined.value().end() ; iterIllDefinedWith++ ) {
-					trace.info() << iterIllDefined.key()<<" x "<<iterIllDefinedWith.key()<<" :" ;
-					for ( uint iVoxel = iterIllDefinedWith.value().size() ; iVoxel > 0 ; iVoxel-- )
-						trace.info()<<" "<<iterIllDefinedWith.value().at( iVoxel-1 ).at(0)<<","<<iterIllDefinedWith.value().at( iVoxel-1 ).at(1)<<","<<iterIllDefinedWith.value().at( iVoxel-1 ).at(2) ;
-					trace.info() << std::endl ;
-					if ( !nShared.contains( iterIllDefined.key() ) ) nShared.insert( iterIllDefined.key(), (uint32_t) 0 ) ;
-					if ( !nShared.contains( iterIllDefinedWith.key() ) ) nShared.insert( iterIllDefinedWith.key(), (uint32_t) 0 ) ;
-					nShared[ iterIllDefined.key() ] += iterIllDefinedWith.value().size() ;
-					nShared[ iterIllDefinedWith.key() ] += iterIllDefinedWith.value().size() ;
-				}
-		}
-		QMap< LabelType, CCRType::IllDefined > &IllDefinedStrExt = CCR.illDefined() ;
-		for( QMap< LabelType, CCRType::IllDefined >::ConstIterator iter = IllDefinedStrExt.begin() ; iter != IllDefinedStrExt.end() ; iter++ ) {
-			std::cerr<< iter.key()<<" : "<<std::endl;
-			std::cerr<< "\tVoxels :"<<iter.value().voxels_as_string()<<std::endl;
-			std::cerr<<"--"<<std::endl;
-			for ( QList<CCRType::IllDefinedInstance*>::ConstIterator inst = iter.value()._instances.begin() ; inst != iter.value()._instances.end() ; inst++ ) {
-				std::cerr<<"\t\tCC :"<<(*inst)->seeds_as_string()<<std::endl;
-				std::cerr<<"\t\tVI :"<<(*inst)->voxels_as_string()<<std::endl;
-				std::cerr<<"--"<<std::endl;
-			}
-		}
-		
-		
-		trace.info() << "== Volumes seeds (1) =="<<std::endl;
 		QMap< uint32_t, uint32_t > volumes( CCR.volumes() );
-		for ( QMap< uint32_t, uint32_t >::iterator iterVol = volumes.begin() ; iterVol != volumes.end() ; iterVol++ )
-			trace.info() <<"cc # "<<(int) iterVol.key()<<" : "<<cast_integer<uint32_t,int64_t>( iterVol.value() )<<"   "<<(int) ( IllDefinedStrExt.contains( iterVol.key() ) ? IllDefinedStrExt[ iterVol.key() ]._voxels.size() : 0 ) <<std::endl;
-		
 		save_minspace<LabelType>( *labelSeed, QString( "/tmp/rebuild.seeds.pgm3d" ) ) ;
-		
 		merge_adjacent_cc<LabelType>( labelSeed, volumes ) ;
 		
 		trace.info() << "== Volumes seeds (2) =="<<std::endl;
@@ -647,23 +692,28 @@ int main( int narg, char **argv ) {
 			BillonTpl<LabelType>::iterator iterResult = labelComp->begin(),
 			                               iterResultEnd = labelComp->end(),
 			                               iterSeed = labelSeed->begin() ;
+			LabelType hugeCC = -1 ;
 			while ( iterResult != iterResultEnd ) {
 				if ( *iterResult ) *iterResult += nSeeds ;
 				if ( *iterResult ) {
 					if ( !volumes.contains( *iterResult ) ) volumes.insert( (uint32_t) *iterResult, (uint32_t) 1 ) ;
 					else volumes[ *iterResult ]++ ;
+					if ( hugeCC == -1 ) hugeCC = *iterResult ;
+					else if ( volumes[ *iterResult ] > volumes[ hugeCC ] ) hugeCC = *iterResult ;
 				}
 				*iterResult += *iterSeed ;
 				
 				iterResult++ ;
 				iterSeed++ ;
 			}
+			std::cout<<"Biggest component in the complement : "<< hugeCC<<" with volume "<<volumes[ hugeCC]<<std::endl;
 		}
 		save_minspace<LabelType>( *labelComp, QString( params._outputFilePath.c_str() ) ) ;
 	trace.endBlock() ;
 	
 	trace.beginBlock("Simplification of the scene");
-		iterative_merge( *labelComp, nSeeds, volumes );
+		//iterative_merge( *labelComp, nSeeds, volumes );
+		threshold_size( *labelComp, nSeeds ) ;
 	trace.endBlock() ;
 	
 	
