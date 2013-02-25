@@ -43,6 +43,7 @@ template <> QString IOPgm3d<arma::u8,qint8,false>::_header = QString( "P5" ) ;
 template <> QString IOPgm3d<arma::u16,qint8,false>::_header = QString( "P5" ) ;
 template <> QString IOPgm3d<arma::u32,qint8,false>::_header = QString( "P5" ) ;
 
+template <> QString IOPgm3d<arma::u8,qint16,false>::_header = QString( "P8" ) ;
 template <> QString IOPgm3d<arma::s16,qint16,false>::_header = QString( "P8" ) ;
 template <> QString IOPgm3d<arma::s16,qint16,true>::_header = QString( "PB" ) ;
 template <> QString IOPgm3d<arma::u16,qint16,false>::_header = QString( "P8" ) ;
