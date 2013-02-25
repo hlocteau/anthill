@@ -46,7 +46,7 @@ public:
 	bool 					setDepth 	( BillonTpl< U > * ) ;
 	bool 					setDepth 	( const QString & ) ;
 	bool 					run			( bool storeOverlaping = false ) ;
-	bool 					run			( uint32_t label, V color, bool storeOverlaping = false ) ;
+	bool 					run			( T label, V color, bool storeOverlaping = false ) ;
 	
 	const BillonTpl< V > &	result		( ) 						const {
 		return _result ;
@@ -54,17 +54,15 @@ public:
 	
 	void                    post_processing  ( ) ;
 	
-	QMap< uint32_t, uint32_t > &volumes() { return _volumes ; }
-	QMap< uint32_t,
-	       QMap< uint32_t, QList< Point > > > & sharedVoxels() { return _sharedVoxels ; }
+	QMap< V, uint32_t > &volumes() { return _volumes ; }
 	
-	QMap< uint32_t, IllDefined > &              illDefined() { return _illDefined ; }
+	QMap< V, IllDefined > &              illDefined() { return _illDefined ; }
 	
 protected:
 	void					init 		     ( const BillonTpl< T > &, QList< T > *ignoring) ;
 	bool					setBounds	     ( uint32_t selection ) ;
 	void                    set_voxels       ( const OutImage & img, const int * plane, const Point &seed, QList<Point> &crop, const Point &refPoint, U maxDist  ) ;
-	void              explicit_missed_voxels ( uint32_t key ) const ;
+	void              explicit_missed_voxels ( V key ) const ;
 	uint                  index_of_parent    ( const QList < PtrIllDefinedInstance > & inst, const PtrIllDefinedInstance elem, uint missing, bool & ) ;
 	uint                  index_of_parent    ( const QList < PtrIllDefinedInstance > & inst, const QList<V > &elem, uint missing, bool & ) ;
 	bool                  split_voxels       ( PtrIllDefinedInstance father, const PtrIllDefinedInstance child ) ;
@@ -73,23 +71,22 @@ protected:
 	void              explicit_intersection  ( const PtrIllDefinedInstance inst ) ;
 	static bool           sortedListLessThan ( const PtrIllDefinedInstance &a, const PtrIllDefinedInstance &b ) ;
 private:
-	QMap< uint32_t, LayerType > 			_layers ;
+	QMap< T, LayerType > 			_layers ;
 	BillonTpl< U >							*_depth ;
 	bool									_allocated_depth ;
-	QMap< uint32_t, Point >					_lower ;
-	QMap< uint32_t, Point >					_upper ;
-	QMap< uint32_t, uint32_t >              _volumes ;
-	QMap< uint32_t,
-	       QMap< uint32_t, QList<Point> > > _sharedVoxels ;
+	QMap< T, Point >					_lower ;
+	QMap< T, Point >					_upper ;
+	QMap< T, uint32_t >              _volumes ;
+
 	
-	QMap< uint32_t, IllDefined >            _illDefined ;
+	QMap< V, IllDefined >            _illDefined ;
 	QMap< Point, QList< V > >      _ill_per_voxel ;
-	uint32_t								_n_labels ;
+	T								_n_labels ;
 	uint32_t								_n_rows ;
 	uint32_t								_n_cols ;
 	uint32_t								_n_slices ;
-	QMap< uint32_t, QSet< uint32_t > >		_adjacency ;
-	QMap< uint32_t, QList< VoxelsPair > >	_locations ;
+	QMap< T, QSet< T > >		_adjacency ;
+	QMap< T, QList< VoxelsPair > >	_locations ;
 	BillonTpl< V >							_result ;
 	QString									_depthfile ;
 } ;
