@@ -33,7 +33,7 @@ typedef struct _TProgramArg {
 	fs::path  _outputFilePath ;
 	bool      _high ;
 	DepthType _depthThreshold ;
-	int       _minSize ;
+	double_t  _mergeThreshold ;
 } TProgramArg ;
 
 typedef SkeletonGraph< arma::u8 > SG_u8 ;
@@ -59,7 +59,7 @@ bool process_arg( int narg, char **argv, TProgramArg &params ) {
 		( "high,h", po::value<bool>(),"seeds are voxels that have a distance-to-closed-boundary higher than <threshold>.")
 		( "low,l", po::value<bool>(),"seeds are voxels that have a distance-to-closed-boundary smaller than <threshold>.")
 		( "threshold,t", po::value<int>(),"threshold to be used for classification of skeleton's voxels based on their depth value." )
-		( "volume,v", po::value<int>()->default_value(0),"threshold to be used for reconstructed connected component regarding its size." );
+		( "merge,m", po::value<double_t>()->default_value(0),"threshold to be used for reconstructed connected component." );
 
 	bool parseOK = true ;
 	po::variables_map vm;
@@ -85,7 +85,7 @@ bool process_arg( int narg, char **argv, TProgramArg &params ) {
 	if ( ! vm.count( "threshold" ) )   return missingParam ( "threshold" );
 	if ( ! vm.count( "low" ) && ! vm.count( "high" ))   return missingParam ( "low|high" );
 	params._depthThreshold = vm["threshold"].as<int>() ;
-	params._minSize = vm["volume"].as<int>() ;
+	params._mergeThreshold = vm["merge"].as<double_t>() ;
 	params._skelFilePath = vm["skel"].as<std::string>();
 	params._depthFilePath = vm["depth"].as<std::string>();
 	params._sceneFilePath = vm["inner"].as<std::string>();
@@ -98,6 +98,7 @@ bool process_arg( int narg, char **argv, TProgramArg &params ) {
 }
 
 
+void export2dot( GraphAdj & g, QString filename ) ;
 
 template < typename T > BillonTpl< T > * do_labeling( SG_u8 &sg ) {
 	typedef T elem_type ;
@@ -548,7 +549,146 @@ void iterative_merge( BillonTpl< LabelType > &labelComp, LabelType nSeeds, QMap<
 	
 }
 
-void threshold_size( BillonTpl< LabelType > &labelComp, LabelType nSeeds ) {
+template <typename T>
+void insert_priority( const QMap< uint, T > &f_map, const GraphAdj::vertex_descriptor v, QList< GraphAdj::vertex_descriptor > &priority,boost::property_map< GraphAdj, _NodeTag >::type &node_map ) {
+	uint pos = 0 ;
+	uint length = priority.size() ;
+	while ( pos != length ) {
+		if ( f_map[ node_map[ v ].id() ] <= f_map[ node_map[ priority.at( pos ) ].id() ] ) break ;
+		pos++ ;
+	}
+	priority.insert( pos, v ) ;
+}
+
+double_t priority_feature_0( GraphAdj::vertex_descriptor v, GraphAdj &g, 
+					boost::property_map< GraphAdj, _NodeTag >::type &node_map, 
+					boost::property_map< GraphAdj, _EdgeTag >::type &edge_map ) {
+	return (double_t)cast_integer<uint, int32_t>( node_map[ v ].volume() ) ;
+}
+
+template <typename T>
+GraphAdj::vertex_descriptor newton_biggest_feature_0( GraphAdj &g, const QMap< uint, T > &f_map, const GraphAdj::vertex_descriptor v,boost::property_map< GraphAdj, _NodeTag >::type &node_map ) {
+	GraphAdj::vertex_descriptor newton ;
+	GraphAdj::adjacency_iterator adj, adj_end ;
+	boost::tie( adj, adj_end ) = boost::adjacent_vertices( v, g) ;
+	newton = *adj ;
+	for ( ; adj != adj_end ; adj++ )
+		if ( f_map[ node_map[ *adj ].id() ] > f_map[ node_map[ newton ].id() ] )
+			newton = *adj ;
+	return newton ;
+}
+
+template <typename T>
+GraphAdj::vertex_descriptor newton_smallest_feature_0( GraphAdj &g, const QMap< uint, T > &f_map, const GraphAdj::vertex_descriptor v,boost::property_map< GraphAdj, _NodeTag >::type &node_map ) {
+	GraphAdj::vertex_descriptor newton ;
+	GraphAdj::adjacency_iterator adj, adj_end ;
+	boost::tie( adj, adj_end ) = boost::adjacent_vertices( v, g) ;
+	newton = *adj ;
+	for ( ; adj != adj_end ; adj++ )
+		if ( f_map[ node_map[ *adj ].id() ] < f_map[ node_map[ newton ].id() ] )
+			newton = *adj ;
+	return newton ;
+}
+
+template <typename T>
+GraphAdj::vertex_descriptor newton_biggest_feature_1( GraphAdj &g, const QMap< uint, T > &f_map, 
+					const GraphAdj::vertex_descriptor v,
+					boost::property_map< GraphAdj, _NodeTag >::type &node_map, 
+					boost::property_map< GraphAdj, _EdgeTag >::type &edge_map) {
+	GraphAdj::vertex_descriptor newton ;
+	
+	NodeData & ndv = node_map[ v ] ;
+	
+	GraphAdj::in_edge_iterator in_edge, in_edge_end ;
+	boost::tie( in_edge, in_edge_end ) = boost::in_edges( v, g) ;
+	
+	double_t ratio, min_ratio = -1 ;
+	/// there we want to retrieve an edge leading to the stored feature.
+	/// if several edges are elected, we select the one having the biggest opposite node
+	for ( ; in_edge != in_edge_end ; in_edge++ ) {
+		EdgeData & ed = edge_map[ *in_edge ] ;
+		ratio =1-ed.per_side( ndv.id() )->size() / (double_t)cast_integer<uint, int32_t>( ndv.volume() ) ;
+		if ( ratio == f_map[ ndv.id() ] ) {
+			if ( min_ratio < 0 )
+				newton = ( boost::source( *in_edge, g ) == v ? boost::target( *in_edge, g ) : boost::source( *in_edge, g ) ) ;
+			else {
+				if ( node_map[ newton ].volume() < node_map[ ( boost::source( *in_edge, g ) == v ? boost::target( *in_edge, g ) : boost::source( *in_edge, g ) ) ].volume() )
+					newton = ( boost::source( *in_edge, g ) == v ? boost::target( *in_edge, g ) : boost::source( *in_edge, g ) ) ;
+			}
+		}
+	}		
+	return newton ;
+}
+
+template <typename T>
+GraphAdj::vertex_descriptor newton_smallest_feature_1( GraphAdj &g, const QMap< uint, T > &f_map, 
+					const GraphAdj::vertex_descriptor v,
+					boost::property_map< GraphAdj, _NodeTag >::type &node_map, 
+					boost::property_map< GraphAdj, _EdgeTag >::type &edge_map) {
+	GraphAdj::vertex_descriptor newton ;
+	
+	NodeData & ndv = node_map[ v ] ;
+	
+	GraphAdj::in_edge_iterator in_edge, in_edge_end ;
+	boost::tie( in_edge, in_edge_end ) = boost::in_edges( v, g) ;
+	
+	double_t ratio, min_ratio = -1 ;
+	/// there we want to retrieve an edge leading to the stored feature.
+	/// if several edges are elected, we select the one having the biggest opposite node
+	for ( ; in_edge != in_edge_end ; in_edge++ ) {
+		EdgeData & ed = edge_map[ *in_edge ] ;
+		ratio =1-ed.per_side( ndv.id() )->size() / (double_t)cast_integer<uint, int32_t>( ndv.volume() ) ;
+		if ( ratio == f_map[ ndv.id() ] ) {
+			if ( min_ratio < 0 )
+				newton = ( boost::source( *in_edge, g ) == v ? boost::target( *in_edge, g ) : boost::source( *in_edge, g ) ) ;
+			else {
+				if ( node_map[ newton ].volume() > node_map[ ( boost::source( *in_edge, g ) == v ? boost::target( *in_edge, g ) : boost::source( *in_edge, g ) ) ].volume() )
+					newton = ( boost::source( *in_edge, g ) == v ? boost::target( *in_edge, g ) : boost::source( *in_edge, g ) ) ;
+			}
+		}
+	}		
+	return newton ;
+}
+
+void set_impact_0( GraphAdj &g, GraphAdj::vertex_descriptor, QList< GraphAdj::vertex_descriptor > &needUpdate ) {
+	return ;
+}
+
+void set_impact_1( GraphAdj &g, GraphAdj::vertex_descriptor v, QList< GraphAdj::vertex_descriptor > &needUpdate ) {
+	GraphAdj::adjacency_iterator adj, adj_end ;
+	boost::tie( adj, adj_end ) = boost::adjacent_vertices( v, g) ;
+	for ( ; adj != adj_end ; adj++ )
+	needUpdate.append( *adj ) ;
+}
+
+double_t priority_feature_1( GraphAdj::vertex_descriptor v, GraphAdj &g, 
+					boost::property_map< GraphAdj, _NodeTag >::type &node_map, 
+					boost::property_map< GraphAdj, _EdgeTag >::type &edge_map ) {
+	NodeData & nd = node_map[ v ] ;
+	if ( nd.volume() == 0 ) return -1 ;
+
+	GraphAdj::in_edge_iterator in_edge, in_edge_end ;
+	boost::tie( in_edge, in_edge_end ) = boost::in_edges(v, g) ;
+	double_t ratio, min_ratio = 2 ;
+	GraphAdj::vertex_descriptor vertex_max_ratio ;
+	for ( ; in_edge != in_edge_end ; in_edge++ ) {
+		EdgeData & ed = edge_map[ *in_edge ] ;
+		ratio =1-ed.per_side( nd.id() )->size() / (double_t)cast_integer<uint, int32_t>( nd.volume() ) ;
+		if ( ratio < min_ratio ) {
+			min_ratio = ratio ;
+			if ( boost::source( *in_edge, g ) == v ) vertex_max_ratio = boost::target( *in_edge, g ) ;
+			else vertex_max_ratio = boost::source( *in_edge, g ) ;
+		}
+	}
+	std::cerr<<"Node "<<nd.id()<<" [vol="<<nd.volume()<<"] may be merge with node "<<node_map[ vertex_max_ratio ].id()<<" [vol="<<node_map[ vertex_max_ratio ].volume()<<"] ratio "<<min_ratio<<std::endl;
+	return min_ratio ;
+}
+
+/**
+ * \warning if the threshold on size is too high, we will only get rooms!
+ * \todo use a ratio (number of voxels on the bridge between a pair of regions) / ( total number of voxels in the smallest region of the pair)
+ */
+void threshold_size( BillonTpl< LabelType > &labelComp, LabelType nSeeds, double_t th ) {
 	GraphAdj * pg = init_rag( labelComp, (LabelType)1 ) ;
 	std::cout<<"graph created"<<std::endl;
 	boost::property_map< GraphAdj, _NodeTag >::type node_map  = boost::get( _NodeTag(), *pg ) ;
@@ -558,48 +698,46 @@ void threshold_size( BillonTpl< LabelType > &labelComp, LabelType nSeeds ) {
 	GraphAdj::vertex_descriptor v ;
 	boost::tie( vi,vi_end) = boost::vertices( *pg ) ;
 	QList< GraphAdj::vertex_descriptor > sorted_vertices ;
+	QMap< uint, double_t > f_map ;
 	/// set label and define priority queue
 	for ( ; vi != vi_end ; vi++ ) {
 		v = * vi ;
 		NodeData & nd = node_map[ v ] ;
 		if ( nd.id() <= nSeeds ) nd.setCategory( 2 ) ;
 		else nd.setCategory( 1 ) ;
-		
-		uint pos = 0 ;
-		uint length = sorted_vertices.size() ;
-		while ( pos != length ) {
-			NodeData & ndpos = node_map[ sorted_vertices.at( pos ) ] ;
-			if ( nd.volume() <= ndpos.volume() ) break ;
-			pos++ ;
-		}
-		sorted_vertices.insert( pos, v ) ;
+		f_map[ nd.id() ] = priority_feature_1( v, *pg, node_map, edge_map ) ;			/// CHARACTERISTIC
+		insert_priority( f_map, v, sorted_vertices,node_map ) ;
 	}
 	std::cout<<"labels' nodes and priority queue defined"<<std::endl;
 	uint pos = 0 ;
 	GraphAdj::adjacency_iterator adj, adj_end ;
-	GraphAdj::vertex_descriptor biggest;
+	GraphAdj::vertex_descriptor newton;
 	QMap< LabelType, LabelType > tableEquiv ;
 	QMap< LabelType, LabelType > tableEquivRemain ;
-	while ( node_map[ sorted_vertices.at( pos ) ].volume() < 100 ) {
-		if ( node_map[ sorted_vertices.at( pos ) ].volume() > 0 ) {
-			boost::tie( adj, adj_end ) = boost::adjacent_vertices( sorted_vertices.at( pos ), *pg) ;
-			biggest = *adj ;
-			for ( ; adj != adj_end ; adj++ )
-				if ( node_map[ *adj ].volume() > node_map[ biggest ].volume() )
-					biggest = *adj ;
-			NodeData & ndb = node_map[ biggest ] ;		
+	QList<GraphAdj::vertex_descriptor> needUpdate ;
+	
+	while ( f_map[ node_map[ sorted_vertices.at( pos ) ].id() ] < th ) {
+		if ( /*f_map[ node_map[ sorted_vertices.at( pos ) ].id() ] > 0 &&*/ node_map[ sorted_vertices.at( pos ) ].volume() > 0 ) {
+			v = sorted_vertices.at( pos ) ;
+			set_impact_1( *pg, v, needUpdate ) ;										/// INFLUENCE
+			newton = newton_biggest_feature_1( *pg, f_map, v, node_map, edge_map ) ;	/// SELECTION
+			needUpdate.push_back( newton ) ;
+			NodeData & ndb = node_map[ newton ] ;
 			tableEquiv[ node_map[ sorted_vertices.at( pos ) ].id() ] = ndb.id() ;
-			merge_nodes( biggest, sorted_vertices.at( pos ), *pg ) ;
-			/// update position of biggest
-			uint pos_biggest = pos ; /// at least
-			while ( sorted_vertices.at( pos_biggest ) != biggest ) { pos_biggest++ ; assert( pos_biggest <sorted_vertices.size() ) ; }
-			if ( pos_biggest != sorted_vertices.size()-1 ) {
-				sorted_vertices.removeAt( pos_biggest ) ;
-				while ( node_map[ sorted_vertices.at( pos_biggest ) ].volume() < ndb.volume() ) {
-					pos_biggest++ ;
-					if ( pos_biggest == sorted_vertices.size() ) break ;
+			merge_nodes( newton, v, *pg ) ;
+
+			/// update its priority
+			while ( ! needUpdate.isEmpty() ) {
+				newton = needUpdate.takeFirst() ;
+				f_map[ node_map[ newton ].id() ] = priority_feature_1( newton, *pg, node_map, edge_map ) ;	/// CHARACTERISTIC
+				/// update position of newton
+				uint pos_newton = 0 ;
+				while ( sorted_vertices.at( pos_newton ) != newton ) {
+					pos_newton++ ;
+					assert( pos_newton <sorted_vertices.size() ) ;
 				}
-				sorted_vertices.insert( pos_biggest, biggest ) ;
+				sorted_vertices.removeAt( pos_newton ) ;
+				insert_priority( f_map, newton, sorted_vertices,node_map ) ;
 			}
 		} else {
 			pos++ ;
@@ -612,8 +750,11 @@ void threshold_size( BillonTpl< LabelType > &labelComp, LabelType nSeeds ) {
 		if ( nd.id() == -1 ) continue ;
 		if ( nd.volume() == 0 ) break ;
 		tableEquivRemain[ nd.id() ] = tableEquivRemain.size()+1 ;
-		std::cerr<<"Node "<<nd.id()<<" : "<<nd.volume()<<std::endl;
 	}
+
+	export2dot( *pg, "/tmp/sample.dot" ) ;	
+	
+	
 	
 	for ( QMap< LabelType, LabelType >::iterator iter = tableEquiv.begin() ; iter != tableEquiv.end() ; iter++ ) {
 		LabelType value = iter.value() ;
@@ -625,6 +766,30 @@ void threshold_size( BillonTpl< LabelType > &labelComp, LabelType nSeeds ) {
 	apply_translation( labelComp, tableEquivRemain ) ;
 	save_minspace< LabelType >( labelComp, "/tmp/stepFinal.pgm3d" ) ;
 	delete pg ;
+}
+
+void export2dot( GraphAdj & g, QString filename ) {
+	boost::property_map< GraphAdj, _NodeTag >::type node_map  = boost::get( _NodeTag(), g ) ;
+	boost::property_map< GraphAdj, _EdgeTag >::type edge_map  = boost::get( _EdgeTag(), g ) ;
+	
+	std::ofstream dot_file( filename.toStdString().c_str());
+	dot_file << "graph D {\n"
+		<< "  size=\"4,3\"\n"
+		<< "  ratio=\"fill\"\n"
+		<< "  edge[style=\"bold\"]\n" << "  node[shape=\"circle\"]\n";
+	GraphAdj::vertex_iterator ni, ni_end;
+	for (boost::tie(ni, ni_end) = boost::vertices(g); ni != ni_end; ++ni) {
+		if ( node_map[ *ni ].id() > 0 && node_map[*ni].volume() > 0)
+			dot_file << node_map[ *ni ].id()<<" [label=\""<<node_map[*ni].category()<<"\",volume=\""<< node_map[*ni].volume()<<"\"]"<<std::endl;
+	}
+	GraphAdj::edge_iterator ei, ei_end;
+	for (boost::tie(ei, ei_end) = boost::edges(g); ei != ei_end; ++ei) {
+		GraphAdj::edge_descriptor e = *ei;
+		GraphAdj::vertex_descriptor u = boost::source(e, g), v = boost::target(e, g);
+		dot_file << node_map[ u ].id() << " -- " << node_map[ v ].id() << std::endl;
+	}
+	dot_file << "}";
+	dot_file.close() ;
 }
 
 #define SAFETY_MEMORY_CONSUPTION
@@ -713,7 +878,7 @@ int main( int narg, char **argv ) {
 	
 	trace.beginBlock("Simplification of the scene");
 		//iterative_merge( *labelComp, nSeeds, volumes );
-		threshold_size( *labelComp, nSeeds ) ;
+		threshold_size( *labelComp, nSeeds, params._mergeThreshold ) ;
 	trace.endBlock() ;
 	
 	
