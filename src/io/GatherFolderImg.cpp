@@ -84,7 +84,9 @@ std::cerr<<__FILE__<<" @ line "<<__LINE__<<std::endl;
 	{
 		arma::Cube<arma::u16> counter3D( counter.n_rows, counter.n_cols, 1 ) ;
 		counter3D.slice(0) = counter ;
-		IOPgm3d<arma::u16,qint16,false>::write( counter3D,"/tmp/inferingmask.pgm3d");
+		counter3D.slice(0) *= 255 ;
+		counter3D.slice(0) /= _scene->n_slices ;
+		IOPgm3d<arma::u16,qint8,false>::write( counter3D,"/tmp/inferingmask.pgm");
 	}
 	
 	
@@ -100,6 +102,13 @@ std::cerr<<__FILE__<<" @ line "<<__LINE__<<std::endl;
 	_mask = *dilMask ;
 	delete dilMask ;
 	
+	
+	{
+		arma::Cube<arma::u8> mask3D( _mask.n_rows, _mask.n_cols, 1 ) ;
+		mask3D.slice(0) = _mask ;
+		IOPgm3d<arma::u8,qint8,false>::write( mask3D,"/tmp/abovethreshold.dilate.pgm");
+	}
+	
 	int minDist[] = { 0,0,0,0 } ;
 
 	for ( y = 0 ; y < _mask.n_rows ; y++ ) 
@@ -111,7 +120,7 @@ std::cerr<<__FILE__<<" @ line "<<__LINE__<<std::endl;
 			minDist[2] = max( minDist[2], (int)_mask.n_cols-x ) ;
 			minDist[3] = max( minDist[3], (int)_mask.n_rows-y ) ;
 		}
-std::cerr<<__FILE__<<" @ line "<<__LINE__<<std::endl;
+std::cerr<<__FILE__<<" @ line "<<__LINE__<<" mindist are "<<minDist[0]<<", "<<minDist[2]<<" "<<minDist[1]<<", "<<minDist[3]<<std::endl;
 	if ( min( minDist[0], minDist[2] ) < min( minDist[1], minDist[3] ) ) {
 		/// the support is either at the left or the right side
 		if ( minDist[0] < minDist[2] ) {
@@ -149,7 +158,7 @@ std::cerr<<__FILE__<<" @ line "<<__LINE__<<std::endl;
 			for ( x = 0 ; x < _mask.n_cols ; x++ )
 				for ( y = 0 ; y < _mask.n_rows ; y++ ) {
 					if ( _mask(y,x) == 0 ) continue ;
-					for ( u = x ; u < _mask.n_rows ; u++ )
+					for ( u = y ; u < _mask.n_rows ; u++ )
 						_mask(u,x) = 1 ;
 					break ;
 				}
