@@ -21,10 +21,12 @@ public:
 	typedef std::pair<Point,Point>								VoxelsPair ;
 	typedef struct _IllDefinedInstance {
 		QList< V > _seeds ;
-		/// \def _idxVoxels indices of voxels that can be attached to any region enumerated in _seeds
-		/// the index values are those of the first region (i.e. _seeds.at(0))
-		/// \note if a voxel can be attached both to A, B and C, it does not appear in the instances (A,B), (B,C), (B,A) but only in (A,B,C).
-		///       Thus, if it can be attached too to D, it does not appear in (A,B,C) but in (A,B,C,D).
+		/**
+		 * _idxVoxels indices of voxels that can be attached to any region enumerated in \a _seeds.
+		 *   the index values are those of the first region (i.e. _seeds.at(0))
+		 * \note if a voxel can be attached both to A, B and C, it does not appear in the instances (A,B), (B,C), (B,A) but only in (A,B,C).
+		 *   Thus, if it can be attached too to D, it does not appear in (A,B,C) but in (A,B,C,D).
+		 */
 		QList< uint >     _idxVoxels ;
 		std::string  seeds_as_string( ) const ;
 		std::string  voxels_as_string( ) const ;

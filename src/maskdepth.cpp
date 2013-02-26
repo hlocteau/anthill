@@ -67,14 +67,6 @@ int main( int narg, char **argv ) {
 	dist->setMinValue( dist->min() ) ;
 	dist->setMaxValue( dist->max() ) ;
 	
-	/*
-	for ( uint z = 0 ; z < depth ; z++ )
-		for ( uint y = 0 ; y < height ; y++ )
-			for ( uint x = 0 ; x < width ; x++ ) {
-				if ( skel->at( y, x, z ) == 0 )
-					dist->at( y, x, z ) = 0 ;
-			}
-	*/
 	IOPgm3d< int32_t,qint32,false>::write( *dist, QString( outputFileName.c_str() ) ) ;
 	
 	return 0 ;
