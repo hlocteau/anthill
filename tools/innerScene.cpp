@@ -28,7 +28,7 @@ typedef struct _TProgramArg {
 } TProgramArg ;
 
 void errorAndHelp( const po::options_description & general_opt ) {
-	std::cerr 	<< "Shrinking scene based on the input filtered skeleton."<<std::endl
+	std::cerr 	<< "Shrinking scene based on the input bi-level skeleton."<<std::endl
 				<< general_opt << "\n";
 }
 
@@ -82,7 +82,11 @@ bool process_arg( int narg, char **argv, TProgramArg &params ) {
 	return true ;
 }
 
-
+/**
+ * Reconstruct a bi-level image based on a skeleton (bi-level pgm image) and a depthmap using tilling.
+ * See also rebuild.cpp
+ * \todo directly define tilling in ConnexComponentRebuilder.ih
+ */
 int main( int narg, char **argv ) {
 	TProgramArg params ;
 	

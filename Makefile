@@ -70,7 +70,7 @@ ${BUILD}/buildScene : ${OBJ}/buildScene.o ${OBJ}/utils.o ${OBJ}/geom2d.o ${OBJ}/
 	${LINK} ${OBJ}/buildScene.o ${OBJ}/utils.o ${OBJ}/geom2d.o ${OBJ}/GatherFolderImg.o ${OBJ}/IOPgm3d.o -o "$@" ${LIB_DGTAL} ${LIB_QGLViewer} -larmadillo ${LIB_BOOST} -lQtCore
 
 ${BUILD}/innerSkelOnly : ${OBJ}/innerSkelOnly.o ${OBJ}/IOPgm3d.o
-	${LINK} ${OBJ}/innerSkelOnly.o ${OBJ}/IOPgm3d.o -o "$@" -lQtCore ${LIB_BOOST} ${LIB_DGTAL}
+	${LINK} ${OBJ}/innerSkelOnly.o ${OBJ}/IOPgm3d.o -o "$@" -lQtCore ${LIB_BOOST} ${LIB_BOOST_PARAM} ${LIB_DGTAL}
 
 ${BUILD}/innerScene : ${OBJ}/innerScene.o ${OBJ}/IOPgm3d.o
 	${LINK} ${OBJ}/innerScene.o ${OBJ}/IOPgm3d.o -o "$@" -lQtCore ${LIB_BOOST} ${LIB_BOOST_PARAM} ${LIB_DGTAL}

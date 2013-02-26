@@ -63,7 +63,21 @@ protected:
 	bool					setBounds	     ( uint32_t selection ) ;
 	void                    set_voxels       ( const OutImage & img, const int * plane, const Point &seed, QList<Point> &crop, const Point &refPoint, U maxDist  ) ;
 	void              explicit_missed_voxels ( V key ) const ;
+	/**
+	 * \brief retrieve from the input set, the instance (father) being equal to elem (child) but the missing element
+	 * \param[in] inst : the input set
+	 * \param[in] seeds : the content of the child
+	 * \param[in] missing : the label of the region that is omitted in the father
+	 * \return the specific father of seeds
+	 */
 	uint                  index_of_parent    ( const QList < PtrIllDefinedInstance > & inst, const PtrIllDefinedInstance elem, uint missing, bool & ) ;
+	/**
+	 * \brief retrieve from the input set, the instance (father) being equal to elem (child) but the missing element
+	 * \param[in] inst : the input set
+	 * \param[in] elem : the child
+	 * \param[in] missing : the label of the region that is omitted in the father
+	 * \return the specific father of elem
+	 */
 	uint                  index_of_parent    ( const QList < PtrIllDefinedInstance > & inst, const QList<V > &elem, uint missing, bool & ) ;
 	bool                  split_voxels       ( PtrIllDefinedInstance father, const PtrIllDefinedInstance child ) ;
 	bool                  split_voxels       ( PtrIllDefinedInstance father, const QList< uint > &childVoxels ) ;

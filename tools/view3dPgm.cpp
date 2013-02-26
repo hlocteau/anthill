@@ -29,7 +29,7 @@ void errorAndHelp( const po::options_description & general_opt ) {
 }
 void missingParam ( std::string param )
 {
-  /*trace.error()*/std::cerr <<" Parameter: "<<param<<" is required.."<<std::endl;
+  std::cerr <<" Parameter: "<<param<<" is required.."<<std::endl;
   exit ( 1 );
 }
 
@@ -248,15 +248,6 @@ int main( int narg, char **argv ) {
 			nColor = vm["number"].as<int>() ;
 		int stepColor = (int)floor( log( (double)nColor ) / log( 3. ) + 1 );
 		GradientColorMap<int> cmap_grad( 0, nColor, CMAP_HOT );
-		//cmap_grad.addColor( Color( 50, 50, 255 ) );
-		//cmap_grad.addColor( Color( 255, 0, 0 ) );
-		//cmap_grad.addColor( Color( 255, 255, 10 ) );
-
-		
-		/*cmap_grad.addColor(Color::Blue);
-		cmap_grad.addColor(Color::Magenta);
-		cmap_grad.addColor(Color::Red);
-		cmap_grad.addColor(Color::Yellow);*/
 		
 		for ( GrayLevelHistogram<src_type>::THistogram::const_iterator bin = h._bin.begin() ; bin != h._bin.end() ; bin ++ ) {
 			if ( !Labels.isEmpty() ) {

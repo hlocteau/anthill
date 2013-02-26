@@ -25,6 +25,12 @@ typedef GrayLevelHistogram< CS_CCExtractor::value_type > 		SHistogram ;
 typedef DistanceTransform<arma::u8,arma::u32>					CIDistanceTransform ;
 typedef GrayLevelHistogram< CIDistanceTransform::value_type > 	IHistogram ;
 
+/**
+ * \param [in] universe a bi-level image 
+ * \param labels a labeled image of connected component
+ * \param bbox the bounding box of a specific connected component of \a labels
+ * \return a bi-level image (0 and 1) where a voxel \a v is set to 1 iff \a universe( v ) != 0 and \a labels( v ) != bbox.key()
+ */
 BillonTpl<arma::u8> *cropComplement( const arma::Cube<arma::u8> *universe, const BillonTpl<arma::u16> *labels, MyBounding::TBBoxConstIterator bbox ) {
 	BillonTpl<arma::u8> *result = new BillonTpl<arma::u8>( universe->n_rows, universe->n_cols, universe->n_slices ) ;
 	result->fill(0);
@@ -41,6 +47,11 @@ BillonTpl<arma::u8> *cropComplement( const arma::Cube<arma::u8> *universe, const
 	return result ;
 }
 
+/**
+ * \def PROOF_COORD(a,b)
+ * Computes a valid coordinate from b, i.e. a value in the interval 0:a-1
+ **/
+
 #define PROOF_COORD(a,b) (b<0?0:(b>=a?a-1:b))
 
 int main( int narg, char **argv ) {
@@ -56,17 +67,23 @@ int main( int narg, char **argv ) {
 	if ( !fs::is_directory( folderpath ) )
 		folderpath = folderpath.parent_path() ;
 	
-	IOPgm3d<arma::u8,qint8,false>::write( mask3d, QString("%1/anthill.mask.pgm3d").arg( folderpath.c_str() ) ) ;
+	fs::path filepath = folderpath ;
+	filepath /= ANTHILL_MASK_NAME ;
+	IOPgm3d<arma::u8,qint8,false>::write( mask3d, QString("%1").arg( filepath.c_str() ) ) ;
 	mask3d.reset();
 	
+	
 	const BillonTpl< arma::u8 > & scene = factory->scene() ;
-	IOPgm3d<arma::u8,qint8,false>::write( scene, QString("%1/anthill.scene.pgm3d").arg( folderpath.c_str() ) ) ; /// mask has been applied, may be useful even while providing directly a "scene" file
+	// mask has been applied, may be useful even while providing directly a "scene" file
+	filepath = folderpath ;
+	filepath /= ANTHILL_MASK_SCENE_NAME ;
+	IOPgm3d<arma::u8,qint8,false>::write( scene, QString("%1").arg( filepath.c_str() ) ) ; 
+
 	CS_CCExtractor extractor;
 	BillonTpl<arma::u16> *labels = extractor.run( scene ) ;
-	IOPgm3d<arma::u16,qint16,false>::write( *labels, QString("%1/anthill.labelscene.pgm3d").arg( folderpath.c_str() ) ) ;
 	delete factory ;
 	
-	/// note : bounding boxes and volumes are computed by extractor...
+	// note : bounding boxes and volumes are computed by extractor...
 	
 	MyBounding bounding( *labels ) ;
 	const MyBounding::TBBoxes & bboxes = bounding.bboxes() ;
@@ -91,25 +108,19 @@ int main( int narg, char **argv ) {
 			bigVol = curVol ;
 			biggestBox = boxIter ;
 		}
-		if ( boxIter->first == 114 ) std::cerr<<boxIter->first<<" "<<boxIter->second.first<<" to "<<boxIter->second.second<<" volume "<<volumes[ boxIter->first ]<<std::endl;
-		
 	}
 	
-	/*
-	short id ;
-	std::cout<<"Draw component ";
-	std::cin>>id;
-	biggestBox = bboxes.find( id ) ;
-	*/
 	std::cout<<"BoundingBox #"<<biggestBox->first<<" : "<<biggestBox->second.first<<" "<<biggestBox->second.second<<" volume "<<volumes[ biggestBox->first ]<<std::endl;
 	
+	// compute the bounding volume as a AND combination of the bounding 2D shapes on each axis
 	arma::Cube<arma::u8> *result = bounding.convexHull2DAxis( 7, biggestBox ) ;
-	IOPgm3d<arma::u8,qint8,false>::write( *result, QString("%1/anthillqhull.pgm3d").arg( folderpath.c_str() ) ) ;
+
 	BillonTpl<arma::u8> *inner = cropComplement( result, labels, biggestBox ) ;
 	IOPgm3d<arma::u8,qint8,false>::write( *inner, QString("%1/anthillallcontent.pgm3d").arg( folderpath.c_str() ) ) ;
 	delete labels ;
 	
 	BillonTpl< CS_CCExtractor::value_type > *labelsInner = extractor.run( *inner ) ;
+
 	IOPgm3d<arma::u16,qint16,false>::write( *labelsInner, QString("%1/anthilllabelinner.pgm3d").arg( folderpath.c_str() ) ) ; /// to make it viewable (redefine labels wrt volumes)
 	SHistogram histInner( *labelsInner ) ;
 	
@@ -119,8 +130,8 @@ int main( int narg, char **argv ) {
 	
 	std::map< CS_CCExtractor::value_type, CIDistanceTransform::value_type > distToHull ;
 	std::set< CS_CCExtractor::value_type > touchingHull ;
-	/// for each component of inner
-	/// determine its min-max values on dtHull
+	// for each component of inner
+	// determine its min-max values on dtHull
 	{
 		register int x,y,z,neighbor ;
 		CS_CCExtractor::value_type id_cc ;
@@ -132,7 +143,7 @@ int main( int narg, char **argv ) {
 					if ( id_cc == 0 ) continue ;
 					value = imDtHull(y,x,z) ;
 					if ( touchingHull.find( id_cc ) == touchingHull.end() ) {
-						/// insert id_cc into touchingHull whenever we can find an adjacent voxel out of the hull
+						// insert id_cc into touchingHull whenever we can find an adjacent voxel out of the hull
 						for ( neighbor = 0 ; neighbor < 27 ; neighbor++ )
 							if ( (*result)( PROOF_COORD(imDtHull.n_rows,y + (neighbor/9-1)), PROOF_COORD(imDtHull.n_cols,x + ( (neighbor%9)/3 -1 )), PROOF_COORD(imDtHull.n_slices,z + ( neighbor % 3 -1 ) ) ) == 0 ) break ;
 						if ( neighbor != 27 ) touchingHull.insert( id_cc ) ;
@@ -160,8 +171,8 @@ int main( int narg, char **argv ) {
 	delete dtHull ;
 
 	{
-		/// Selection
-		/// component not being adjacent to hull / volume  >= 250
+		// Selection
+		// component not being adjacent to hull / volume  >= 250
 		BillonTpl< short > imSelect( result->n_rows, result->n_cols, result->n_slices ) ;
 		imSelect.fill(0);
 		std::map< CS_CCExtractor::value_type, short > tblEncoding ;
@@ -184,7 +195,7 @@ int main( int narg, char **argv ) {
 	}
 	//IOPgm3d<short,qint16,false>::write( *labelsInner, QString("/tmp/scene.pgm3d") ) ;
 	
-	/// seems that we can keep only the biggest one
+	// seems that we can keep only the biggest one
 	{
 		BillonTpl<arma::u8> imSelect ( labelsInner->n_rows, labelsInner->n_cols, labelsInner->n_slices ) ;
 		imSelect.fill(0);
@@ -212,7 +223,7 @@ int main( int narg, char **argv ) {
 		delete inner ;
 		
 		
-		/// compute distance transform on imSelect
+		// compute distance transform on imSelect
 		CIDistanceTransform dtObj( imSelect ) ;
 		IHistogram depthObj( dtObj.result() ) ;
 		QFile fHist( QString("%1/depthObjHist.txt").arg(folderpath.c_str())) ;
@@ -225,6 +236,6 @@ int main( int narg, char **argv ) {
 			out<<QString("%1 : %2").arg((int)it->first).arg((long unsigned int)it->second)<<endl;
 		}
 		fHist.close() ;
-	}	
+	}
 	return 1;
 }

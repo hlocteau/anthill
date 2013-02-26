@@ -319,13 +319,7 @@ template <typename T, typename U, typename V> void ConnexComponentRebuilder<T,U,
 
 }
 
-/**
- * \brief retrieve from the input set, the instance (father) being equal to elem (child) but the missing element
- * \param [in] inst : the input set
- * \param [in] seeds : the content of the child
- * \param [in] missing : the label of the region that is omitted in the father
- * \return the specific father of seeds
- */
+
 template <typename T, typename U, typename V> uint ConnexComponentRebuilder<T,U,V>::index_of_parent( const QList < PtrIllDefinedInstance > & inst, const QList<V> &seeds, uint missing, bool &correct ) {
 	uint i_begin = 0 ;
 	uint i_end = inst.size() ;
@@ -364,13 +358,7 @@ template <typename T, typename U, typename V> uint ConnexComponentRebuilder<T,U,
 	return 0 ;
 }
 
-/**
- * \brief retrieve from the input set, the instance (father) being equal to elem (child) but the missing element
- * \param [in] inst : the input set
- * \param [in] elem : the child
- * \param [in] missing : the label of the region that is omitted in the father
- * \return the specific father of elem
- */
+
 template <typename T, typename U, typename V> uint ConnexComponentRebuilder<T,U,V>::index_of_parent( const QList < PtrIllDefinedInstance > & inst, const PtrIllDefinedInstance elem, uint missing, bool &correct ) {
 	return index_of_parent( inst, elem->_seeds, missing,correct ) ;
 }

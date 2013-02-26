@@ -10,6 +10,16 @@
 
 #define ANTHILL_OVERALL_INPUT_PROCESS_NAME "import"
 #define ANTHILL_DEFAULT_OUTPUT_NAME        "result"
+#define ANTHILL_SLICE_NAME                 "slice-%1.pgm"
+#define ANTHILL_PRE_MASK_NAME              "premask.pgm"
+#define ANTHILL_MASK_NAME                  "anthill.mask.pgm3d"
+#define ANTHILL_MASK_SCENE_NAME            "anthill.scene.pgm3d"
+
+#define ANTHILL_SKEL_NAME                  "anthillcontent.skeleucl.pgm3d"
+#define ANTHILL_DT_HULL_NAME               "anthill.dthull.pgm3d"
+#define ANTHILL_DT_CONTENT_NAME            "anthillcontent.dist.pgm3d"
+#define ANTHILL_INNER_SKEL_NAME            "anthill.innerskel.pgm3d"
+
 
 class AntHillFile {
 public:
