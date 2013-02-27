@@ -27,13 +27,6 @@ public:
     static bool comp_points_location(const Z2i::Point &a, const Z2i::Point &b, const Z2i::Point &ref);
 
     static void sub_sort_per_angle(Z2i::Point *tab, uint id, uint max_position, const Z2i::Point ref);
-    static void projection_on( const Z3i::Point &pt, const arma::colvec & eq, const arma::colvec &centroid, arma::colvec &h );
-    static void paramEnclosingDomain( const Z3i::DigitalSet & cloud, arma::colvec  &X, arma::colvec  &centroid, double &thickness, double &radius );
-    
-    static void projection_on( const Z3i::Point &pt, const arma::Mat< double > & base, const arma::colvec &centroid, arma::colvec &h );
-    static void pca( const Z3i::DigitalSet & cloud, arma::Mat< double >  &base, arma::colvec  &centroid ) ;
-    
-    
     static Z2i::Point * computeD8Segment( const Z2i::Point &a, const Z2i::Point &b, unsigned int &size  );
 };
 
