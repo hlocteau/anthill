@@ -75,20 +75,22 @@ ${OBJ}/rebuild.o : rebuild.cpp
 ${OBJ}/view3dPgm.o : view3dPgm.cpp
 	${COMPILE} $< -o "$@"
 
-${OBJ}/GatherFolderImg.o : ../src/io/GatherFolderImg.cpp
-	${COMPILE} $< -o "$@"
+.PHONY: ${OBJ}/rag.o ${OBJ}/GatherFolderImg.o ${OBJ}/IOPgm3d.o ${OBJ}/IOUtils.o ${OBJ}/geom2d.o ${OBJ}/rag.o ${OBJ}/utils.o
 
-${OBJ}/IOPgm3d.o : ../src/io/IOPgm3d.cpp
-	${COMPILE} $< -o "$@"
+${OBJ}/rag.o : 
+	cd .. && make obj/rag.o
 
-${OBJ}/IOUtils.o : ../src/io/IOUtils.cpp
-	${COMPILE} $< -o "$@"
+${OBJ}/GatherFolderImg.o :
+	cd .. && make obj/GatherFolderImg.o
 
-${OBJ}/geom2d.o : ../src/geom2d.cpp
-	${COMPILE} $< -o "$@"
+${OBJ}/IOPgm3d.o :
+	cd .. && make obj/IOPgm3d.o
 
-${OBJ}/rag.o : ../src/rag.cpp
-	${COMPILE} -g $< -o "$@"
+${OBJ}/IOUtils.o :
+	cd .. && make obj/IOUtils.o
 
-${OBJ}/utils.o : ../src/utils.cpp
-	${COMPILE} $< -o "$@"
+${OBJ}/geom2d.o :
+	cd .. && make obj/geom2d.o
+
+${OBJ}/utils.o :
+	cd .. && make obj/utils.o
