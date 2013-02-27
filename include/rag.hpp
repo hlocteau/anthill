@@ -117,8 +117,38 @@ typedef boost::property< _NodeTag, NodeData > NodeProperty ;
 typedef boost::property< _EdgeTag, EdgeData > EdgeProperty ;
 
 typedef boost::adjacency_list<boost::listS, boost::vecS, boost::undirectedS, NodeProperty, EdgeProperty > GraphAdj;
-
-
+/** \example test_rag.cpp
+ * This example shows the manipulation of a GraphAdj and data that are stored both for a vertex and an edge.
+ * With the command:
+ * \verbatim
+   yourshell$ test_rag 2 3
+	init_rag
+	6 nodes have been inserted in the graph...
+	1 2 1 2    39 39
+	2 5 2 5    58 58
+	5 4 5 4    429 385
+	2 3 2 3    207 232
+	4 3 4 3    210 197
+	5 3 5 3    89 89
+	vertex descriptor 1  property 1 501
+	vertex descriptor 2  property 2 5486
+	vertex descriptor 3  property 3 3769
+	vertex descriptor 4  property 4 3817
+	vertex descriptor 5  property 5 4851
+	1 2 1 2    39 39
+	2 5 2 5    147 137
+	5 4 5 4    429 385
+	4 2 4 2    210 197
+	vertex descriptor 1  property 1 501
+	vertex descriptor 2  property 2 9255
+	vertex descriptor 4  property 4 3817
+	vertex descriptor 5  property 5 4851
+   \endverbatim
+ * three 3D pgm files are created in the working directory.
+ * \image html test_rag1.png "Input image maded of 5 regions"
+ * \image html test_rag2.png "Data in the graph : Voxels of a region A being adjacent to any voxel of a region B are stored for edge (A,B)"
+ * \image html test_rag3.png "Data in the graph : once having merged nodes 2 and 3, detaching voxels of region 3 and attaching them to region 2."
+ */
 template <typename T > GraphAdj * init_rag( const BillonTpl< T > &label, T th ) {
 	uint max_value = cast_integer< T, uint>( label.max() );
 	if ( max_value < th ) return 0 ;

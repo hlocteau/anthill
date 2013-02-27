@@ -10,26 +10,6 @@
 #include <cast_integer.h>
 //namespace io {
 
-template <typename To, typename T, bool tAscii> bool IOPgm3d<To,T,tAscii>::write( const std::vector< DGtal::Z3i::Object6_26*> &objCC, const QString &fileName ) {
-	assert( objCC.size()>1 ) ;
-	uint 	width 	= objCC[1]->domain().upperBound().at(0),
-			height 	= objCC[1]->domain().upperBound().at(1),
-			depth	= objCC[1]->domain().upperBound().at(2) ;
-
-	BillonTpl<To> allImage( width, height, depth );
-	std::vector< DGtal::Z3i::Object6_26* >::const_iterator iter = objCC.begin() ;
-	int nbComp=1;
-
-	while( iter != objCC.end() ) {
-		for ( DGtal::Z3i::DigitalSet::ConstIterator pt = (*iter)->pointSet().begin() ; pt != (*iter)->pointSet().end() ; pt++ ) {
-			allImage( (*pt).at(0), (*pt).at(1), (*pt).at(2)) = nbComp;
-		}
-		iter++ ;
-		nbComp++ ;
-	}
-	allImage.setMaxValue( nbComp-1 ) ;
-	return write( allImage, fileName ) ;
-}
 
 template <typename To, typename T, bool tAscii> bool IOPgm3d<To,T,tAscii>::write( const BillonTpl<To> &img, const QString &fileName, const QString &header ) {
 	uint 	width 	= img.n_cols,

@@ -54,27 +54,9 @@ ${BUILD}/consecutivecc : ${OBJ}/consecutivecc.o ${OBJ}/IOPgm3d.o ${OBJ}/utils.o
 ${BUILD}/plan3d : ${OBJ}/getPlanEqFromArma.o ${OBJ}/IOPgm3d.o ${OBJ}/geom2d.o
 	${LINK} ${OBJ}/getPlanEqFromArma.o ${OBJ}/IOPgm3d.o ${OBJ}/geom2d.o -o "$@" ${LIB_DGTAL} -lQtCore ${LIB_BOOST_PARAM} -larmadillo ${LIB_QGLViewer}
 
-${BUILD}/pgmcrop : ${OBJ}/pgmcrop.o ${OBJ}/IOPgm3d.o
-	${LINK} ${OBJ}/pgmcrop.o ${OBJ}/IOPgm3d.o -o "$@" -lQtCore ${LIB_BOOST} ${LIB_BOOST_PARAM}
-
-${BUILD}/test_minmax : ${OBJ}/test_minmax.o
-	${LINK} ${OBJ}/test_minmax.o -o "$@" -lQtCore
-
-${BUILD}/test_rag : ${OBJ}/test_rag.o ${OBJ}/rag.o ${OBJ}/IOUtils.o ${OBJ}/IOPgm3d.o
-	${LINK} -g ${OBJ}/test_rag.o ${OBJ}/rag.o ${OBJ}/IOUtils.o ${OBJ}/IOPgm3d.o -o "$@" -lQtCore ${LIB_DGTAL}
-
 clean:
 	rm ${OBJ}/*.o
 # compilation files
-
-${OBJ}/test_rag.o : misc-test/test_rag.cpp
-	${COMPILE} -g $< -o "$@"
-
-${OBJ}/test_minmax.o : src/test_minmaxseg.cpp
-	${COMPILE} $< -o "$@"
-
-${OBJ}/pgmcrop.o : src/pgmcrop.cpp
-	${COMPILE} $< -o "$@"
 
 ${OBJ}/GatherFolderImg.o : src/io/GatherFolderImg.cpp
 	${COMPILE} $< -o "$@"

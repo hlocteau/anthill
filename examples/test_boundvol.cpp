@@ -16,9 +16,8 @@ void errorAndHelp( const po::options_description & general_opt ) {
 				<< general_opt << "\n";
 	exit( -1 ) ;
 }
-void missingParam ( std::string param )
-{
-  /*trace.error()*/std::cerr <<" Parameter: "<<param<<" is required.."<<std::endl;
+void missingParam ( std::string param ){
+  std::cerr <<" Parameter: "<<param<<" is required.."<<std::endl;
   exit ( 1 );
 }
 
@@ -65,24 +64,24 @@ void gen_xz_cross( arma::Cube<arma::u8> &scene ) {
 
 void gen_my_ob( arma::Cube<arma::u8> &scene ) {
 	int x,y,z ;
-	/// draw left wall
+	// draw left wall
 	x=0 ;
 	for ( y=2*margin ; y < scene.n_rows-2*margin ; y++ )
 		for ( z = 3*margin ; z < scene.n_slices-5*margin-y ; z++ )
 			scene(y,x,z) = 1 ;
-	/// draw right wall
+	// draw right wall
 	x=scene.n_cols-1;
 	for ( y=2*margin ; y < scene.n_rows-margin ; y++ )
 		for ( z = 3*margin ; z < scene.n_slices-margin ; z++ )
 			scene(y,x,z) = 1 ;
 
-	/// draw floor
+	// draw floor
 	y=2*margin ;
 	for ( x=0 ; x < scene.n_cols ; x++ )
 		for ( z = 3*margin ; z < scene.n_slices-3*margin ; z++ )
 			scene(y,x,z) = 1 ;
 
-	/// draw back wall
+	// draw back wall
 	z=3*margin ;
 	for ( x=0 ; x < scene.n_cols ; x++ )
 		for ( y = 2*margin ; y < scene.n_rows-3*margin-x ; y++ )

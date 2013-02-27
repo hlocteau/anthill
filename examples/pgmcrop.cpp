@@ -3,7 +3,7 @@
  */
 #include <io/Pgm3dFactory.h>
 
-typedef int32_t elem_type ;
+typedef arma::u32 elem_type ;
 typedef Pgm3dFactory<elem_type> IFactory ;
 
 #include <boost/program_options/options_description.hpp>
@@ -20,7 +20,7 @@ void errorAndHelp( const po::options_description & general_opt ) {
 }
 void missingParam ( std::string param )
 {
-  /*trace.error()*/std::cerr <<" Parameter: "<<param<<" is required.."<<std::endl;
+  std::cerr <<" Parameter: "<<param<<" is required.."<<std::endl;
   exit ( 1 );
 }
 
@@ -71,20 +71,19 @@ int main( int narg, char **argv ) {
 	
 	IFactory factory ;
 	BillonTpl< elem_type > *img = factory.read( inputFilePath.c_str() ) ;
-	//factory.correctEncoding( img ) ;
 	std::cout<<"Info : input size is "<<img->n_cols<<" x "<<img->n_rows<<" "<<img->n_slices<<std::endl;
 	/// check bounds	
 	if ( xmax == -1 ) xmax = img->n_cols ;
 	if ( ymax == -1 ) ymax = img->n_rows ;
 	if ( zmax == -1 ) zmax = img->n_slices ;
 	
-	xmax = min( xmax, (int)img->n_cols ) ;
-	ymax = min( ymax, (int)img->n_rows ) ;
-	zmax = min( zmax, (int)img->n_slices ) ;
+	xmax = std::min( xmax, (int)img->n_cols ) ;
+	ymax = std::min( ymax, (int)img->n_rows ) ;
+	zmax = std::min( zmax, (int)img->n_slices ) ;
 	
-	xmin = min( max(xmin,0), xmax-1 ) ;
-	ymin = min( max(ymin,0), ymax-1 ) ;
-	zmin = min( max(zmin,0), zmax-1 ) ;
+	xmin = std::min( std::max(xmin,0), xmax-1 ) ;
+	ymin = std::min( std::max(ymin,0), ymax-1 ) ;
+	zmin = std::min( std::max(zmin,0), zmax-1 ) ;
 
 	BillonTpl< elem_type > crop( ymax-ymin, xmax-xmin,zmax-zmin) ;
 	std::cout<<"Info : output size is "<<crop.n_cols<<" x "<<crop.n_rows<<" x "<<crop.n_slices<<std::endl;

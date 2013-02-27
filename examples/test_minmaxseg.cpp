@@ -2,7 +2,7 @@
 #include <QFile>
 #include <QStringList>
 
-
+#include <iomanip>
 
 
 int main( int narg, char **argv ) {
@@ -18,21 +18,19 @@ int main( int narg, char **argv ) {
 		currentLine = file.readLine();
 		values = currentLine.split(" ",QString::SkipEmptyParts);
 		L.append( values.takeFirst().toInt() ) ;
-		std::cout<<">> "<<L.back()<<std::endl;
 	}
 	file.close() ;
 	
-	QList< char > W ;
 	uint radius = 4 ;
 	
 	QList< double > Lblur ;
 	blur_signal( L, Lblur, 5 ) ;
-	for ( uint i=0;i<Lblur.size();i++ ) std::cout<<i<<":"<<Lblur.at(i)<<std::endl;
-	SignalMinMax< double, char,true,true > SMM( Lblur, radius, 15 ) ;
+	SignalMinMax< double, char,true,false > SMM( Lblur, radius, 15 ) ;
 	QList<char> Lw ;
 	SMM.result( Lw ) ;
-	for ( uint i= 0;i<Lw.size();i++ ) std::cout<<i<<":"<<(int)Lw.at(i)<<" ";
-	std::cout<<std::endl;
+	std::cout<<"Index,Initial,Blurred,Fragment"<<std::endl;
+	for ( uint i= 0;i<Lw.size();i++ )
+		std::cout<<i<<","<<L.at(i)<<","<<std::setprecision(6)<<Lblur.at(i)<<","<<(int)Lw.at(i)<<std::endl;
 	
 	
 	return 0 ;

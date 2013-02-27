@@ -74,6 +74,15 @@ private:
 	QList< QPair< uint, uint > > 	_job ;
 	QList< uint > 					_result ;
 } ;
+/** \example test_minmaxseg.cpp
+ * This is an basic example of how to use the SignalMinMax class.
+ * \verbatim 
+   yourshell$ test_minmax ../samples/signal1d.dat > minmax.csv
+   \endverbatim
+ *
+ * Opening the file minmax.csv with your favorite spreadsheet (such as http://projects.gnome.org/gnumeric/), you may obtain this kind of graphic:
+ * \image html minmax.png "Cuts (in red) for the input signal (in gray) that have been blurred (in blue)" 
+ */
 template <typename T, typename W,bool minmax,bool tracing> T SignalMinMax<T,W,minmax,tracing>::gamma( const QPair<uint,uint> &cur, uint & peak ) {
 	peak = 0 ;
 	while ( peak < _maximum_index.size() ) {
