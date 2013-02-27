@@ -5,7 +5,7 @@
 #include <DGtal/helpers/StdDefs.h>
 #include <io/IOPgm3d.h>
 #include <DistanceTransform.hpp>
-
+#include <io/AntHillFile.hpp>
 /**
 template <typename IN, typename OUT>
 BillonTpl<OUT> * BilloncastTo<IN,OUT>( const BillonTpl<IN> *src ) {
@@ -55,10 +55,11 @@ BillonTpl<arma::u8> *cropComplement( const arma::Cube<arma::u8> *universe, const
 #define PROOF_COORD(a,b) (b<0?0:(b>=a?a-1:b))
 
 int main( int narg, char **argv ) {
+	if ( narg == 1 ) return -1 ;
 	if( !fs::exists( argv[1] ) ) return -1 ;
 	
 	GatherFolderImg *factory = new GatherFolderImg( argv[1] ) ;
-	factory->load( narg==3?atoi(argv[2]):80 ) ;
+	factory->load( narg==3?atoi(argv[2]):80 , true) ;
 	const arma::Mat<arma::u8> & mask = factory->mask() ;
 	arma::Cube<arma::u8> mask3d( mask.n_rows, mask.n_cols, 1 ) ;
 	mask3d.slice(0) = mask ;

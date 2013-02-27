@@ -38,6 +38,37 @@ private:
 	TBBoxes _bboxes ;
 	int _comb ;
 } ;
+
+/** \example test_boundvol.cpp
+ * This is an basic example of how to use the Bounding class.
+ * Options are:
+ *   - figure <id> where id ranges in 1 to 4; it depicts distinct input object to work on;
+ *   - axis <x|y|z> e.g. x or xz or zy; it depicts the axis on which a 2D convex hull has to be computed;
+ *   - combine and|or; it depicts how 2D convex hull are combined when several axis are selected;
+ *   - problem 1; just display the input object.
+ * 
+ * \verbatim 
+   yourshell$ test_boundVol --figure 4 --problem 1
+   \endverbatim
+ * \image html problem4.png "Output of test_boundVol --figure 4 --problem 1" 
+ * \verbatim 
+   yourshell$ test_boundVol --figure 4 --axis x
+   \endverbatim
+ * \image html x-scan-problem4.png "Output of test_boundVol --figure 4 --axis x" 
+ * \verbatim 
+   yourshell$ test_boundVol --figure 4 --axis y
+   \endverbatim
+ * \image html y-scan-problem4.png "Output of test_boundVol --figure 4 --axis y"
+ * \verbatim 
+   yourshell$ test_boundVol --figure 4 --axis z
+   \endverbatim
+ * \image html z-scan-problem4.png "Output of test_boundVol --figure 4 --axis z"
+ * \verbatim 
+   yourshell$ test_boundVol --figure 4 --axis xy
+   \endverbatim
+ * \image html x-and-y-scan-problem4.png "Output of test_boundVol --figure 4 --axis xy"
+ */
+ 
 #include <Bounding.ih>
 
 #endif

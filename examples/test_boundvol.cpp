@@ -30,7 +30,7 @@ using namespace Z3i;
 const unsigned int margin = 2 ;
 const unsigned int N = 5*margin;
 
-void gen_xy_cross( arma::Cube<char> &scene ) {
+void gen_xy_cross( arma::Cube<arma::u8> &scene ) {
 	for ( int x=1;x<scene.n_cols;x++)
 		for ( int di = -1 ; di <= 1 ; di++ )
 			for ( int dj = -1 ; dj <= 1 ; dj++ )
@@ -41,7 +41,7 @@ void gen_xy_cross( arma::Cube<char> &scene ) {
 				scene( y, scene.n_cols/2+di, scene.n_slices/2+dj ) = 1 ;
 }
 
-void gen_yz_cross( arma::Cube<char> &scene ) {
+void gen_yz_cross( arma::Cube<arma::u8> &scene ) {
 	for ( int z=3;z<scene.n_slices;z++)
 		for ( int di = -1 ; di <= 1 ; di++ )
 			for ( int dj = -1 ; dj <= 1 ; dj++ )
@@ -52,7 +52,7 @@ void gen_yz_cross( arma::Cube<char> &scene ) {
 				scene( y, scene.n_cols/2+di, scene.n_slices/2+dj ) = 1 ;
 }
 
-void gen_xz_cross( arma::Cube<char> &scene ) {
+void gen_xz_cross( arma::Cube<arma::u8> &scene ) {
 	for ( int x=1;x<scene.n_cols;x++)
 		for ( int di = -1 ; di <= 1 ; di++ )
 			for ( int dj = -1 ; dj <= 1 ; dj++ )
@@ -63,7 +63,7 @@ void gen_xz_cross( arma::Cube<char> &scene ) {
 				scene( scene.n_rows/2+di, scene.n_cols/2+dj, z ) = 1 ;
 }
 
-void gen_my_ob( arma::Cube<char> &scene ) {
+void gen_my_ob( arma::Cube<arma::u8> &scene ) {
 	int x,y,z ;
 	/// draw left wall
 	x=0 ;
@@ -152,7 +152,7 @@ int main( int narg , char **argv ) {
 
 
 
-	arma::Cube<char> scene( 2*N, N, 4*N ) ;
+	arma::Cube<arma::u8> scene( 2*N, N, 4*N ) ;
 	scene.fill(0) ;
 	std::cout<<"Problem initialization..."<<std::endl;
 	switch ( figure ) {
@@ -175,14 +175,14 @@ int main( int narg , char **argv ) {
 	}
 	std::cout<<"Bounding boxes initialization..."<<std::endl;
 	
-	typedef Bounding<char> MyBounding ;
+	typedef Bounding<arma::u8> MyBounding ;
 	
 	MyBounding bounding( scene, ( combination_scheme.compare( "and" ) == 0 ? MyBounding::COMB_AND : MyBounding::COMB_OR ) ) ;
 	const MyBounding::TBBoxes bboxes = bounding.bboxes() ;
 	MyBounding::TBBoxConstIterator bb = bboxes.begin() ;
 	std::cout<<"Bounding box of cc having color "<<(int)bb->first<<" is "<<bb->second.first<<"  --  "<<bb->second.second<<std::endl;
 
-	arma::Cube< char > *pVol = 0 ;
+	arma::Cube< arma::u8 > *pVol = 0 ;
 	
 	if ( computation ) {
 		register unsigned int x,y,z ;
