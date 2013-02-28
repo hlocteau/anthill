@@ -152,8 +152,12 @@ cd anthill
 cd scripts
 for e in `ls *.sh.txt`; do mv "${e}" "${e%.*}"; done
 chmod u+x *.sh
-mkdir ~/bin
 export PATH=${PATH}:${HOME}/bin:`pwd`
 cd ../tools
+mkdir ~/bin
+mkdir ../obj
 make
+cd ../gui
+qmake -o Makefile_gui
+make -f Makefile_gui
 ~~~
