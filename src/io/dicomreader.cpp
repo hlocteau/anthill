@@ -1,4 +1,4 @@
-#include "dicomreader.h"
+#include <io/dicomreader.h>
 
 DicomReader::DicomReader( const QString &repository ) {
 	_repository = repository ;

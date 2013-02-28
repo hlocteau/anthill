@@ -1,7 +1,7 @@
 #include <AntHillManager.hpp>
 #include <io/IOPgm3d.h>
 #include <QDir>
-#include "dicomreader.h"
+#include <io/dicomreader.h>
 #include <io/Pgm3dFactory.h>
 
 #define EXPORT_ROOT_FOLDER_NAME 			"outputData"
