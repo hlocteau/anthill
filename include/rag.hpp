@@ -205,4 +205,6 @@ template <typename T > GraphAdj * init_rag( const BillonTpl< T > &label, T th ) 
 
 void merge_nodes( GraphAdj::vertex_descriptor growing, GraphAdj::vertex_descriptor other, GraphAdj & g ) ;
 
+void export2dot( GraphAdj & g, QString filename ) ;
+
 #endif

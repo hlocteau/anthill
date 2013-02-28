@@ -64,10 +64,7 @@ ${OBJ}/GatherFolderImg.o : src/io/GatherFolderImg.cpp
 ${OBJ}/getPlanEqFromArma.o : src/getPlanEqFromArma.cpp
 	${COMPILE} $< -o "$@"
 
-${OBJ}/unarytestSignedDistLine.o : src/unarytestSignedDistLine.cpp
-	${COMPILE} $< -o "$@"
-
-${OBJ}/unarytestCH.o : src/unarytestCH.cpp
+${OBJ}/unarytestCH.o : misc-test/unarytestCH.cpp
 	${COMPILE} $< -o "$@"
 
 ${OBJ}/geom2d.o : src/geom2d.cpp
@@ -80,9 +77,6 @@ ${OBJ}/antHouse2D.o : src/antHouse2D.cpp
 	${COMPILE} $< -o "$@"
 
 ${OBJ}/antHouse3D.o : src/antHouse3D.cpp
-	${COMPILE} $< -o "$@"
-
-${OBJ}/unaryTestReadItk.o : src/unaryTestReadItk.cpp
 	${COMPILE} $< -o "$@"
 
 ${OBJ}/decomp3DSkel.o : src/decomp3DSkel.cpp

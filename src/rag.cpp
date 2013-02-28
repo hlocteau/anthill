@@ -221,3 +221,27 @@ void merge_nodes( GraphAdj::vertex_descriptor growing, GraphAdj::vertex_descript
 	//boost::remove_vertex( other, g ) ;
 	ndo = NodeData();
 }
+
+void export2dot( GraphAdj & g, QString filename ) {
+	boost::property_map< GraphAdj, _NodeTag >::type node_map  = boost::get( _NodeTag(), g ) ;
+	boost::property_map< GraphAdj, _EdgeTag >::type edge_map  = boost::get( _EdgeTag(), g ) ;
+	
+	std::ofstream dot_file( filename.toStdString().c_str());
+	dot_file << "graph D {\n"
+		<< "  size=\"4,3\"\n"
+		<< "  ratio=\"fill\"\n"
+		<< "  edge[style=\"bold\"]\n" << "  node[shape=\"circle\"]\n";
+	GraphAdj::vertex_iterator ni, ni_end;
+	for (boost::tie(ni, ni_end) = boost::vertices(g); ni != ni_end; ++ni) {
+		if ( node_map[ *ni ].id() > 0 && node_map[*ni].volume() > 0)
+			dot_file << node_map[ *ni ].id()<<" [label=\""<<node_map[*ni].category()<<"\",volume=\""<< node_map[*ni].volume()<<"\"]"<<std::endl;
+	}
+	GraphAdj::edge_iterator ei, ei_end;
+	for (boost::tie(ei, ei_end) = boost::edges(g); ei != ei_end; ++ei) {
+		GraphAdj::edge_descriptor e = *ei;
+		GraphAdj::vertex_descriptor u = boost::source(e, g), v = boost::target(e, g);
+		dot_file << node_map[ u ].id() << " -- " << node_map[ v ].id() << std::endl;
+	}
+	dot_file << "}";
+	dot_file.close() ;
+}

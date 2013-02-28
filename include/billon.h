@@ -13,7 +13,7 @@
 /**
  * \brief BillonTpl is just an interface for arma::Cube, adding a header for voxels' dimensions
  * 
- * BillonTpl is issued from TKDetection project available at git://github.com/adrien057/TKDetection.git
+ * BillonTpl is issued from TKDetection project available at https://github.com/adrien057/TKDetection
  * \warning keeping only the voxels' dimensions, voxel access and image dimensions are conformed to armadillo scheme:
  * \code
    BillonTpl< arma::u8 > img ( 20, 30, 40 ) ;

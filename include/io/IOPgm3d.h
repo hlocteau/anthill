@@ -11,7 +11,9 @@
 //namespace io {
 
 enum { PGM_HEADER_IMAGE_WIDTH=0, PGM_HEADER_IMAGE_HEIGHT=1, PGM_HEADER_IMAGE_DEPTH=2, PGM_HEADER_VOXEL_WIDTH=3, PGM_HEADER_VOXEL_HEIGHT=4, PGM_HEADER_VOXEL_DEPTH=5, PGM_HEADER_NUMBER_OF_COLORS=6, PGM_HEADER_TYPE=7, PGM_HEADER_ERROR=8};
-
+/**
+ * \note may also be used for 2D pgm
+ */
 template <typename To, typename T, bool tAscii>
 class IOPgm3d {
 public:

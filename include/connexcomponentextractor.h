@@ -6,6 +6,10 @@
 #include <coordinate.h>
 #include <QMap>
 #include <limits>
+/**
+ * \note the 26-connexity is used
+ * \todo add connexity as a parameter
+ */
 template <typename IN, typename OUT>
 class ConnexComponentExtractor {
 	public:

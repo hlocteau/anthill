@@ -85,7 +85,6 @@ bool process_arg( int narg, char **argv, TProgramArg &params ) {
 /**
  * Reconstruct a bi-level image based on a skeleton (bi-level pgm image) and a depthmap using tilling.
  * See also rebuild.cpp
- * \todo directly define tilling in ConnexComponentRebuilder.ih
  */
 int main( int narg, char **argv ) {
 	TProgramArg params ;

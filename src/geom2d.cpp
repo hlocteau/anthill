@@ -62,7 +62,7 @@ void Geom2D::ConvexHull( Z2i::DigitalSet &input, std::list<Z2i::Point> &output )
     Z2i::Point pivot = * input.begin();
     Z2i::Point *tab = new Z2i::Point[ input.size() ] ;
     uint position = 0 ;
-    /** select pivot */
+    // select pivot
     for ( Z2i::DigitalSet::ConstIterator pt = input.begin() ; pt != input.end() ; pt++ )
     {
         if ( pt->at(0) < pivot.at(0) )
@@ -73,14 +73,14 @@ void Geom2D::ConvexHull( Z2i::DigitalSet &input, std::list<Z2i::Point> &output )
         position++ ;
     }
 	if ( input.size() > 1 ) {
-		/** sort table of points according to x-axis and pivot */
+		// sort table of points according to x-axis and pivot
 		sort_per_angle( tab, input.size(), pivot ) ;
     
 		vector< Z2i::Point > queue_ ;
 		queue_.reserve( input.size());
 		queue_.push_back( tab[input.size()-1] );
 		queue_.push_back( tab[input.size()-2] );
-		/** selection of remaining points */
+		// selection of remaining points
 		for ( uint i = 3 ; i <= input.size() ; i++ )
 		{
 			while ( queue_.size() >= 2 )

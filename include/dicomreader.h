@@ -30,9 +30,15 @@ class DicomReader {
 		
 		DicomReader( const QString &repository ) ;
 		
+		/**
+		 * \return an iterator pointing to the first serie and its corresponding dictionary
+		 */
 		QMap< QString, QMap< QString, QString > >::ConstIterator begin() const {
 			return _seriesDico.begin() ;
 		}
+		/**
+		 * \return an iterator pointing to the past-the-end serie
+		 */
 		QMap< QString, QMap< QString, QString > >::ConstIterator end() const {
 			return _seriesDico.end() ;
 		}

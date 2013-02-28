@@ -21,6 +21,29 @@ public:
 
     static void init_edges_polygon( EdgePolygon &edges, const VertexPolygon &vertices ) ;
     
+    /** \brief Computes the 2D convex hull of a set of 2D points.
+     * 
+     * \code
+		Point   pUL( 4,9),
+		        pLR( 81,91 );
+		Domain domain( pUL, pLR ) ;
+		DigitalSet curve( domain ) ;
+		curve.insertNew( Point(10,10) ) ;
+		curve.insertNew( Point(5,90) ) ;
+		curve.insertNew( Point(30,30) ) ;
+		curve.insertNew( Point(50,70) ) ;
+		curve.insertNew( Point(60,12) ) ;
+		curve.insertNew( Point(20,80) ) ;
+		curve.insertNew( Point(60,90) ) ;
+		curve.insertNew( Point(80,50) ) ;
+		std::list<Point> chcurve; ;
+		Geom2D::ConvexHull( curve, chcurve ) ;
+		std::cout<<"Convex hull obtained : "<<std::endl;
+		for ( std::list<Point>::iterator pt = chcurve.begin() ; pt != chcurve.end() ; pt++ )
+			std::cout<<pt->at(0)<<","<<pt->at(1)<<" " ;
+		std::cout<<std::endl;
+		\endcode
+	*/
     static void ConvexHull(Z2i::DigitalSet &input, std::list<Z2i::Point> &output);
     static int vectorial_product(const Z2i::Point &a, const Z2i::Point &b, const Z2i::Point &c);
     static void sort_per_angle(Z2i::Point *tab, int size, const Z2i::Point ref);

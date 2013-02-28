@@ -14,7 +14,7 @@ void errorAndHelp( const po::options_description & general_opt ) {
 }
 void missingParam ( std::string param )
 {
-  /*trace.error()*/std::cerr <<" Parameter: "<<param<<" is required.."<<std::endl;
+  std::cerr <<" Parameter: "<<param<<" is required.."<<std::endl;
   exit ( 1 );
 }
 
