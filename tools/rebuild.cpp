@@ -1,5 +1,6 @@
 /**
- * \brief reconstruct the connected component from the given skeleton and depth map
+ * \file
+ * reconstruct the connected component from the given skeleton and depth map
  */
 
 
@@ -14,8 +15,6 @@
 #include "boost/tuple/tuple.hpp"
 
 namespace po = boost::program_options;
-
-//#define BUILD_INDIVIDUAL_COMP
 
 void errorAndHelp( const po::options_description & general_opt ) {
 	std::cerr 	<< "Rebuild labelled regions from a labelled skeleton and a depth map."<<std::endl
@@ -146,13 +145,7 @@ int main( int narg, char **argv ) {
 		else CCR.run() ;
 		trace.endBlock() ;
 		
-		if ( (int)CCR.result().max() < (int)std::numeric_limits<unsigned int>::max() )
-			IOPgm3d< arma::u32, qint8, false >::write( CCR.result(), QString( outputFileName.c_str() ) ) ;
-		else if ( (int)CCR.result().max() < (int)std::numeric_limits<unsigned short>::max() )
-			IOPgm3d< arma::u32, qint16, false >::write( CCR.result(), QString( outputFileName.c_str() ) ) ;
-		else
-			IOPgm3d< arma::u32, qint32, false >::write( CCR.result(), QString( outputFileName.c_str() ) ) ;
-		
+		save_minspace( CCR.result(), QString( outputFileName.c_str() ) ) ;		
 	}
 	return 0 ;
 }
