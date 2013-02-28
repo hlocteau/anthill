@@ -6,6 +6,7 @@
 //namespace io {
 	/**
 	 * \brief this interface is the best choice for reading an 3D pgm as the only matter is the type of container's elements, do not paying attention to the file encoding.
+	 * \tparam T type used for the voxels
 	 */
 	template <typename T> class Pgm3dFactory {
 		public :

@@ -40,6 +40,9 @@ using DGtal::Z3i::Domain ;
  * 
  * \todo The content of innerScene.cpp should be part of this class as the bottleneck of DGtal's 
  * ReverseDistanceTransformation is memory management. Using tilling must be transparent for the user.
+ * \tparam T type being used for the voxel in the input labeled image
+ * \tparam U type being used for the distance map
+ * \tparam V type being used for the voxel in the output labeled image (usually equals to T, but you do not care about labels in the output image)
  */
 template <typename T, typename U, typename V> class ConnexComponentRebuilder {
 public:

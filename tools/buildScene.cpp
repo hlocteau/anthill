@@ -26,6 +26,11 @@ typedef DistanceTransform<arma::u8,arma::u32>					CIDistanceTransform ;
 typedef GrayLevelHistogram< CIDistanceTransform::value_type > 	IHistogram ;
 
 /**
+ * \addtogroup Tools
+ *  @{
+ */
+
+/**
  * \param [in] universe a bi-level image 
  * \param labels a labeled image of connected component
  * \param bbox the bounding box of a specific connected component of \a labels
@@ -240,3 +245,4 @@ int main( int narg, char **argv ) {
 	}
 	return 1;
 }
+/** @}*/

@@ -83,8 +83,9 @@ bool process_arg( int narg, char **argv, TProgramArg &params ) {
 }
 
 /**
+ * \file
  * Reconstruct a bi-level image based on a skeleton (bi-level pgm image) and a depthmap using tilling.
- * See also rebuild.cpp
+ * \sa rebuild.cpp
  */
 int main( int narg, char **argv ) {
 	TProgramArg params ;

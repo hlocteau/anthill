@@ -212,7 +212,6 @@ int main( int narg , char **argv ) {
 				for ( x = 0 ; x < (*pVol).n_cols ; x++ )
 					for ( z = 0 ; z < (*pVol).n_slices ; z++ ) {
 						if ( (*pVol)( y,x,z)>0) {
-							//viewer << CustomColors3D( Color( ( x%3+1 ) * 64, ( y%3+1 ) * 64, ( z%3+1 ) * 64 ),Color( ( x%3+1 ) * 64, ( y%3+1 ) * 64, ( z%3+1 ) * 64 ) ) ;
 							viewer << Z3i::Point(x+bb->second.first.at(0),y+bb->second.first.at(1),z+bb->second.first.at(2)) ;
 						}
 					}

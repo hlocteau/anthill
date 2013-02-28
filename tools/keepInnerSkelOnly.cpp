@@ -1,5 +1,6 @@
 /**
- * filter skeleton wrt depth values observed on the depth map of the object and the bounding volume in order to remove branches in concavities
+ * \file
+ * filter skeleton wrt depth values observed on the depth map of the object and the bounding volume in order to remove branches in concavities.
  */
 #include <io/IOPgm3d.h>
 #include <io/Pgm3dFactory.h>

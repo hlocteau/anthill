@@ -33,6 +33,12 @@ template <typename IN,typename OUT> void blur_signal( const QList<IN> &input, QL
 	}
 }
 
+/**
+ * \tparam T type of the input signal's values
+ * \tparam W type being used for each component of the signal once cuts have been identified
+ * \tparam minmax enables to select the cutting method
+ * \tparam tracing enables to enable/disable tracing
+ */
 template <typename T, typename W,bool minmax=true,bool tracing=false>
 class SignalMinMax {
 public:
@@ -190,9 +196,7 @@ template <typename T, typename W,bool minmax,bool tracing> T SignalMinMax<T,W,mi
 }
 
 template <typename T, typename W,bool minmax,bool tracing> void SignalMinMax<T,W,minmax,tracing>::addJob( const QPair<uint,uint> & job ) {
-	/**
-	 * from the current implementation viewpoint, is is not necessary to sort this list
-	 */
+	// from the current implementation viewpoint, is is not necessary to sort this list
 	uint 	position = 0 ;
 	uint 	cur_peak,
 			pos_peak ;
@@ -266,7 +270,7 @@ template <typename T, typename W,bool minmax,bool tracing> SignalMinMax<T,W,minm
 			std::cout<<_maximum_index.at(i)<<" ["<<signal.at(_maximum_index.at(i))<<"] ";
 		std::cout<<std::endl;
 	}
-	/// remove consecutive extrema...
+	// remove consecutive extrema...
 	{
 		remove_consecutive_extrema( _minimum_index ) ;
 		remove_consecutive_extrema( _maximum_index ) ;
@@ -284,8 +288,8 @@ template <typename T, typename W,bool minmax,bool tracing> SignalMinMax<T,W,minm
 	}
 	uint firstmin=_signal.size(), lastmin=0;
 	if ( !_minimum_index.isEmpty() ) {
-		/// interval has to be defined such as we can find before the next(firstmin) index a max value big enought wrt the threshold
-		/// and so on between lastmin and previous(lastmin)
+		// interval has to be defined such as we can find before the next(firstmin) index a max value big enought wrt the threshold
+		// and so on between lastmin and previous(lastmin)
 		
 		firstmin = get_firstmin( 0, _signal.size()-1 ) ;
 		while ( true ) {

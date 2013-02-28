@@ -44,22 +44,18 @@
 		img->setVoxelSize( voxelWidth, voxelHeight, voxelDepth );
 		switch ( idtype ) {
 		case ASCII_CHAR:
-std::cerr<<"["<<__FUNCTION__<<"@"<<__LINE__<<"] trace for input "<<fileName.toStdString()<<std::endl;
 			IOPgm3d< T, char, true >::readAscii( imageFile, img ) ;
 			img->setMaxValue( 1 ) ;
 			break;
 		case BINARY_CHAR:
 		case BINARY_CHAR_SECOND:
-std::cerr<<"["<<__FUNCTION__<<"@"<<__LINE__<<"] trace for input "<<fileName.toStdString()<<std::endl;
 			IOPgm3d< T, qint8, false >::readBinary( imageFile, img ) ;
 			img->setMaxValue( 1 ) ;
 			break;
 		case ASCII_INT:
-std::cerr<<"["<<__FUNCTION__<<"@"<<__LINE__<<"] trace for input "<<fileName.toStdString()<<std::endl;
 			IOPgm3d< T, qint32, true >::readAscii( imageFile, img ) ;
 			break;
 		case BINARY_INT:
-std::cerr<<"["<<__FUNCTION__<<"@"<<__LINE__<<"] trace for input "<<fileName.toStdString()<<std::endl;
 			{
 				qint64 current_position = imageFile.pos() ;
 				qint64 endfile_position = imageFile.size() ;
@@ -68,30 +64,24 @@ std::cerr<<"["<<__FUNCTION__<<"@"<<__LINE__<<"] trace for input "<<fileName.toSt
 				remaining_content *= img->n_slices ;
 				remaining_content *= sizeof( qint16) ;
 				if ( ( endfile_position - current_position ) == remaining_content ) {
-					std::cout<<__FILE__<<" expecting "<<remaining_content<<" = "<<( endfile_position - current_position )<<" read 16 bits"<<std::endl;
 					IOPgm3d< T, qint16, false >::readBinary( imageFile, img ) ;
 				} else {
 					remaining_content /= sizeof( qint16) ;
 					remaining_content *= sizeof( qint32) ;
-					std::cout<<__FILE__<<" expecting "<<remaining_content<<" ... "<<( endfile_position - current_position )<<" read 32 bits"<<std::endl;
 					IOPgm3d< T, qint32, false >::readBinary( imageFile, img ) ;
 				}
 			}
 			break;
 		case BINARY_FLOAT:
-std::cerr<<"["<<__FUNCTION__<<"@"<<__LINE__<<"] trace for input "<<fileName.toStdString()<<std::endl;
 			IOPgm3d< T, float, true >::readBinary( imageFile, img ) ;
 			break;
 		case ASCII_FLOAT:
-std::cerr<<"["<<__FUNCTION__<<"@"<<__LINE__<<"] trace for input "<<fileName.toStdString()<<std::endl;
 			IOPgm3d< T, float, false >::readAscii( imageFile, img ) ;
 			break;
 		case BINARY_DOUBLE:
-std::cerr<<"["<<__FUNCTION__<<"@"<<__LINE__<<"] trace for input "<<fileName.toStdString()<<std::endl;
 			IOPgm3d< T, double, true >::readBinary( imageFile, img ) ;
 			break;
 		case ASCII_DOUBLE:
-std::cerr<<"["<<__FUNCTION__<<"@"<<__LINE__<<"] trace for input "<<fileName.toStdString()<<std::endl;
 			IOPgm3d< T, double, false >::readAscii( imageFile, img ) ;
 			break;
 		default:

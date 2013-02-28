@@ -9,6 +9,8 @@
 /**
  * \note the 26-connexity is used
  * \todo add connexity as a parameter
+ * \tparam IN type used for voxels in the input image
+ * \tparam OUT type used for voxels in the output image (should enable to encode as many integers as we can enumerate connected component)
  */
 template <typename IN, typename OUT>
 class ConnexComponentExtractor {
