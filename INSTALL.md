@@ -1,6 +1,6 @@
 Installation guide {#installation}
 ==================
-This page described the installation guide for Anthill on Ubuntu (expected to work tuning the command for your os/distribution).
+This page described the installation guide for Anthill on Ubuntu 12.04 (expected to work too - tuning those commands - for your own os/distribution).
 
 1. Third party libraries
 2. Third party programs
@@ -62,10 +62,10 @@ tar -xvf InsightToolkit-4.2.1.tar
 cd InsightToolkit-4.2.1
 mkdir build
 cd build
-cmake ..
+cmake .. -DBUILD_EXAMPLES:string=false -DBUILD_TESTING:string=false -DITK_BUILD_ALL_MODULES:string=false -DITKGroup_Core:string=true -DITKGroup_IO:string=true
 sudo make install
 ~~~
-You may read the ITK installation's guide to **compile the only core of the library**.
+You may tune the ITK installation to **compile more modules of the library**.
 
 ### 5. DGtal
 
@@ -80,7 +80,7 @@ tar -xvf DGtal-0.5.1-Source.tar
 cd DGtal-0.5.1-Source
 mkdir build
 cd build
-cmake .. -DWITH_GMP=true -DWITH_ITK=true -DWITH_QGLVIEWER=true
+cmake .. -DWITH_GMP:string=true -DWITH_ITK:string=true -DWITH_QGLVIEWER:string=true
 make
 sudo make install
 ~~~
@@ -149,8 +149,11 @@ cd
 wget https://github.com/hlocteau/anthill/archive/master.zip
 unzip master.zip
 cd anthill
-chmod u+x scripts/*.sh
+cd scripts
+for e in `ls *.sh.txt`; do mv "${e}" "${e%.*}"; done
+chmod u+x *.sh
 mkdir ~/bin
-export PATH=${PATH}:${HOME}/bin:`pwd`/scripts
+export PATH=${PATH}:${HOME}/bin:`pwd`
+cd ../tools
 make
 ~~~
