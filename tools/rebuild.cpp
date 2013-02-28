@@ -23,11 +23,11 @@ void errorAndHelp( const po::options_description & general_opt ) {
 }
 void missingParam ( std::string param )
 {
-  /*trace.error()*/std::cerr <<" Parameter: "<<param<<" is required.."<<std::endl;
+  std::cerr <<" Parameter: "<<param<<" is required.."<<std::endl;
   exit ( 1 );
 }
 
-std::pair< BillonTpl< arma::u8 >*, BillonTpl< arma::u16 >* > gen_toy_problemB( uint cfg ) {
+std::pair< BillonTpl< arma::u8 >*, BillonTpl< arma::u16 >* > gen_toy_problem( uint cfg ) {
 	assert( cfg <= 12 ) ;
 	arma::s8 configs[] = { 1,0,0,  0,1,0,  0,0,1,  0,1,-1,  1,0,1,  -1,1,0,  0,1,1,  -1,0,1,  1,1,0,  -1,1,1,  1,-1,1,  1,1,-1,  1,1,1 } ;
 	BillonTpl< arma::u8 >* labels = new BillonTpl< arma::u8 >( 40, 40, 40 ) ;
@@ -48,85 +48,6 @@ std::pair< BillonTpl< arma::u8 >*, BillonTpl< arma::u16 >* > gen_toy_problemB( u
 	}
 	return std::pair< BillonTpl< arma::u8 >*, BillonTpl< arma::u16 >* > ( labels, dist ) ;
 }
-
-std::pair< BillonTpl< arma::u8 >*, BillonTpl< arma::u16 >* > gen_toy_problemA( ) {
-	BillonTpl< arma::u8 >* labels = new BillonTpl< arma::u8 >( 20, 20, 20 ) ;
-	labels->fill(0) ;
-
-	arma::u8 x,y,z,n, n_rows = labels->n_rows,n_cols = labels->n_cols,n_slices=labels->n_slices,iExt ;
-	/** step 1 : define the object */
-	for ( z = 1 ; z < 9 ; z++ )
-		for ( x = 10-z ; x <= 10+z ; x++ )
-			for ( y = 10-z ; y <= 10+z ; y++ ) {
-				(*labels)(y,x,2*z+0) = 1 ;
-				(*labels)(y,x,2*z+1) = 1 ;
-			}
-	IOPgm3d< arma::u8,qint8, false >::write( *labels, "toy_scene.pgm3d" ) ;
-	
-	
-	/** step 2 : define the distances */
-	DistanceTransform< arma::u8, arma::u16 > dt( *labels ) ;
-	BillonTpl< arma::u16 > *dist = new BillonTpl<arma::u16>( n_rows, n_cols, n_slices ) ;
-	*( (arma::Cube<arma::u16> *) dist ) = dt.result() ;
-	
-	arma::u8 xx,yy,zz, of ;
-	bool on_skeleton ;
-	/** step 3 : define a skeleton */
-	QString cmd = QString("medialaxis toy_scene.pgm3d 3 /tmp/skel2_tmp_m && threshold /tmp/skel2_tmp_m 1 /tmp/skel2_tmp_m1 && skeleucl toy_scene.pgm3d 26 /tmp/skel2_tmp_m1 /tmp/skel2_tmp_s") ;
-	std::system( cmd.toStdString().c_str() ) ;
-	delete labels ;
-	{
-		Pgm3dFactory< arma::u8 > factory ;
-		labels = factory.read( "/tmp/skel2_tmp_s" ) ;
-		if ( labels->max() != 0 )
-			*labels /= labels->max() ;
-		labels->setMaxValue(1);
-		IOPgm3d< arma::u8, qint8,false >::write( *labels, "toy_skel.pgm3d");
-	}
-	/** step 4 : define the classification's voxels */
-	Point ext[5] ;
-	ext[0] = Point(-1,-1,-1 ) ;
-	for ( iExt = 1 ; iExt < 3 ; iExt++ )
-		ext[iExt] = Point(-1,n_rows/2,-1 ) ;
-	for ( iExt = 3 ; iExt < 5 ; iExt++ )
-		ext[iExt] = Point(n_cols,n_rows/2,-1 ) ;
-		
-	for ( z = 0 ; z < labels->n_slices ; z++ )
-		for ( x = 0 ; x < labels->n_cols ; x++ )
-			for ( y = 0 ; y < labels->n_rows ; y++ ) {
-				if ( (*labels)(y,x,z) == 0 ) continue ;
-				if ( ext[0].at(0) < 0 ) ext[0]=Point(x,y,z) ;
-				if ( z >= ext[1].at(2) && (x > ext[1].at(0) || (x == ext[1].at(0) && y > ext[1].at(1) ) ) ) ext[1] = Point(x,y,z) ;
-				if ( z >= ext[2].at(2) && (x > ext[2].at(0) || (x == ext[2].at(0) && y < ext[2].at(1) ) ) ) ext[2] = Point(x,y,z) ;
-				if ( z >= ext[3].at(2) && (x < ext[3].at(0) || (x == ext[3].at(0) && y > ext[3].at(1) ) ) ) ext[3] = Point(x,y,z) ;
-				if ( z >= ext[4].at(2) && (x < ext[4].at(0) || (x == ext[4].at(0) && y < ext[4].at(1) ) ) ) ext[4] = Point(x,y,z) ;
-			}
-std::cerr<<"Classification voxels are : "<<std::endl
-			<<"0 : "<<ext[0]<<std::endl
-			<<"1 : "<<ext[1]<<std::endl
-			<<"2 : "<<ext[2]<<std::endl
-			<<"3 : "<<ext[3]<<std::endl
-			<<"4 : "<<ext[4]<<std::endl;
-	labels->setMaxValue(6);
-	arma::u16 d[5] ;
-	arma::u8 iClosest ;
-std::cin>>	iClosest;
-	
-	/** step 5 : define labels */
-	for ( z = 0 ; z < labels->n_slices ; z++ )
-		for ( x = 0 ; x < labels->n_cols ; x++ )
-			for ( y = 0 ; y < labels->n_rows ; y++ ) {
-				if ( (*labels)(y,x,z) == 0 ) continue ;
-				iClosest = 0 ;
-				for ( iExt = 0 ; iExt < 5 ; iExt++ ) {
-					d[ iExt ] = ( ext[ iExt ]-Point(x,y,z) ).dot( ext[ iExt ]-Point(x,y,z) ) ;
-					iClosest = ( d[ iExt ] < d[ iClosest ] ? iExt : iClosest ) ;
-				}
-				(*labels)(y,x,z) = iClosest + 1 ;
-			}
-	return std::pair< BillonTpl< arma::u8 >*, BillonTpl< arma::u16 >* > ( labels, dist ) ;
-}
-
 
 int main( int narg, char **argv ) {
 
@@ -160,10 +81,7 @@ int main( int narg, char **argv ) {
 		BillonTpl< arma::u8 > *pLabels ;
 		BillonTpl< arma::u16 > *pDist ;
 		
-		if ( vm["test"].as<int>() == 1 )
-			boost::tie( pLabels,pDist ) = gen_toy_problemA() ;
-		else
-			boost::tie( pLabels,pDist ) = gen_toy_problemB( vm["test"].as<int>()-2 ) ;
+		boost::tie( pLabels,pDist ) = gen_toy_problem( vm["test"].as<int>()-1 ) ;
 		IOPgm3d< arma::u8,qint8, false >::write( *pLabels, "toy_labels.pgm3d" ) ;
 		IOPgm3d< arma::u16,qint16, false >::write( *pDist, "toy_dist.pgm3d" ) ;
 
