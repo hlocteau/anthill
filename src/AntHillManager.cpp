@@ -362,7 +362,7 @@ bool AntHillManager::binarization( const Interval<arma::s16> &range, int th) {
     details.insert( "maximum", QString("%1").arg( range.max() ) ) ;
     details.insert( "threshold", QString("%1").arg( th ) ) ;
     details.insert( ANTHILL_DEFAULT_OUTPUT_NAME, QString("%1;%2;8u;%3 %4 %5").arg(BINARIZATION_OUTPUT_FILE_NAME).arg(ANTHILL_TAG_BILEVEL).arg(data->n_rows).arg(data->n_cols).arg(data->n_slices) ) ;
-    _project->addProcess( "binarisation", details ) ;
+    _project->addProcess( "binarization", details ) ;
     fs::path filename = _projectLocation ;
     filename /= _filename ;
     _project->save( QString("%1").arg( filename.c_str() ) ) ;
