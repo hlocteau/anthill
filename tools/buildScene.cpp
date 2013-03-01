@@ -60,21 +60,15 @@ int main( int narg, char **argv ) {
 	fs::path folderpath = argv[1] ;
 	if ( !fs::is_directory( folderpath ) )
 		folderpath = folderpath.parent_path() ;
+	if ( folderpath.empty() ) folderpath = ".";
 	
 	fs::path filepath = folderpath ;
 	filepath /= ANTHILL_MASK_NAME ;
-	IOPgm3d<arma::u8,qint8,false>::write( mask3d, QString("%1").arg( filepath.c_str() ) ) ;
+	IOPgm3d<arma::u8,qint8,false>::write( mask3d, filepath.c_str() ) ;
 	mask3d.reset();
 	
-	
-	const BillonTpl< arma::u8 > & scene = factory->scene() ;
-	// mask has been applied, may be useful even while providing directly a "scene" file
-	filepath = folderpath ;
-	filepath /= ANTHILL_MASK_SCENE_NAME ;
-	IOPgm3d<arma::u8,qint8,false>::write( scene, QString("%1").arg( filepath.c_str() ) ) ; 
-
 	CS_CCExtractor extractor;
-	BillonTpl<arma::u16> *labels = extractor.run( scene ) ;
+	BillonTpl<arma::u16> *labels = extractor.run( factory->scene() ) ;
 	delete factory ;
 	
 	// note : bounding boxes and volumes are computed by extractor...
@@ -110,84 +104,22 @@ int main( int narg, char **argv ) {
 	arma::Cube<arma::u8> *result = bounding.convexHull2DAxis( 7, biggestBox ) ;
 
 	BillonTpl<arma::u8> *inner = cropComplement( result, labels, biggestBox ) ;
-	IOPgm3d<arma::u8,qint8,false>::write( *inner, QString("%1/anthillallcontent.pgm3d").arg( folderpath.c_str() ) ) ;
 	delete labels ;
 	
 	BillonTpl< CS_CCExtractor::value_type > *labelsInner = extractor.run( *inner ) ;
-
-	IOPgm3d<arma::u16,qint16,false>::write( *labelsInner, QString("%1/anthilllabelinner.pgm3d").arg( folderpath.c_str() ) ) ; /// to make it viewable (redefine labels wrt volumes)
 	SHistogram histInner( *labelsInner ) ;
 	
 	CIDistanceTransform *dtHull = new CIDistanceTransform( *result ) ;
 	const arma::Cube< CIDistanceTransform::value_type > & imDtHull = dtHull->result() ;
-	IOPgm3d<CIDistanceTransform::value_type,qint32,false>::write( imDtHull, QString("%1/anthill.dthull.pgm3d").arg( folderpath.c_str() ) ) ;
-	
-	std::map< CS_CCExtractor::value_type, CIDistanceTransform::value_type > distToHull ;
-	std::set< CS_CCExtractor::value_type > touchingHull ;
-	// for each component of inner
-	// determine its min-max values on dtHull
-	{
-		register int x,y,z,neighbor ;
-		CS_CCExtractor::value_type id_cc ;
-		CIDistanceTransform::value_type value ;
-		for ( z = 0 ; z < imDtHull.n_slices ; z++ )
-			for ( x = 0 ; x < imDtHull.n_cols ; x++ )
-				for ( y = 0 ; y < imDtHull.n_rows ; y++ ) {
-					id_cc = (*labelsInner)( y,x,z) ;
-					if ( id_cc == 0 ) continue ;
-					value = imDtHull(y,x,z) ;
-					if ( touchingHull.find( id_cc ) == touchingHull.end() ) {
-						// insert id_cc into touchingHull whenever we can find an adjacent voxel out of the hull
-						for ( neighbor = 0 ; neighbor < 27 ; neighbor++ )
-							if ( (*result)( PROOF_COORD(imDtHull.n_rows,y + (neighbor/9-1)), PROOF_COORD(imDtHull.n_cols,x + ( (neighbor%9)/3 -1 )), PROOF_COORD(imDtHull.n_slices,z + ( neighbor % 3 -1 ) ) ) == 0 ) break ;
-						if ( neighbor != 27 ) touchingHull.insert( id_cc ) ;
-					}
-					if ( distToHull.find( id_cc ) == distToHull.end() )
-						distToHull[ id_cc ] = value ;
-					else {
-						if ( distToHull[ id_cc ] < value ) distToHull[ id_cc ] = value ;
-					}
-				}
-	}
+	filepath = folderpath ;
+	filepath /= ANTHILL_DT_HULL_NAME ;
+	IOPgm3d<CIDistanceTransform::value_type,qint32,false>::write( imDtHull, filepath.c_str() ) ;
 	
 	CS_CCExtractor::value_type biggestInnerCCIdentifier = 1 ;
-	QFile fHist( "/tmp/histcomplement.txt") ;
-	if( !fHist.open(QFile::WriteOnly) ) {
-		std::cerr << "Error : saving size of conn comp on the complement of the scene"<< std::endl;
-		return -1;
-	}
-	QTextStream out(&fHist);
 	for ( SHistogram::THistogram::iterator it = histInner._bin.begin() ; it != histInner._bin.end() ; it++ ) {
-		out<<QString("%1 : %2 : %3 : %4").arg((int)it->first).arg((long unsigned int)it->second).arg( distToHull[ (int)it->first ] ).arg( touchingHull.find(it->first) != touchingHull.end() ? "touch":"disconnected")<<endl;
 		if ( it->second > histInner._bin[ biggestInnerCCIdentifier ] ) biggestInnerCCIdentifier = it->first ;
 	}
-	fHist.close() ;
 	delete dtHull ;
-
-	{
-		// Selection
-		// component not being adjacent to hull / volume  >= 250
-		BillonTpl< short > imSelect( result->n_rows, result->n_cols, result->n_slices ) ;
-		imSelect.fill(0);
-		std::map< CS_CCExtractor::value_type, short > tblEncoding ;
-		register int x,y,z;
-		CS_CCExtractor::value_type id_cc ;
-		for ( z = 0 ; z < labelsInner->n_slices ; z++ )
-			for ( x = 0 ; x < labelsInner->n_cols ; x++ )
-				for ( y = 0 ; y < labelsInner->n_rows ; y++ ) {
-					id_cc = (*labelsInner)( y,x,z) ;
-					if ( id_cc == 0 ) continue ;
-					if ( histInner._bin[ id_cc ] < 250 ) continue ;
-					if ( touchingHull.find( id_cc ) != touchingHull.end() ) continue ;
-					if ( tblEncoding.find( id_cc ) == tblEncoding.end() )
-						tblEncoding[ id_cc ] = tblEncoding.size()-1 ;
-					imSelect(y,x,z) = tblEncoding[ id_cc ] ;
-				}
-		imSelect.setMinValue(0);
-		imSelect.setMaxValue( tblEncoding.size() );
-		IOPgm3d<short,qint16,false>::write( imSelect, QString("/tmp/selection_v3d.pgm3d"),QString("P3D") ) ;
-	}
-	//IOPgm3d<short,qint16,false>::write( *labelsInner, QString("/tmp/scene.pgm3d") ) ;
 	
 	// seems that we can keep only the biggest one
 	{
@@ -205,31 +137,17 @@ int main( int narg, char **argv ) {
 							if ( (*labelsInner)( PROOF_COORD((*labelsInner).n_rows,y + (neighbor/9-1)), PROOF_COORD((*labelsInner).n_cols,x + ( (neighbor%9)/3 -1 )), PROOF_COORD((*labelsInner).n_slices,z + ( neighbor % 3 -1 ) ) ) == 0 ) break ;
 						if ( neighbor != 27 ) imSelect(y,x,z) = 1 ;
 					}
-		IOPgm3d<arma::u8,qint16,false>::write( imSelect, QString("%1/anthillcontent_v3d.pgm3d").arg( folderpath.c_str() ),QString("P3D") ) ;
 		for ( z = 0 ; z < labelsInner->n_slices ; z++ )
 			for ( x = 0 ; x < labelsInner->n_cols ; x++ )
 				for ( y = 0 ; y < labelsInner->n_rows ; y++ )
 					if ( biggestInnerCCIdentifier == (*labelsInner)( y,x,z) )
 						imSelect(y,x,z) = 1 ;
-		IOPgm3d<arma::u8,qint8,false>::write( imSelect, QString("%1/anthillcontent.pgm3d").arg( folderpath.c_str() ) ) ;
+		fs::path filepath = folderpath ;
+		filepath /= ANTHILL_INIT_SCENE_NAME ;
+		IOPgm3d<arma::u8,qint8,false>::write( imSelect, filepath.c_str() ) ;
 		delete labelsInner ;
 		delete result ;
 		delete inner ;
-		
-		
-		// compute distance transform on imSelect
-		CIDistanceTransform dtObj( imSelect ) ;
-		IHistogram depthObj( dtObj.result() ) ;
-		QFile fHist( QString("%1/depthObjHist.txt").arg(folderpath.c_str())) ;
-		if( !fHist.open(QFile::WriteOnly) ) {
-			std::cerr << "Error : saving size of conn comp on the complement of the scene"<< std::endl;
-			return -1;
-		}
-		QTextStream out(&fHist);
-		for ( IHistogram::THistogram::iterator it = depthObj._bin.begin() ; it != depthObj._bin.end() ; it++ ) {
-			out<<QString("%1 : %2").arg((int)it->first).arg((long unsigned int)it->second)<<endl;
-		}
-		fHist.close() ;
 	}
 	return 1;
 }

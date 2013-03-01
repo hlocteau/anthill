@@ -32,7 +32,7 @@ bool process_arg( int narg, char **argv, TProgramArg &params ) {
 		( "help,h", "display this message." )
 		( "input,i", po::value<std::string>(), "Input binary pgm filename." )
 		( "label,l", po::value<std::string>(), "Input label pgm filename." )
-		( "output,o", po::value<string>(),"Output pgm filename." )
+		( "output,o", po::value<std::string>(),"Output pgm filename." )
 		( "top,t", po::value<int>()->default_value(-1),"rank when sorting connected components wrt their size. (-1 : keep all)" );
 
 	bool parseOK = true ;

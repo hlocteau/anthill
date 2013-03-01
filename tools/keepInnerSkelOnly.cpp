@@ -99,9 +99,9 @@ int main( int narg, char **argv ) {
 	Pgm3dFactory<arma::u8> factoryBin ;
 	Pgm3dFactory<arma::u32> factoryInteger ;
 	
-	BillonTpl<arma::u8> *skel = factoryBin.read( QString( "%1").arg( skelFilePath.c_str() ) ) ;
-	BillonTpl<arma::u32> *distToHull = factoryInteger.read( QString( "%1").arg(distToHullFilePath.c_str() ) ) ;
-	BillonTpl<arma::u32> *distToSkel = factoryInteger.read( QString( "%1").arg(distToSkelFilePath.c_str() ) ) ;
+	BillonTpl<arma::u8> *skel = factoryBin.read( skelFilePath.c_str() ) ;
+	BillonTpl<arma::u32> *distToHull = factoryInteger.read( distToHullFilePath.c_str() ) ;
+	BillonTpl<arma::u32> *distToSkel = factoryInteger.read( distToSkelFilePath.c_str() ) ;
 	factoryInteger.correctEncoding( distToSkel ) ;
 	
 	std::cout	<<"Info : size of the input skeleton's image    "<<skel->n_rows<< " x "<<skel->n_cols<<" x " << skel->n_slices<<std::endl
@@ -160,7 +160,7 @@ int main( int narg, char **argv ) {
 				<<"                    - input  : "<<skel_n_elem<<std::endl
 				<<"                    - output : "<<skel_n_elem-myskel_n_del_elem<<" after "<<nLoop<<" loop(s)"<<std::endl;
 	
-	IOPgm3d<arma::u8,qint8,false>::write( mySkel, QString( "%1" ).arg( innerskelFilePath.c_str() ) ) ;
+	IOPgm3d<arma::u8,qint8,false>::write( mySkel, innerskelFilePath.c_str() ) ;
 	delete skel ;
 	delete distToHull ;
 	delete distToSkel ;

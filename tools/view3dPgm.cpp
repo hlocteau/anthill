@@ -360,14 +360,14 @@ int main( int narg, char **argv ) {
 						}
 						if ( resultingscene_8 ) {
 							if ( Labels.isEmpty() )
-								resultingscene_8->at( y, x,z ) = value ;
+								resultingscene_8->at( y, x,z ) = 1;//value ;
 							else
-								resultingscene_8->at( y, x,z ) = Labels.indexOf( value )+1 ;
+								resultingscene_8->at( y, x,z ) = 1;//Labels.indexOf( value )+1 ;
 						} else if ( resultingscene_16 ) {
 							if ( Labels.isEmpty() )
-								resultingscene_16->at( y, x,z ) = value ;
+								resultingscene_16->at( y, x,z ) = 1;//value ;
 							else
-								resultingscene_16->at( y, x,z ) = Labels.indexOf( value )+1 ;
+								resultingscene_16->at( y, x,z ) = 1;//Labels.indexOf( value )+1 ;
 						}							
 					}
 		std::cout<<"Display "<<nbVoxel<<" voxel(s)"<<std::endl;

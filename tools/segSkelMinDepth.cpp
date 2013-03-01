@@ -4,14 +4,16 @@
  * \todo split the initialization segmentation from the merging step
  * \todo define a specific class for the merging scheme to be applied
  */
+#include <io/Pgm3dFactory.h>
+#include <ConnexComponentRebuilder.hpp>
 #include <def_coordinate.h>
 #include <SkeletonGraph.hpp>
 #include <io/IOPgm3d.h>
-#include <io/Pgm3dFactory.h>
+
 #include <io/IOUtils.h>
 #include <utils.h>
 #include <connexcomponentextractor.h>
-#include <ConnexComponentRebuilder.hpp>
+
 #include <geom2d.h>
 
 #include <boost/program_options/options_description.hpp>
