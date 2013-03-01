@@ -3,12 +3,12 @@ Use case {#usecase}
 This page describe a use case.
 
 # starting point
-Once having importing dicom folder MeMo0068 using the gui, open the project serie_ 3.xml and apply a 
+Once having importing dicom folder MeMo0013 using the gui, open the project serie_ 2.xml and apply a 
 binarization (checkbox Threshold) using for example parameters -600:1200 for the selection range (in the ressource table) of the import,
 and a threshold value 11 (using spinbox). Click on "run" button. You should get a new ressource named "binarisation:result".
 Now, you may quit the gui and open a terminal:
 ~~~
-cd ~/outputData/MeMo0068/serie_3
+cd ~/outputData/MeMo0013/serie_2
 ls
 	binary.pgm3d  input.pgm3d  serie_3.xml
 ~~~
@@ -17,56 +17,58 @@ ls
 We aim to decompose the anthill into a set of rooms and corridors, we have to bound the scene, and fill it.
 ~~~
 buildScene ./binary.pgm3d
-	BoundingBox #1 : [PointVector] {108, 163, 13} [PointVector] {396, 394, 506}
+	"Nombre de composantes = 465" 
+	BoundingBox #1 : [PointVector] {108, 163, 13} [PointVector] {396, 394, 506} volume 7920172
+	"Nombre de composantes = 1292" 
+
 ~~~
 We have created a serie of new ressources located at voxel (108 163 13) in the initial 3D image.
 ~~~
 ls
-	anthillallcontent.pgm3d  	anthillcontent_v3d.pgm3d  	anthilllabelinner.pgm3d
-	anthill.scene.pgm3d  		depthObjHist.txt  		serie_3.xml
-	anthillcontent.pgm3d     	anthill.dthull.pgm3d      	anthill.mask.pgm3d
-	binary.pgm3d         		input.pgm3d
+	binary.pgm3d  content.pgm3d  hull.dt.pgm3d  input.pgm3d  mask.pgm  premask.pgm  serie_2.xml
 ~~~
 All the following ressources are computed in the domain (108, 163, 13) (396, 394, 506).
 
 # Computing the skeleton of the object
 ## Extracting Euclidean Skeleton
-We may extract both the skeleton anthillcontent.skeleucl.pgm3d, and a distance map anthillcontent.dist.pgm3d of the object saved in anthillcontent.pgm3d:
+We may extract both the skeleton content.skeleucl.pgm3d, and a distance map content.dist.pgm3d of the object saved in content.pgm3d:
 ~~~
-do3Dskel.sh anthillcontent.pgm3d anthillcontent.dist.pgm3d anthillcontent.skeleucl.pgm3d
+do3Dskel.sh content.pgm3d content.dt.pgm3d content.skeleucl.pgm3d
 ls
-	anthillallcontent.pgm3d    	anthillcontent.pgm3d           	anthillcontent_v3d.pgm3d
-	anthilllabelinner.pgm3d  	anthill.scene.pgm3d  		depthObjHist.txt  
-	serie_3.xml			anthillcontent.dist.pgm3d  	anthillcontent.skeleucl.pgm3d
-	anthill.dthull.pgm3d      	anthill.mask.pgm3d       	binary.pgm3d
-	input.pgm3d
+	binary.pgm3d  content.dt.pgm3d  content.pgm3d  content.skeleucl.pgm3d  hull.dt.pgm3d  input.pgm3d  
+	mask.pgm      premask.pgm       serie_2.xml
 ~~~
 
 ## Filtering the skeleton
 Because of the definition of the hull, some branches of the skeleton are meaningless as they correspond to concavities.
 ~~~
 innerSkelOnly -i . --loop 4
+	Info : size of the input skeleton's image    232 x 289 x 494
+	       size of the distance hull's image     232 x 289 x 494
+	       size of the distance skeleton's image 232 x 289 x 494
+	1389039 after the first loop
+	Info : number of skeleton's voxels
+	                    - input  : 1629746
+	                    - output : 1389039 after 2 loop(s)
+
 ls
-	anthillallcontent.pgm3d    	anthillcontent.pgm3d           	anthillcontent_v3d.pgm3d
-	anthill.innerskel.pgm3d  	anthill.mask.pgm3d   		binary.pgm3d
-	input.pgm3d			anthillcontent.dist.pgm3d  	anthillcontent.skeleucl.pgm3d
-	anthill.dthull.pgm3d      	anthilllabelinner.pgm3d  	anthill.scene.pgm3d
-	depthObjHist.txt  		serie_3.xml
+	binary.pgm3d      content.pgm3d           hull.dt.pgm3d     input.pgm3d  premask.pgm  serie_2.xml
+	content.dt.pgm3d  content.skeleucl.pgm3d  inner.skel.pgm3d  mask.pgm
+
 ~~~
 We have filtered out the skeleton and possibly created several disconnected components. We just select the biggest one:
 ~~~
-labelingcc -i anthill.innerskel.pgm3d -o anthill.innerskel.main.pgm3d -t 1
+labelingcc -i inner.skel.pgm3d -o inner.skel.main.pgm3d -t 1
+	"Nombre de composantes = 2954"
 ls
-	anthillallcontent.pgm3d    	anthillcontent.skeleucl.pgm3d  	anthill.innerskel.main.pgm3d
-	anthill.mask.pgm3d   		depthObjHist.txt		anthillcontent.dist.pgm3d
-	anthillcontent_v3d.pgm3d       	anthill.innerskel.pgm3d       	anthill.scene.pgm3d
-	input.pgm3d			anthillcontent.pgm3d		anthill.dthull.pgm3d
-	anthilllabelinner.pgm3d		binary.pgm3d			serie_3.xml
+	binary.pgm3d      content.pgm3d           hull.dt.pgm3d          inner.skel.pgm3d  mask.pgm		serie_2.xml
+	content.dt.pgm3d  content.skeleucl.pgm3d  inner.skel.main.pgm3d  input.pgm3d       premask.pgm
+
 ~~~
 # Defining the scene wrt preprocessing
 We can now reconstruct the scene wrt preprocessing.
 ~~~
-innerScene -s anthill.innerskel.main.pgm3d -d anthillcontent.dist.pgm3d -o anthill.inner.main.pgm3d -g 256x256x256
+innerScene -s inner.skel.main.pgm3d -d content.dt.pgm3d -o inner.main.pgm3d -g 256x256x256
 ls
 	anthillallcontent.pgm3d		anthillcontent.skeleucl.pgm3d	anthill.inner.main.pgm3d
 	anthilllabelinner.pgm3d		binary.pgm3d			serie_3.xml
