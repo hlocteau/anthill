@@ -387,7 +387,7 @@ void MainWindow::updateRessources( ) {
 			fieldIter = resultIter.value().begin();
 			fieldEnd = resultIter.value().end();
 			for ( ; fieldIter != fieldEnd ; fieldIter ++ ) {
-				if ( !fieldIter.key().startsWith("result") ) continue ;
+				if ( !fieldIter.key().startsWith(ANTHILL_DEFAULT_OUTPUT_NAME) ) continue ;
 				std::cout<<"[ Info ] : process ("<<resultIter.key().toStdString()<<" ( "<<fieldIter.key().toStdString()<<" : "<<fieldIter.value().toStdString()<<" ) )"<<std::endl;
 				int row = _ressourcesTable->rowCount();
 				_ressourcesTable->setRowCount(row + 1);
