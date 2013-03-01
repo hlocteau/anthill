@@ -27,14 +27,13 @@ template<typename T> BillonTpl<arma::u8> * filter_high( const BillonTpl<T> &data
 }
 
 
-template <typename IN, typename OUT>
-BillonTpl<OUT> * BilloncastTo<IN,OUT>( const BillonTpl<IN> *src ) {
+template <typename IN, typename OUT> BillonTpl<OUT> * BilloncastTo( const BillonTpl<IN> *src ) {
 	BillonTpl<OUT> out = new BillonTpl<OUT>( src->n_rows, src->n_cols, src->n_slices ) ;
 	typename  BillonTpl<OUT>::iterator iterWrite = out->begin();
 	typename  BillonTpl<OUT>::const_iterator iterRead = src->begin(),
 	                                         iterReadEnd = src->end() ;
 	while ( iterRead != iterReadEnd ) {
-		*iterWrite = cast_integer<IN,SRC>( *iterRead ) ;
+		*iterWrite = cast_integer<IN,OUT>( *iterRead ) ;
 		iterRead++ ;
 		iterWrite++ ;
 	}
