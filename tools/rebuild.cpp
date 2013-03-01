@@ -151,7 +151,7 @@ int main( int narg, char **argv ) {
 		else CCR.run() ;
 		trace.endBlock() ;
 		
-		save_minspace( CCR.result(), QString( outputFileName.c_str() ) ) ;		
+		save_minspace( CCR.result(), outputFileName.c_str() ) ;		
 	}
 	return 0 ;
 }
