@@ -12,10 +12,14 @@ GatherFolderImg::GatherFolderImg( const fs::path &folderpath ) {
 	if ( ! fs::is_directory( _folderpath) ) {
 		Pgm3dFactory<arma::u8> factory ;
 		_scene = factory.read( QString( _folderpath.c_str() ) );
+		_folderpath = _folderpath.parent_path() ;
+		if ( _folderpath.empty() ) _folderpath = ".";
+
 		// _scene 's values have to be either 0 or 1
 		if ( _scene->max() > 1 )
 			*_scene /= _scene->max() ;
 	} else {
+		std::cerr<<"call computeDimensions()"<<std::endl;
 		computeDimensions() ;
 	}
 }
@@ -35,7 +39,7 @@ void GatherFolderImg::computeDimensions() {
 	n_slices-- ;
 	filePath = _folderpath ;
 	filePath /= QString( ANTHILL_SLICE_NAME ).arg( n_slices, 0, 10 ).toStdString() ;
-	map<int, QString > desc ;
+	std::map<int, QString > desc ;
 	QFile imagefile( filePath.string().c_str() ) ;
 	if ( /*io::*/pgmheader( imagefile, desc ) ) {
 		int n_cols = desc[ PGM_HEADER_IMAGE_WIDTH ].toInt() ;
@@ -62,7 +66,8 @@ void GatherFolderImg::computeMask( bool save_counter ) {
 	boost::filesystem::path filePath;
 	Pgm3dFactory<arma::u8> factory ;
 
-	if ( fs::is_directory( _folderpath) ) {
+	if ( _scene->max() == 0 ) {
+		std::cerr<<"loop on slices"<<std::endl;
 		for ( slice = 0 ; slice < _scene->n_slices ; slice++ ) {
 			filePath = _folderpath ;
 			filePath /= QString( ANTHILL_SLICE_NAME ).arg( slice, 0, 10 ).toStdString() ;
@@ -108,13 +113,13 @@ void GatherFolderImg::computeMask( bool save_counter ) {
 	for ( y = 0 ; y < _mask.n_rows ; y++ ) 
 		for ( x = 0 ; x < _mask.n_cols ; x++ )	{
 			if ( _mask(y,x) == 0 ) continue ;
-			minDist[0] = max( minDist[0], x ) ;
-			minDist[1] = max( minDist[1], y ) ;
+			minDist[0] = std::max( minDist[0], x ) ;
+			minDist[1] = std::max( minDist[1], y ) ;
 			
-			minDist[2] = max( minDist[2], (int)_mask.n_cols-x ) ;
-			minDist[3] = max( minDist[3], (int)_mask.n_rows-y ) ;
+			minDist[2] = std::max( minDist[2], (int)_mask.n_cols-x ) ;
+			minDist[3] = std::max( minDist[3], (int)_mask.n_rows-y ) ;
 		}
-	if ( min( minDist[0], minDist[2] ) < min( minDist[1], minDist[3] ) ) {
+	if ( std::min( minDist[0], minDist[2] ) < std::min( minDist[1], minDist[3] ) ) {
 		// the stand is either at the left or the right side
 		if ( minDist[0] < minDist[2] ) {
 			// left side
@@ -170,7 +175,7 @@ bool GatherFolderImg::load( int minFrequencyMask, bool save_counter ) {
 
 	fs::path filePath ;
 	for ( int slice = 0 ; slice < _scene->n_slices ;slice++ ) {
-		if ( fs::is_directory( _folderpath) ) {
+		if ( _scene->max() == 0 ) {
 			filePath = _folderpath ;
 			filePath /= QString( ANTHILL_SLICE_NAME ).arg( slice, 0, 10 ).toStdString() ;
 			BillonTpl<arma::u8> *im = factory.read( QString(filePath.string().c_str()) ) ;
