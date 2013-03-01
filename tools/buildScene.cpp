@@ -6,18 +6,6 @@
 #include <io/IOPgm3d.h>
 #include <DistanceTransform.hpp>
 #include <io/AntHillFile.hpp>
-/**
-template <typename IN, typename OUT>
-BillonTpl<OUT> * BilloncastTo<IN,OUT>( const BillonTpl<IN> *src ) {
-	BillonTpl<OUT> out = new BillonTpl<OUT>( src->n_rows, src->n_cols, src->n_slices ) ;
-	int z,x,y;
-	for ( z=0;z<src->n_slices;z++)
-		for ( y=0;y<src->n_rows;y++ )
-			for ( x=0;x<src->n_cols;x++ )
-				(*out)(y,x,z) = (OUT) (*src)(y,x,z);
-	return out ;
-}
-*/
 
 namespace BuildScene {
 
