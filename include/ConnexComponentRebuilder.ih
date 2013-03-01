@@ -1192,7 +1192,6 @@ template <typename T, typename U, typename V> bool ConnexComponentRebuilder<T,U,
 	Point relative_loc_me, relative_loc_other ;
 	Point::Component squared_distance_me, squared_distance_other ;
 	const QSet<T> & relations = _adjacency[ selection ] ;
-	std::cerr<<"Info ("<<__FUNCTION__<<" @ line "<<__LINE__<<" ) number of relations "<<relations.size()<<std::endl;
 #ifdef OLD_REMOVAL_METHOD
 	for ( Domain::ConstIterator pt = domain.begin() ; pt != domain.end(); pt++ ) {
 		if ( componentDGImg( *pt ) > 0 ) {
@@ -1307,7 +1306,6 @@ int32_t nVoxels = 0 ;
 		if ( componentDGImg( *pt ) > 0 ) {
 			nVoxels++ ;
 			Point ptShift( (*pt).at(0)+_lower[selection].at(0),(*pt).at(1)+_lower[selection].at(1),(*pt).at(2)+_lower[selection].at(2) ) ;
-			if ( ptShift == Point(213, 130, 80) ) std::cerr<<"[ DEBUG VOXEL "<<ptShift.at(0)<<","<<ptShift.at(1)<<","<<ptShift.at(2)<<" : "<<color<<std::endl;
 			if ( storeOverlaping )
 				if ( _result( ptShift.at(1),ptShift.at(0),ptShift.at(2) ) > 0 ) {
 #ifdef USE_MAP_FIRST_LABEL
