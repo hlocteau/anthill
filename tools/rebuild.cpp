@@ -14,6 +14,8 @@
 
 #include "boost/tuple/tuple.hpp"
 
+namespace BuildCC {
+
 namespace po = boost::program_options;
 
 void errorAndHelp( const po::options_description & general_opt ) {
@@ -47,6 +49,10 @@ std::pair< BillonTpl< arma::u8 >*, BillonTpl< arma::u16 >* > gen_toy_problem( ui
 	}
 	return std::pair< BillonTpl< arma::u8 >*, BillonTpl< arma::u16 >* > ( labels, dist ) ;
 }
+
+} // end of namespace
+
+using namespace BuildCC ;
 
 int main( int narg, char **argv ) {
 

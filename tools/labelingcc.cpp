@@ -6,6 +6,8 @@
 #include <boost/program_options/parsers.hpp>
 #include <boost/program_options/variables_map.hpp>
 
+namespace Labelingcc {
+
 namespace po = boost::program_options;
 typedef struct _TProgramArg {
 	std::string  _inputFilePath ;
@@ -60,10 +62,13 @@ bool process_arg( int narg, char **argv, TProgramArg &params ) {
 	params._top_size = vm["top"].as<int>() ;
 	return true ;
 }
+} // end of namespace
 
+using namespace Labelingcc ;
 /**
+ * \file
  * (Re)define labels of connected components based on their size. The bigger, the smallest identifier is been assigned.
- * \todo define the core of this program as a method of IOUtils.h
+ * \todo define the core of labelingcc.cpp as a method of IOUtils.h
  */
 int main( int narg, char **argv ) {
 	TProgramArg params ;

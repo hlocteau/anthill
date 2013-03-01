@@ -13,13 +13,13 @@
 #include <DGtal/io/Color.h>
 #include <DGtal/io/colormaps/GradientColorMap.h>
 
-using namespace std;
-using namespace DGtal;
-using namespace Z3i;
-
 #include <boost/program_options/options_description.hpp>
 #include <boost/program_options/parsers.hpp>
 #include <boost/program_options/variables_map.hpp>
+
+using namespace std;
+using namespace DGtal;
+using namespace Z3i;
 
 namespace po = boost::program_options;
 
@@ -177,8 +177,7 @@ int main( int narg, char **argv ) {
 	GrayLevelHistogram<src_type>::THistogram &histo = h._bin ;
 	if ( inputFileNames.size() > 1 ) {
 		for ( int iFile = 1 ; iFile != files.size() ; iFile++ ) {
-			BillonTpl<src_type> *imgAdd = /*io::Pgm3dFactory::*/factory.read( files.at(iFile) ) ;
-			/// the image values have to be shift by histo.rbegin()->first when values are different from 0
+			BillonTpl<src_type> *imgAdd = factory.read( files.at(iFile) ) ;
 			int32_t shift_value = h._bin.rbegin()->first ;
 			for ( int z = zmin ; z < zmax ; z++ )
 				for ( int y = ymin ; y < ymax ; y++ )
@@ -200,10 +199,6 @@ int main( int narg, char **argv ) {
 			if ( Labels.isEmpty() ) nRequired = histo.size() ;
 			else nRequired = Labels.size() ;
 		}
-		/**
-		 * \todo enable to export the label and the palette only
-		 *       enable import a colored image! (with or without a palette)
-		 */
 		if ( size_voxel == 3  ) 
 			resultingscene_8 = new arma::Cube< arma::u8 >( img->n_rows, img->n_cols * size_voxel, img->n_slices ) ;
 		else if ( nRequired < 256 )
@@ -218,7 +213,6 @@ int main( int narg, char **argv ) {
 		viewer << SetMode3D( domain.className(), "BoundingBox") ;
 		viewer << domain ;
 	}
-	//std::vector< std::vector< Z3i::SCell > > vectConnectedSCell;
 	if ( use_labeling ) {
 		double hue=( rand() % 1000 ) / 1000. ;
 		
@@ -232,7 +226,7 @@ int main( int narg, char **argv ) {
 				for ( int x = xmin ; x < xmax ; x++ )
 					if ( img->at(y,x,z) != 0 ) {
 						if ( boundary_only ) {
-							/// insert this voxel iff at least one neighbor is 0
+							// insert this voxel iff at least one neighbor is 0
 							if (img->at(y,max(0,x-1),z) <img->at(y,x,z) || img->at(y, min(width-1,x+1),z) <img->at(y,x,z) || 
 								img->at(max(0,y-1),x,z) <img->at(y,x,z) || img->at(min(height-1,y+1),x,z) <img->at(y,x,z) || 
 								img->at(y,x,max(0,z-1)) <img->at(y,x,z) || img->at(y,x,min(depth-1,z+1)) <img->at(y,x,z) )
@@ -342,7 +336,7 @@ int main( int narg, char **argv ) {
 							}
 						}
 						if ( boundary_only ) {
-							/// insert this voxel iff at least one neighbor is 0
+							// insert this voxel iff at least one neighbor is 0
 							if ( display_voxel && ( (img->at(y,max(0,x-1),z) ==0 || img->at(y, min(width-1,x+1),z) ==0 || 
 								img->at(max(0,y-1),x,z) ==0 || img->at(min(height-1,y+1),x,z) ==0 || 
 								img->at(y,x,max(0,z-1)) ==0 || img->at(y,x,min(depth-1,z+1)) ==0 ) ) ) {

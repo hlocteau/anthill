@@ -1,5 +1,8 @@
 /**
- * \brief segmentation of the skeleton based on a min depth value
+ * \file
+ * Segmentation of the skeleton based on a min depth value
+ * \todo split the initialization segmentation from the merging step
+ * \todo define a specific class for the merging scheme to be applied
  */
 #include <def_coordinate.h>
 #include <SkeletonGraph.hpp>
@@ -19,6 +22,8 @@
 
 #include <boost/graph/connected_components.hpp>
 #include <rag.hpp>
+
+namespace SegSkel {
 
 namespace fs=boost::filesystem;
 namespace po=boost::program_options ;
@@ -96,9 +101,6 @@ bool process_arg( int narg, char **argv, TProgramArg &params ) {
 		params._high = ! vm["low"].as<bool>();
 	return true ;
 }
-
-
-
 
 template < typename T > BillonTpl< T > * do_labeling( SG_u8 &sg ) {
 	typedef T elem_type ;
@@ -191,9 +193,7 @@ template <typename T > void merge_adjacent_cc( BillonTpl< T > *label, QMap< uint
 	}
 
 	for ( iterRewrite = touching.begin() ; iterRewrite != touching.end() ; iterRewrite++ ) {
-		/**
-		 * \see code being used in connexcomponentextractor.ih
-		 */
+		// code being used in connexcomponentextractor.ih
 		QList< elem_type > &voisinage = iterRewrite.value() ;
 		elem_type mini = iterRewrite.key() ;
 		elem_type currentEquiv ;
@@ -247,7 +247,7 @@ template <typename T > void merge_adjacent_cc( BillonTpl< T > *label, QMap< uint
 	}
 
 	QList<elem_type> terminal ;
-	/// insert isolated cc
+	// insert isolated cc
 	for ( elem_type k=1;k<nSeeds;k++ ) {
 		if ( !tableEquiv.contains( k ) ) {
 			tableEquiv[k]=k;
@@ -260,7 +260,7 @@ template <typename T > void merge_adjacent_cc( BillonTpl< T > *label, QMap< uint
 	
 	QMap< uint32_t,uint32_t > newvolumes ;
 	
-	/// minimal distinct values
+	// minimal distinct values
 	for ( elem_type k = 1 ; k < nSeeds ; k++ ) {
 		tableEquiv[ k ] = terminal.indexOf( tableEquiv[ k ] ) + 1;
 		if ( !newvolumes.contains( tableEquiv[k] ) ) newvolumes.insert( tableEquiv[k] , (uint32_t) 0 ) ;
@@ -298,255 +298,6 @@ template <typename T > BillonTpl< LabelType > * do_labeling_complement( const Bi
 	BillonTpl< LabelType > *lblRemain = new BillonTpl< LabelType > ( *CCERemain.run( *sceneimg ) );
 	delete sceneimg ;
 	return lblRemain ;
-}
-
-typedef struct _TRefLine {
-	int x,z ;
-	int dx,dz ;
-	double len ;
-} TRefLine ;
-
-void set_projections( const TRefLine & refLine, QMap< arma::u32, Interval<double> > *bounds, uint nSamples, const BillonTpl< arma::u32 > &img, arma::u32 th ) {
-	BillonTpl< arma::u32 >::const_iterator iterImg = img.begin(),
-	                                       iterEndImg = img.end() ;
-	uint n_rows = img.n_rows ,
-	     n_cols = img.n_cols;
-	uint x=0,y=0,z=0;
-	
-//std::cerr<<"[ Debug ] : "<<__FUNCTION__<<" @ line "<<__LINE__<<std::endl;
-	
-	for ( ; iterImg != iterEndImg ; iterImg++ ) {
-		if ( *iterImg && *iterImg < th ) {
-			double d = ( refLine.dx * ( x - refLine.x ) + refLine.dz * ( z - refLine.z ) ) / refLine.len ;
-			if ( ! bounds[ y*nSamples/n_rows ].contains( *iterImg ) ) bounds[ y*nSamples/n_rows ].insert( *iterImg, Interval<double>( d, d ) ) ;
-			else {
-				Interval<double>& aBound = bounds[ y*nSamples/n_rows ].find( *iterImg ).value() ;
-				if ( aBound.min() > d ) aBound.setMin( d ) ;
-				else if ( aBound.max() < d ) aBound.setMax( d ) ;
-			}
-		}
-		y++ ;
-		if ( y == n_rows ) {
-			y = 0 ;
-			x++ ;
-		}
-		if ( x == n_cols ) {
-			x = 0 ;
-			z++ ;
-		}
-	}
-//std::cerr<<"[ Debug ] : "<<__FUNCTION__<<" @ line "<<__LINE__<<std::endl;
-}
-
-std::pair< uint, double > eval_projections( const QMap< arma::u32, Interval<double> > &bounds, QList< arma::u32 > *pLstBreaks ) {
-	///
-	/// \brief build a sorted list of projection intervals wrt first the min, next the max
-	/// \note to keep the linked with the corresponding identifier, we define a list of identifiers...
-	///
-	QList< arma::u32 > lexiLabels ;
-	QList< arma::u32 >::Iterator position,end_of_list ;
-	QMap< arma::u32, Interval<double> >::ConstIterator iterBound = bounds.begin(),
-	                                                   iterEndBound = bounds.end() ;
-//std::cerr<<"[ Debug ] : "<<__FUNCTION__<<" @ line "<<__LINE__<<std::endl;
-	for ( ; iterBound != iterEndBound ; iterBound++ ) {
-		position = lexiLabels.begin() ;
-		end_of_list = lexiLabels.end() ;
-		while ( position != end_of_list ) {
-			if ( bounds[ *position ].min() > iterBound.value().min() ) break ;
-			if ( bounds[ *position ].min() == iterBound.value().min() && bounds[ *position ].max() < iterBound.value().max() ) break ;
-			position++ ;
-		}
-		lexiLabels.insert( position, iterBound.key() ) ;
-	}
-	
-	position = lexiLabels.begin() ;
-	end_of_list = lexiLabels.end() ;
-	double last_max = -1 ;
-	double gap_strength = 0 ;
-	uint number_of_cluster = 0 ;
-	
-	for ( ; position != end_of_list ; position++ ) {
-		if ( bounds[ *position ].min() > last_max ) {
-			if ( last_max > 0 ) gap_strength += bounds[ *position ].min() - last_max ;
-			number_of_cluster++ ;
-			if ( pLstBreaks )
-				pLstBreaks->append( *position ) ;
-		}
-		if ( bounds[ *position ].max() > last_max ) {
-			last_max = bounds[ *position ].max() ;
-		}
-	}
-//std::cerr<<"[ Debug ] : "<<__FUNCTION__<<" @ line "<<__LINE__<<std::endl;
-	return std::pair< uint, double > ( number_of_cluster, gap_strength ) ;
-}
-
-void discriminate_projection( const BillonTpl< arma::u32 > &label, const QMap< arma::u32, Interval<double> > *bounds, uint nSamples ) {
-	BillonTpl< arma::u32 >::const_iterator iterImg = label.begin(),
-	                                       iterEndImg = label.end() ;
-	uint n_rows = label.n_rows ,
-	     n_cols = label.n_cols,
-	     n_slices = label.n_slices ;
-	uint x=0,y=0,z=0;
-
-	BillonTpl< arma::u32 > gt( n_rows, n_cols, n_slices ) ;
-	gt.fill( 0 ) ;
-	BillonTpl< arma::u32 >::iterator iterWrite = gt.begin() ;
-	
-	QMap< arma::u32, Interval<double> >::ConstIterator bound_label ;
-	QList< arma::u32 > *breaks_per_sample = new QList< arma::u32 > [ nSamples ];
-	for ( uint iSample = 0 ; iSample < nSamples; iSample++ ) {
-		uint qNum ;
-		double qCluster ;
-		boost::tie( qNum, qCluster ) = eval_projections( bounds[ iSample ], breaks_per_sample + iSample ) ;
-		std::cout<<"Sample "<<(int)iSample<<"/"<<nSamples<<"    : "<<qNum<<" cluster(s) with energy "<<qCluster<<std::endl;
-		for ( uint iCut=0;iCut < breaks_per_sample[ iSample ].size() ; iCut++ )
-			std::cout<<"\t"<<breaks_per_sample[ iSample ].at(iCut)
-			         <<" interval "<<bounds[ iSample ][ breaks_per_sample[ iSample ].at(iCut) ].min()<<" : "
-			                       <<bounds[ iSample ][ breaks_per_sample[ iSample ].at(iCut) ].max()<<std::endl;
-	}
-	
-	QList< arma::u32 > & LstBreaks = breaks_per_sample[ 0 ] ;
-	const QMap< arma::u32, Interval<double> > * current_bound = bounds + 0 ;	
-	QMap< arma::u32, Interval<double> >::ConstIterator undefined_label = current_bound->end() ;
-	arma::u32 number_of_previous_breaks = 0 ;
-	
-		
-	for ( ; iterImg != iterEndImg ; iterImg++, iterWrite++ ) {
-		if ( *iterImg ) {
-			bound_label = current_bound->constFind( *iterImg ) ;
-			if ( bound_label != undefined_label ) {
-				arma::u32 iBreak = 0 ;
-				while ( iBreak < LstBreaks.size() ) {
-					if ( bound_label.value().min() <= (*current_bound)[ LstBreaks.at( iBreak ) ].min() ) break ;
-					iBreak++ ;
-				}
-				*iterWrite = iBreak + number_of_previous_breaks;
-			}
-		}
-		y++ ;
-		if ( y == n_rows ) {
-			y = 0 ;
-			x++ ;
-		}
-		if ( y % (n_rows / nSamples) == 0 ) {
-			current_bound = bounds + ( y * nSamples/n_rows ) ;
-			undefined_label = current_bound->end() ;
-			if( y > 0 )
-				number_of_previous_breaks += breaks_per_sample[ (y-1) * nSamples/n_rows ].size() ;
-			else
-				number_of_previous_breaks = 0 ;
-			LstBreaks = breaks_per_sample[ y * nSamples/n_rows ] ;
-		}
-		if ( x == n_cols ) {
-			x = 0 ;
-			z++ ;
-		}	
-	}
-	delete [] breaks_per_sample ;
-	IOPgm3d< arma::u32, qint32, false >::write( gt, "/tmp/gt.pgm3d");
-}
-
-
-
-
-
-
-void iterative_merge( BillonTpl< LabelType > &labelComp, LabelType nSeeds, QMap< uint32_t,uint32_t > &volumes) {
-	QMap< LabelType, QList< LabelType > > adjacencies ;
-	QList< LabelType >::iterator adj ;
-	QMap< LabelType, LabelType > tableEquiv ;
-	extract_adjacency( labelComp, adjacencies, (LabelType)1 ) ;
-	
-	
-	trace.info() << "== Volumes | Adjacencies =="<<std::endl;
-	for ( QMap< uint32_t, uint32_t >::iterator iterVol = volumes.begin() ; iterVol != volumes.end() ; iterVol++ ) {
-		trace.info() <<"cc # "<<(int) iterVol.key()<<" : "<<(int) iterVol.value()<<" | ";
-		if ( !adjacencies.contains( iterVol.key() ) ) { std::cerr<<"0"<<std::endl;continue ;}
-		//for ( adj = adjacencies[ iterVol.key() ].begin() ; adj != adjacencies[ iterVol.key() ].end() ; adj++ )
-		//	trace.info()<<*adj<<" " ;
-		std::cerr<<adjacencies[ iterVol.key() ].size()<<std::endl;
-		trace.info()<<std::endl;
-	}
-	
-	
-	
-	/// a vertex - not corresponding to a seed - having degree 1 has to be merged
-	LabelType nRemains = 1 ;
-	QMap< uint32_t,uint32_t > newvolumes ;
-	QMap< LabelType, QList< LabelType > > newadjacencies ;
-	
-	std::cerr<<"Size of volume is "<<volumes.size()<<" @ line "<<__LINE__<<std::endl;
-	
-	for ( LabelType vertex = labelComp.max() ; vertex > nSeeds ; vertex-- ) {
-		if ( !adjacencies.contains( vertex ) ) {
-			/// exists?
-			continue ;
-		}
-		if ( adjacencies[ vertex ].size() == 1 ) {
-			LabelType theSeed = adjacencies[ vertex ].at(0) ;
-			assert( theSeed <= nSeeds ) ;
-			tableEquiv[ vertex ] = theSeed ;
-			if ( !newvolumes.contains( theSeed ) ) newvolumes.insert( theSeed, (uint32_t ) 0 ) ;
-			newvolumes[ theSeed ] += volumes[ vertex ] ;
-			volumes.remove( vertex ) ;
-			adjacencies[ theSeed ].removeAt( adjacencies[ theSeed ].indexOf(vertex) ) ;
-			assert( !adjacencies[ theSeed ].isEmpty() ) ;
-			adjacencies.remove( vertex ) ;
-		} else {
-			tableEquiv[ vertex ] = nSeeds + nRemains ;
-			newvolumes.insert( nSeeds + nRemains, volumes[ vertex ] ) ;
-			volumes.remove( vertex ) ;
-			nRemains++ ;
-		}
-	}
-	std::cerr<<"Number of non-seed regions remaining "<<nRemains-1<<std::endl;
-	std::cerr<<"Size of volume is "<<volumes.size()<<" @ line "<<__LINE__<<std::endl;
-	if ( !tableEquiv.isEmpty() ) {
-		std::cout<<tableEquiv.size()<<" merge operation(s)"<<std::endl;
-		apply_translation( labelComp, tableEquiv ) ;
-		save_minspace<LabelType>( labelComp, "/tmp/step0.pgm3d" ) ;
-		
-		for ( QMap< LabelType, QList< LabelType > >::ConstIterator vertex = adjacencies.begin() ; vertex != adjacencies.end() ; vertex++ ) {
-			LabelType key = vertex.key() ;
-			LabelType value ;
-			if ( tableEquiv.contains( vertex.key() ) ) key = tableEquiv[ vertex.key() ] ;
-			newadjacencies.insert( key, QList< LabelType >() ) ;
-			for ( uint k = vertex.value().size() ; k > 0 ; k-- ) {
-				value = vertex.value().at(k-1) ;
-				if ( tableEquiv.contains( vertex.value().at(k-1) ) )
-					value = tableEquiv[ vertex.value().at(k-1) ] ;
-				newadjacencies[ key ].append( value ) ;
-			}
-			qSort( newadjacencies[ key ] ) ;
-		}
-		adjacencies = newadjacencies ;
-	}
-	
-	std::cerr<<"Newvolumes first keys is "<<newvolumes.begin().key()<<std::endl;
-	
-	while ( !newvolumes.isEmpty() ) {
-		if ( !volumes.contains( newvolumes.begin().key() ) ) volumes.insert( newvolumes.begin().key(), (uint32_t) 0 ) ;
-		volumes[ newvolumes.begin().key() ] += newvolumes.begin().value() ;
-		
-		if ( newvolumes.size() == 1 ) std::cerr<<"Newvolumes last keys is "<<newvolumes.begin().key()<<std::endl;
-		
-		newvolumes.erase( newvolumes.begin() ) ;
-	}
-	trace.info() << "== Volumes =="<<std::endl;
-	for ( QMap< uint32_t, uint32_t >::iterator iterVol = volumes.begin() ; iterVol != volumes.end() ; iterVol++ ) {
-		std::cerr <<"cc # "<<cast_integer<uint32_t,int32_t>( iterVol.key() )<<" : "<<cast_integer<uint32_t,int64_t>( iterVol.value() ) ;
-		if ( !adjacencies.contains( iterVol.key() ) ) { std::cerr<<" 0"<<std::endl; continue ; }
-		std::cerr<<" "<<adjacencies[ iterVol.key() ].size()<<" ";
-		//for ( adj = adjacencies[ iterVol.key() ].begin() ; adj != adjacencies[ iterVol.key() ].end() ; adj++ )
-		//	std::cerr<<*adj<<" " ;
-		std::cerr<<std::endl;
-	}
-	
-	
-	/// attach small region's voxels to a bigger one in it neighborhood
-
-	
-	
 }
 
 template <typename T>
@@ -603,8 +354,8 @@ GraphAdj::vertex_descriptor newton_biggest_feature_1( GraphAdj &g, const QMap< u
 	boost::tie( in_edge, in_edge_end ) = boost::in_edges( v, g) ;
 	
 	double_t ratio, min_ratio = -1 ;
-	/// there we want to retrieve an edge leading to the stored feature.
-	/// if several edges are elected, we select the one having the biggest opposite node
+	// there we want to retrieve an edge leading to the stored feature.
+	// if several edges are elected, we select the one having the biggest opposite node
 	for ( ; in_edge != in_edge_end ; in_edge++ ) {
 		EdgeData & ed = edge_map[ *in_edge ] ;
 		ratio =1-ed.per_side( ndv.id() )->size() / (double_t)cast_integer<uint, int32_t>( ndv.volume() ) ;
@@ -633,8 +384,8 @@ GraphAdj::vertex_descriptor newton_smallest_feature_1( GraphAdj &g, const QMap< 
 	boost::tie( in_edge, in_edge_end ) = boost::in_edges( v, g) ;
 	
 	double_t ratio, min_ratio = -1 ;
-	/// there we want to retrieve an edge leading to the stored feature.
-	/// if several edges are elected, we select the one having the biggest opposite node
+	// there we want to retrieve an edge leading to the stored feature.
+	// if several edges are elected, we select the one having the biggest opposite node
 	for ( ; in_edge != in_edge_end ; in_edge++ ) {
 		EdgeData & ed = edge_map[ *in_edge ] ;
 		ratio =1-ed.per_side( ndv.id() )->size() / (double_t)cast_integer<uint, int32_t>( ndv.volume() ) ;
@@ -686,7 +437,6 @@ double_t priority_feature_1( GraphAdj::vertex_descriptor v, GraphAdj &g,
 
 /**
  * \warning if the threshold on size is too high, we will only get rooms!
- * \todo use a ratio (number of voxels on the bridge between a pair of regions) / ( total number of voxels in the smallest region of the pair)
  */
 void threshold_size( BillonTpl< LabelType > &labelComp, LabelType nSeeds, double_t th ) {
 	GraphAdj * pg = init_rag( labelComp, (LabelType)1 ) ;
@@ -699,13 +449,13 @@ void threshold_size( BillonTpl< LabelType > &labelComp, LabelType nSeeds, double
 	boost::tie( vi,vi_end) = boost::vertices( *pg ) ;
 	QList< GraphAdj::vertex_descriptor > sorted_vertices ;
 	QMap< uint, double_t > f_map ;
-	/// set label and define priority queue
+	// set label and define priority queue
 	for ( ; vi != vi_end ; vi++ ) {
 		v = * vi ;
 		NodeData & nd = node_map[ v ] ;
 		if ( nd.id() <= nSeeds ) nd.setCategory( 2 ) ;
 		else nd.setCategory( 1 ) ;
-		f_map[ nd.id() ] = priority_feature_1( v, *pg, node_map, edge_map ) ;			/// CHARACTERISTIC
+		f_map[ nd.id() ] = priority_feature_1( v, *pg, node_map, edge_map ) ;			// CHARACTERISTIC
 		insert_priority( f_map, v, sorted_vertices,node_map ) ;
 	}
 	std::cout<<"labels' nodes and priority queue defined"<<std::endl;
@@ -717,20 +467,20 @@ void threshold_size( BillonTpl< LabelType > &labelComp, LabelType nSeeds, double
 	QList<GraphAdj::vertex_descriptor> needUpdate ;
 	
 	while ( f_map[ node_map[ sorted_vertices.at( pos ) ].id() ] < th ) {
-		if ( /*f_map[ node_map[ sorted_vertices.at( pos ) ].id() ] > 0 &&*/ node_map[ sorted_vertices.at( pos ) ].volume() > 0 ) {
+		if ( node_map[ sorted_vertices.at( pos ) ].volume() > 0 ) {
 			v = sorted_vertices.at( pos ) ;
-			set_impact_1( *pg, v, needUpdate ) ;										/// INFLUENCE
-			newton = newton_biggest_feature_1( *pg, f_map, v, node_map, edge_map ) ;	/// SELECTION
+			set_impact_1( *pg, v, needUpdate ) ;										// INFLUENCE
+			newton = newton_biggest_feature_1( *pg, f_map, v, node_map, edge_map ) ;	// SELECTION
 			needUpdate.push_back( newton ) ;
 			NodeData & ndb = node_map[ newton ] ;
 			tableEquiv[ node_map[ sorted_vertices.at( pos ) ].id() ] = ndb.id() ;
 			merge_nodes( newton, v, *pg ) ;
 
-			/// update its priority
+			// update its priority
 			while ( ! needUpdate.isEmpty() ) {
 				newton = needUpdate.takeFirst() ;
-				f_map[ node_map[ newton ].id() ] = priority_feature_1( newton, *pg, node_map, edge_map ) ;	/// CHARACTERISTIC
-				/// update position of newton
+				f_map[ node_map[ newton ].id() ] = priority_feature_1( newton, *pg, node_map, edge_map ) ;	// CHARACTERISTIC
+				// update position of newton
 				uint pos_newton = 0 ;
 				while ( sorted_vertices.at( pos_newton ) != newton ) {
 					pos_newton++ ;
@@ -743,7 +493,6 @@ void threshold_size( BillonTpl< LabelType > &labelComp, LabelType nSeeds, double
 			pos++ ;
 		}
 	}
-
 
 	for ( pos = sorted_vertices.size() ; pos > 0 ; pos-- ) {
 		NodeData & nd = node_map[ sorted_vertices.at( pos-1 ) ] ;
@@ -768,9 +517,11 @@ void threshold_size( BillonTpl< LabelType > &labelComp, LabelType nSeeds, double
 	delete pg ;
 }
 
-
-
 #define SAFETY_MEMORY_CONSUPTION
+
+} // end of namespace
+
+using namespace SegSkel ;
 
 int main( int narg, char **argv ) {
 	TProgramArg params ;
@@ -785,9 +536,9 @@ int main( int narg, char **argv ) {
 			std::cout<<(int) bin->first<<" : "<<(int) bin->second<<std::endl;
 	}	
 
-	///
-	/// Initialization
-	///
+	//
+	// Initialization
+	//
 	trace.beginBlock("Preprocessing inputs");
 		BillonTpl< arma::u8 > * seedImg ;
 		if ( params._high ) seedImg = filter_high<DepthType>( *depthimg, params._depthThreshold ) ;
@@ -795,9 +546,9 @@ int main( int narg, char **argv ) {
 		delete depthimg ;
 	trace.endBlock() ;
 	
-	///
-	/// Extracting seeds
-	///
+	//
+	// Extracting seeds
+	//
 	trace.beginBlock("Extracting seeds");
 		SG_u8 *sg_seed = new SG_u8( *seedImg, 1 ) ;
 		BillonTpl< LabelType > *labelSeed = do_labeling<LabelType>( *sg_seed ) ;
@@ -806,9 +557,9 @@ int main( int narg, char **argv ) {
 		delete seedImg ;
 	trace.endBlock() ;
 	
-	///
-	/// reconstruct each individual connected component being a seed
-	///
+	//
+	// reconstruct each individual connected component being a seed
+	//
 	trace.beginBlock("Reconstructing seeds") ;
 		typedef ConnexComponentRebuilder< LabelType, DepthType, LabelType > CCRType ;
 		CCRType CCR( *labelSeed );
@@ -855,57 +606,12 @@ int main( int narg, char **argv ) {
 	trace.endBlock() ;
 	
 	trace.beginBlock("Simplification of the scene");
-		//iterative_merge( *labelComp, nSeeds, volumes );
 		threshold_size( *labelComp, nSeeds, params._mergeThreshold ) ;
 	trace.endBlock() ;
 	
 	
 	delete labelComp ;
 	delete labelSeed ;
-	
-#if 0
-	///
-	/// Extracting candidate merge
-	///
-	std::cout<<(int)to<<std::endl<<"extracting adjacency relations..."<<std::endl;
-	QMap< arma::u32, QList< arma::u32 > > touching ;
-	extract_adjacency( CCR.result(), touching, nSeeds ) ;
-	
-	///
-	/// a corridor being only linked to a single room can be merged with that room
-	///
-	std::cout<<"identifying merge operation..."<<std::endl;
-	QMap< arma::u32, QList< arma::u32 > >::Iterator iterRewrite = touching.begin() ;
-	QMap< arma::u32, arma::u32 > translation ;
-	for ( ; iterRewrite != touching.end() ; ) {
-		if ( iterRewrite.value().size() == 1 ) {
-			translation.insert( iterRewrite.key(), iterRewrite.value().takeFirst() ) ;
-			iterRewrite = touching.erase( iterRewrite ) ;
-		} else
-			iterRewrite++ ;
-	}
-	std::cout<<"applying "<< translation.size()<<" selected operations..."<<std::endl;
-	apply_translation( *label, translation ) ;
-	translation.clear() ;
-	
-	
-	touching.clear() ;
-	
-	/// save before renaming wrt adjacency relations
-	if ( CCR.result().max() & 0x00ff )
-		IOPgm3d< arma::u32, qint8, false >::write( CCR.result(), QString( "/tmp/rebuildfarbound.pgm3d" ) ) ;
-	else if ( label->max() & 0x0000ffff )
-		IOPgm3d< arma::u32, qint16, false >::write( CCR.result(), QString( "/tmp/rebuildfarbound.pgm3d" ) ) ;
-	else
-		IOPgm3d< arma::u32, qint32, false >::write( CCR.result(), QString( "/tmp/rebuildfarbound.pgm3d" ) ) ;
-	
-	/// remaining part is attached iff it is connected to a single region
-
-
-
-	save_minspace( ccRooms, QString( params._outputFilePath.c_str() ) ) ;
-	
-	delete label ;
-#endif
 	return 0 ;
 }
+

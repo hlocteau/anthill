@@ -7,6 +7,8 @@
 
 #include <boost/filesystem.hpp>
 
+namespace InnerScene {
+
 typedef arma::u8  InType ;
 typedef arma::u32 DistType ;
 typedef arma::u8  OutType ;
@@ -81,6 +83,10 @@ bool process_arg( int narg, char **argv, TProgramArg &params ) {
 	params._zunit = grid_dims.at(2).toInt() ;
 	return true ;
 }
+
+} // end of namespace 
+
+using namespace InnerScene ;
 
 /**
  * \file

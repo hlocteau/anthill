@@ -11,6 +11,8 @@
 #include <boost/program_options/parsers.hpp>
 #include <boost/program_options/variables_map.hpp>
 
+namespace InnerSkel {
+
 namespace fs = boost::filesystem ;
 namespace po=boost::program_options ;
 /**
@@ -63,7 +65,9 @@ bool process_arg( int narg, char **argv, TProgramArg &params ) {
 	params._maxLoop = vm["loop"].as<int>() ;
 	return true ;
 }
+} // end of namespace
 
+using namespace InnerSkel ;
 
 int main( int narg, char **argv ) {
 	TProgramArg params ;

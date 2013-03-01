@@ -19,16 +19,13 @@ BillonTpl<OUT> * BilloncastTo<IN,OUT>( const BillonTpl<IN> *src ) {
 }
 */
 
+namespace BuildScene {
+
 typedef ConnexComponentExtractor<arma::u8,arma::u16>			CS_CCExtractor ;
 typedef Bounding< CS_CCExtractor::value_type > 					MyBounding;
 typedef GrayLevelHistogram< CS_CCExtractor::value_type > 		SHistogram ;
 typedef DistanceTransform<arma::u8,arma::u32>					CIDistanceTransform ;
 typedef GrayLevelHistogram< CIDistanceTransform::value_type > 	IHistogram ;
-
-/**
- * \addtogroup Tools
- *  @{
- */
 
 /**
  * \param [in] universe a bi-level image 
@@ -58,6 +55,9 @@ BillonTpl<arma::u8> *cropComplement( const arma::Cube<arma::u8> *universe, const
  **/
 
 #define PROOF_COORD(a,b) (b<0?0:(b>=a?a-1:b))
+} // end of namespace
+
+using namespace BuildScene ;
 
 int main( int narg, char **argv ) {
 	if ( narg == 1 ) return -1 ;
@@ -245,4 +245,3 @@ int main( int narg, char **argv ) {
 	}
 	return 1;
 }
-/** @}*/
