@@ -1,4 +1,5 @@
 #include <io/Pgm3dFactory.h>
+#include <ConnexComponentRebuilder.hpp>
 #include <connexcomponentextractor.h>
 #include <boost/graph/breadth_first_search.hpp>
 #include <SkeletonGraph.hpp>
@@ -8,7 +9,7 @@
 #include <boost/filesystem.hpp>
 
 
-#include <ConnexComponentRebuilder.hpp>
+
 namespace fs = boost::filesystem ;
 //#define CHECK_TOY_PROBLEM_OUTPUT
 
