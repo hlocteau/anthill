@@ -2,6 +2,7 @@
 #define UTILITY_HEADER
 
 #include <GrayLevelHistogram.h>
+#include <cast_integer.h>
 
 arma::Mat<arma::u8> * dilate( const arma::Mat<arma::u8> &im, int row_radius, int col_radius ) ;
 
@@ -23,6 +24,21 @@ template<typename T> BillonTpl<arma::u8> * filter_high( const BillonTpl<T> &data
 	for ( ; iterHigh != iterHighEnd ; iterHigh++, iterData++ )
 		*iterHigh = ( *iterData > th ? 1 : 0 ) ;
 	return phigh ;
+}
+
+
+template <typename IN, typename OUT>
+BillonTpl<OUT> * BilloncastTo<IN,OUT>( const BillonTpl<IN> *src ) {
+	BillonTpl<OUT> out = new BillonTpl<OUT>( src->n_rows, src->n_cols, src->n_slices ) ;
+	typename  BillonTpl<OUT>::iterator iterWrite = out->begin();
+	typename  BillonTpl<OUT>::const_iterator iterRead = src->begin(),
+	                                         iterReadEnd = src->end() ;
+	while ( iterRead != iterReadEnd ) {
+		*iterWrite = cast_integer<IN,SRC>( *iterRead ) ;
+		iterRead++ ;
+		iterWrite++ ;
+	}
+	return out ;
 }
 
 #endif
