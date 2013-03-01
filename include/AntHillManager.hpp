@@ -65,6 +65,9 @@ public:
 	
 	bool getSize( uint &n_rows, uint &n_cols, uint &n_slices ) ;
 	template <typename T> bool getRange( Interval< T > &range ) ;
+	/**
+	 * \todo we should not open ressources for this operation. This information has to be saved in the projec file
+	 */
 	template <typename T> bool getRange( const QString &resname, Interval< T > &range ) ;
 	bool load_ressource( const QString &resname ) ;
 private:
@@ -158,12 +161,6 @@ template <typename T, typename U> bool AntHillManager::draw( const QString &resn
 		if ( !load_ressource( resname ) ) return false ;
 	}
 	
-	/** \todo define a field offset in _prop and create a view on image :
-	 *  \code      arma::Mat<uint8_t> subimage =
-	 * image( arma::span( _prop[ resname ]._offset[ (axis+1)%3 ],_prop[ resname ]._offset[ (axis+1)%3 ]+_prop[ resname ]._size[ (axis+1)%3 ] ),
-	 *        arma::span( _prop[ resname ]._offset[ (axis+2)%3 ],_prop[ resname ]._offset[ (axis+2)%3 ]+_prop[ resname ]._size[ (axis+2)%3 ] ) ) ;
-	 *             draw() on subimage
-	 */
 	TImageProperty storage = _prop.find( resname ).value() ;
 	arma::span  cols = arma::span( storage._offset[ (axis+1)%3 ],storage._offset[ (axis+1)%3 ]+storage._size[ (axis+1)%3 ]-1 ),
 				rows = arma::span( storage._offset[ (axis+2)%3 ],storage._offset[ (axis+2)%3 ]+storage._size[ (axis+2)%3 ]-1 ) ;
@@ -208,6 +205,9 @@ std::cerr<<"[ debug ] : draw @line "<<__LINE__<<std::endl;
 	return true ;
 }
 
+/**
+ * \bug drawing a subimage on axis x is ill defined (the dimensions of the rectangle seems to be swapped)
+ */
 template <typename T,typename U>
 void AntHillManager::draw( const BillonTpl< T > *data, arma::Mat<U> &image, uint8_t axis, uint16_t coordinate, const Interval<T> &range,bool normalize ) {
 	arma::span rows, cols, slices ;
@@ -230,10 +230,10 @@ std::cout<<"[ Info ] define view "<<rows.a<<":"<<rows.b<<" x "<<cols.a<<":"<<col
 	typename arma::Cube< T >::const_iterator readIter = v_data.begin(),
 									readEnd = v_data.end() ;
 	typename arma::Mat<U>::iterator writeIter = image.begin();
-	/** \warning
-	 * QImage's data are stored row by row while cube's data are stored column by column!
-	 * that is why we draw on a matrice that we can next transpose for display
-	 */
+	//
+	// QImage's data are stored row by row while cube's data are stored column by column!
+	// that is why we draw on a matrice that we can next transpose for display
+	//
 	while ( readIter != readEnd ) {
 		if ( range.containsClosed( *readIter ) ) {
 			T value = *readIter ;
