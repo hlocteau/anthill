@@ -70,19 +70,15 @@ We can now reconstruct the scene wrt preprocessing.
 ~~~
 innerScene -s inner.skel.main.pgm3d -d content.dt.pgm3d -o inner.main.pgm3d -g 256x256x256
 ls
-	anthillallcontent.pgm3d		anthillcontent.skeleucl.pgm3d	anthill.inner.main.pgm3d
-	anthilllabelinner.pgm3d		binary.pgm3d			serie_3.xml
-	anthillcontent.dist.pgm3d	anthillcontent_v3d.pgm3d	anthill.innerskel.main.pgm3d
-	anthill.mask.pgm3d		depthObjHist.txt		anthillcontent.pgm3d
-	anthill.dthull.pgm3d		anthill.innerskel.pgm3d		anthill.scene.pgm3d
-	input.pgm3d
+	binary.pgm3d      content.pgm3d           hull.dt.pgm3d          inner.skel.pgm3d  mask.pgm3d   serie_2.xml
+	content.dt.pgm3d  content.skeleucl.pgm3d  inner.skel.main.pgm3d	 input.pgm3d       premask.pgm  inner.main.pgm3d
 ~~~
 # Segmenting the scene into rooms and corridors
 We first have to define some rooms seeds wrt a minimum distance to the boundary (24).
 Voxels not been selected as seeds are regarded as voxels belonging to any corridor.
 Some merging operations are applied wrt the threshold value 60%.
 ~~~
-segSkelMinDepth -s anthill.innerskel.main.pgm3d -i anthill.inner.main.pgm3d -d anthillcontent.dist.pgm3d -o seg24_60.pgm3d --high 1 -t 24 -m 0.6
+segSkelMinDepth -s inner.skel.main.pgm3d -i inner.main.pgm3d -d content.dt.pgm3d -o seg24_60.pgm3d --high 1 -t 24 -m 0.6
 cp /tmp/stepFinal.pgm3d seg24_60.pgm3d
 ~~~
 The output result seg24_ 60.pgm3d can be visualized through the view3dPgm tool or the gui, adding the ressource to the project file.
