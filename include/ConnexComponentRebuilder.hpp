@@ -96,6 +96,7 @@ public:
     QMap< V, IllDefined > &       illDefined () { return _illDefined ; }
     
 protected:
+    BillonTpl< arma::u8 > *       safety_run ( T selection ) ;
     void                                init ( const BillonTpl< T > &, QList< T > *ignoring) ;
     bool                           setBounds ( uint32_t selection ) ;
     void                          set_voxels ( const OutImage & img, const int * plane, const Point &seed, QList<Point> &crop, const Point &refPoint, U maxDist  ) ;
@@ -118,6 +119,10 @@ protected:
     void               explicit_intersection ( const PtrIllDefinedInstance inst ) ;
     static bool           sortedListLessThan ( const PtrIllDefinedInstance &a, const PtrIllDefinedInstance &b ) ;
 private:
+    uint _s_xunit,
+         _s_yunit,
+         _s_zunit ;
+    
     QMap< T, LayerType >           _layers ;
     BillonTpl< U >                 *_depth ;
     bool                           _allocated_depth ;
