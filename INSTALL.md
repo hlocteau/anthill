@@ -68,7 +68,7 @@ sudo make install
 ~~~
 You may tune the ITK installation to **compile more modules of the library**.
 
-### 5. DGtal
+### 5. QGLViewer
 
 libQGLViewer is a free C++ library based on Qt that enables the quick creation of OpenGL 3D viewers.
 You may download the latest version at http://www.libqglviewer.com/download.html.
