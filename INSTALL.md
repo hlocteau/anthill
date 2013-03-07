@@ -15,6 +15,7 @@ Third party libraries
 | Boost          | 1.48.0.2     |
 | Armadillo      | 3.4.5        |
 | InsightToolkit | 4.2.1        |
+[ QGLViewer      | 2.3.17       |
 | DGtal          | 0.5.1        |
 
 ### Requirement
@@ -68,6 +69,22 @@ sudo make install
 You may tune the ITK installation to **compile more modules of the library**.
 
 ### 5. DGtal
+
+libQGLViewer is a free C++ library based on Qt that enables the quick creation of OpenGL 3D viewers.
+You may download the latest version at http://www.libqglviewer.com/download.html.
+On Ubuntu, you may install it using :
+~~~
+cd ~/3rdParty
+wget http://www.libqglviewer.com/src/libQGLViewer-2.3.17.tar.gz
+gzip -d libQGLViewer-2.3.17.tar.gz
+tar -xvf libQGLViewer-2.3.17.tar
+cd libQGLViewer-2.3.17
+qmake
+make
+sudo make install
+~~~
+
+### 6. DGtal
 
 The collaborative project DGtal aims at developing generic, efficient and reliable digital geometry data structures, algorithms and tools. 
 It takes the form of an open-source C++ library DGtal and a set of tools and binaries DGtalTools.
@@ -127,7 +144,7 @@ export PATH=${PATH}:${HOME}/bin:`pwd`
 cd ../tools
 mkdir ~/bin
 mkdir ../obj
-make
+make ~/bin/buildScene ~/bin/innerScene ~/bin/labelingcc ~/bin/minpath ~/bin/segSkelMinDepth ~/bin/catchskel ~/bin/keepInnerSkelOnly ~/bin/rebuild ~/bin/view3dPgm
 cd ../gui
 qmake -o Makefile_gui
 make -f Makefile_gui
