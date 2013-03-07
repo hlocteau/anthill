@@ -15,7 +15,7 @@ Third party libraries
 | Boost          | 1.48.0.2     |
 | Armadillo      | 3.4.5        |
 | InsightToolkit | 4.2.1        |
-[ QGLViewer      | 2.3.17       |
+| QGLViewer      | 2.3.17       |
 | DGtal          | 0.5.1        |
 
 ### Requirement
