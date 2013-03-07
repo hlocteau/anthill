@@ -67,7 +67,7 @@ As example, for the the given file, the color of voxels labelled as 4 remains co
 If you want to only use 3 distinct colors wrt the previous selection scheme, lets invoke view3dPgm with option __preserve=0__.
 ![Viewing test_rag1.pgm3d using a specific values and/or intervals for selection without preserving initial labels](view3dPgmSelection3.png "Viewing test_rag1.pgm3d using selection without preserving initial labels")
 
-## 4. Croping the scene
+## 4. Cropping the scene
 You may display only a subpart of the image using options __xmin Xmax ymin Ymax zmin Zmax__, the number of explicit bounds being free :
 ~~~
 view3dPgm -i test_rag1.pgm3d --label 1 --mono 0 --colormap 0 --xmin 30
@@ -81,7 +81,7 @@ For the latest command line, we introduce the option __boundary__. By default, t
 ![Viewing a subpart of test_rag1.pgm3d using a full crop on x](view3dPgmCrop3.png "Viewing a subpart of test_rag1.pgm3d using a full crop on x")
 ![Viewing a subpart of test_rag1.pgm3d using a full crop on x, displaying the content](view3dPgmCrop4.png "Viewing a subpart of test_rag1.pgm3d using a full crop on x, displaying the content")
 
-You may also use clipping providing the parameters of a/severals plane(s) :
+As an alternative, you may also use clipping providing the parameters of a/severals plane(s) :
 ~~~
 view3dPgm -i test_rag1.pgm3d --label 1 --mono 0 --colormap 0
 view3dPgm -i test_rag1.pgm3d --label 1 --mono 0 --colormap 0 --clipping "0 -1 0 8" --boundary=0
