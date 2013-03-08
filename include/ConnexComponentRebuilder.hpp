@@ -12,6 +12,8 @@ using DGtal::Z3i::DigitalSet ;
 using DGtal::Z3i::Point ;
 using DGtal::Z3i::Domain ;
 
+#define TILLED_RECONSTRUCTION
+
 /**
  * \brief Rebuild an object from its skeleton and the corresponding depth map
  * 
@@ -100,6 +102,15 @@ protected:
     void                                init ( const BillonTpl< T > &, QList< T > *ignoring) ;
     bool                           setBounds ( uint32_t selection ) ;
     void                          set_voxels ( const OutImage & img, const int * plane, const Point &seed, QList<Point> &crop, const Point &refPoint, U maxDist  ) ;
+    
+    void set_voxels( 
+#ifdef TILLED_RECONSTRUCTION
+const BillonTpl<arma::u8> * img,
+#else
+const OutImage & img,
+#endif
+const int * plane, const Point &seed, QList<Point> &crop, const Point &refPoint, U maxDist ) ;
+    
     void              explicit_missed_voxels ( V key ) const ;
     /**
      * \brief retrieve from the input set, the instance (father) being equal to elem (child) but the missing element

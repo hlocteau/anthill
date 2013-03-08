@@ -2,7 +2,10 @@
 #define X_ADJ( voxel, neighbor ) (voxel).at(0) + ( (neighbor%9)/3 -1 )
 #define Z_ADJ( voxel, neighbor ) (voxel).at(2) + ( neighbor % 3 -1 )
 
-bool g_debug = false ;
+
+
+
+bool g_debug = true ;
 
 template <typename E> bool listcmp( const QList< E > &a, const QList< E > &b, uint position ) {
 	if ( a.size() <= position || b.size() <= position ) return false ;
@@ -972,11 +975,23 @@ void ConnexComponentRebuilder<T,U,V>::explicit_missed_voxels( V key ) const {
 	
 }
 
-
-template <typename T, typename U, typename V> void ConnexComponentRebuilder<T,U,V>::set_voxels( const OutImage & img, const int * plane, const Point &seed, QList<Point> &crop, const Point &refPoint, U maxDist ) {
+template <typename T, typename U, typename V> void ConnexComponentRebuilder<T,U,V>::set_voxels( 
+#ifdef TILLED_RECONSTRUCTION
+const BillonTpl<arma::u8> * img,
+#else
+const OutImage & img,
+#endif
+const int * plane, const Point &seed, QList<Point> &crop, const Point &refPoint, U maxDist ) {
 	QList<Point> L ;
-	L.append( seed ) ;	
-	assert( img.domain().isInside(seed) ) ;
+	L.append( seed ) ;
+	
+	#ifdef TILLED_RECONSTRUCTION
+	Domain domain( Point(0,0,0), Point( img->n_rows-1, img->n_cols-1, img->n_slices-1 ) ) ;
+	#else
+	const Domain &domain = img.domain() ;
+	#endif
+	
+	assert( domain.isInside(seed) ) ;
 	uint config_plane = (plane[0] != 0)*1 + (plane[1] != 0)*1 + (plane[2] != 0)*1 ;
 	uint coord_not_null,
 	     coord_null ;
@@ -992,8 +1007,12 @@ if ( g_debug ) std::cerr<<"[ Debug ] : "<<pt<<" @ line "<<__LINE__<<" d("<<refPo
 			do {
 				pt.at( (coord_not_null+1)%3 ) += dnext ;
 if ( g_debug ) std::cerr<<"[ Debug ] : "<<pt<<" @ line "<<__LINE__<<" d("<<refPoint<<") = "<<(pt-refPoint).dot( pt-refPoint )<<std::endl;
-				if ( img.domain().isInside(pt) && (pt-refPoint).dot( pt-refPoint ) <= maxDist ) {
+				if ( domain.isInside(pt) && (pt-refPoint).dot( pt-refPoint ) <= maxDist ) {
+					#ifdef TILLED_RECONSTRUCTION
+					is_touching = ( (*img)( pt.at(1),pt.at(0), pt.at(2) ) != 0 ) ;
+					#else
 					is_touching = ( img(pt) != 0 ) ;
+					#endif
 				} else
 					is_touching = false ;
 					if ( is_touching ) {
@@ -1012,8 +1031,12 @@ if ( g_debug ) std::cerr<<"[ Debug ] : "<<pt<<" @ line "<<__LINE__<<" d("<<refPo
 				do {
 					pt.at( (coord_not_null+2)%3 ) += dnext ;
 if ( g_debug ) std::cerr<<"[ Debug ] : "<<pt<<" @ line "<<__LINE__<<" d("<<refPoint<<") = "<<(pt-refPoint).dot( pt-refPoint )<<std::endl;
-					if ( img.domain().isInside(pt) && (pt-refPoint).dot( pt-refPoint ) <= maxDist ) {
+					if ( domain.isInside(pt) && (pt-refPoint).dot( pt-refPoint ) <= maxDist ) {
+						#ifdef TILLED_RECONSTRUCTION
+						is_touching = ( (*img)( pt.at(1),pt.at(0), pt.at(2) ) != 0 ) ;
+						#else
 						is_touching = ( img(pt) != 0 ) ;
+						#endif
 					} else
 						is_touching = false ;
 					if ( is_touching ) {
@@ -1023,7 +1046,13 @@ if ( g_debug ) std::cerr<<"[ Debug ] : "<<pt<<" @ line "<<__LINE__<<" ... will b
 				} while ( is_touching ) ;
 				dnext *= -1 ;
 			} while ( dnext < 0 ) ;
-			if ( img( L.at(0) ) && (L.at(0)-refPoint).dot( L.at(0)-refPoint ) <= maxDist ) {
+			if ( 
+			#ifdef TILLED_RECONSTRUCTION
+				(*img)( L.at(0).at(1),L.at(0).at(0), L.at(0).at(2) )
+			#else
+				img( L.at(0) )
+			#endif
+			&& (L.at(0)-refPoint).dot( L.at(0)-refPoint ) <= maxDist ) {
 				crop.append( L.at(0) ) ;
 				if ( g_debug ) std::cerr<<"[ Debug ] : "<<L.at(0)<<" @ line "<<__LINE__<<" ... will be removed"<<std::endl;
 			}
@@ -1040,8 +1069,12 @@ if ( g_debug ) std::cerr<<"[ Debug ] : "<<pt<<" @ line "<<__LINE__<<" d("<<refPo
 				pt.at( (coord_null+1)%3 ) += /*plane[ (coord_null+1)%3 ]*plane[ (coord_null+2)%3 ]<0?dnext:dnext*/dnext;
 				pt.at( (coord_null+2)%3 ) += plane[ (coord_null+1)%3 ]*plane[ (coord_null+2)%3 ]<0?dnext:-dnext;
 if ( g_debug ) std::cerr<<"[ Debug ] : "<<pt<<" @ line "<<__LINE__<<" d("<<refPoint<<") = "<<(pt-refPoint).dot( pt-refPoint )<<std::endl;
-				if ( img.domain().isInside(pt) && (pt-refPoint).dot( pt-refPoint ) <= maxDist ) {
+				if ( domain.isInside(pt) && (pt-refPoint).dot( pt-refPoint ) <= maxDist ) {
+					#ifdef TILLED_RECONSTRUCTION
+					is_touching = ( (*img)( pt.at(1),pt.at(0), pt.at(2) ) != 0 ) ;
+					#else
 					is_touching = ( img(pt) != 0 ) ;
+					#endif
 				} else
 					is_touching = false ;
 					if ( is_touching ) {
@@ -1060,8 +1093,12 @@ if ( g_debug ) std::cerr<<"[ Debug ] : "<<pt<<" @ line "<<__LINE__<<" d("<<refPo
 				do {
 					pt.at( coord_null ) += dnext ;
 if ( g_debug ) std::cerr<<"[ Debug ] : "<<pt<<" @ line "<<__LINE__<<" d("<<refPoint<<") = "<<(pt-refPoint).dot( pt-refPoint )<<std::endl;
-					if ( img.domain().isInside(pt) && (pt-refPoint).dot( pt-refPoint ) <= maxDist ) {
+					if ( domain.isInside(pt) && (pt-refPoint).dot( pt-refPoint ) <= maxDist ) {
+						#ifdef TILLED_RECONSTRUCTION
+						is_touching = ( (*img)( pt.at(1),pt.at(0), pt.at(2) ) != 0 ) ;
+						#else
 						is_touching = ( img(pt) != 0 ) ;
+						#endif
 					} else
 						is_touching = false ;
 					if ( is_touching ) {
@@ -1071,7 +1108,13 @@ if ( g_debug ) std::cerr<<"[ Debug ] : "<<pt<<" @ line "<<__LINE__<<" ... will b
 				} while ( is_touching ) ;
 				dnext *= -1 ;
 			} while ( dnext < 0 ) ;
-			if ( img( L.at(0) ) && (L.at(0)-refPoint).dot( L.at(0)-refPoint ) <= maxDist ) {
+			if (  
+				#ifdef TILLED_RECONSTRUCTION
+				(*img)( L.at(0).at(1),L.at(0).at(0), L.at(0).at(2) )
+				#else
+				img( L.at(0) )
+				#endif
+				&& (L.at(0)-refPoint).dot( L.at(0)-refPoint ) <= maxDist ) {
 				crop.append( L.at(0) ) ;
 				if ( g_debug ) std::cerr<<"[ Debug ] : "<<L.at(0)<<" @ line "<<__LINE__<<" ... will be removed"<<std::endl;
 			}
@@ -1090,8 +1133,12 @@ if ( g_debug ) std::cerr<<"[ Debug ] : "<<pt<<" @ line "<<__LINE__<<" d("<<refPo
 					pt.at(iBridge) += dnext * plane[iBridge] ;
 					pt.at(2) = -( plane[3] + plane[0] * pt.at(0) + plane[1] * pt.at(1) ) / plane[2] ;
 if ( g_debug ) std::cerr<<"[ Debug ] : "<<pt<<" @ line "<<__LINE__<<" d("<<refPoint<<") = "<<(pt-refPoint).dot( pt-refPoint )<<std::endl;
-					if ( img.domain().isInside(pt) && (pt-refPoint).dot( pt-refPoint ) <= maxDist ) {
+					if ( domain.isInside(pt) && (pt-refPoint).dot( pt-refPoint ) <= maxDist ) {
+						#ifdef TILLED_RECONSTRUCTION
+						is_touchingBridge = ( (*img)( pt.at(1),pt.at(0), pt.at(2) ) != 0 ) ;
+						#else
 						is_touchingBridge = ( img(pt) != 0 ) ;
+						#endif
 					} else
 						is_touchingBridge = false ;
 					if ( is_touchingBridge ) {
@@ -1114,8 +1161,12 @@ if ( g_debug ) std::cerr<<"[ Debug ] : "<<pt<<" @ line "<<__LINE__<<" d("<<refPo
 					pt.at(0) += dnext * plane[0] ;
 					pt.at(1) = -( plane[3] + plane[0] * pt.at(0) + plane[2] * pt.at(2) ) / plane[1] ;
 if ( g_debug ) std::cerr<<"[ Debug ] : "<<pt<<" @ line "<<__LINE__<<" d("<<refPoint<<") = "<<(pt-refPoint).dot( pt-refPoint )<<std::endl;
-					if ( img.domain().isInside(pt) && (pt-refPoint).dot( pt-refPoint ) <= maxDist ) {
+					if ( domain.isInside(pt) && (pt-refPoint).dot( pt-refPoint ) <= maxDist ) {
+						#ifdef TILLED_RECONSTRUCTION
+						is_touching = ( (*img)( pt.at(1),pt.at(0), pt.at(2) ) != 0 ) ;
+						#else
 						is_touching = ( img(pt) != 0 ) ;
+						#endif
 					} else
 						is_touching = false ;
 					if ( is_touching ) {
@@ -1125,7 +1176,13 @@ if ( g_debug ) std::cerr<<"[ Debug ] : "<<pt<<" @ line "<<__LINE__<<" ... will b
 				} while ( is_touching ) ;
 				dnext *= -1 ;
 			} while ( dnext < 0 ) ;
-			if ( img( L.at(0) ) && (L.at(0)-refPoint).dot( L.at(0)-refPoint ) <= maxDist ) {
+			if (  
+				#ifdef TILLED_RECONSTRUCTION
+				(*img)( L.at(0).at(1),L.at(0).at(0), L.at(0).at(2) )
+				#else
+				img( L.at(0) )
+				#endif
+				&& (L.at(0)-refPoint).dot( L.at(0)-refPoint ) <= maxDist ) {
 				crop.append( L.at(0) ) ;
 				if ( g_debug ) std::cerr<<"[ Debug ] : "<<L.at(0)<<" @ line "<<__LINE__<<" ... will be removed"<<std::endl;
 			}
@@ -1149,34 +1206,43 @@ template <typename T, typename U, typename V> BillonTpl< arma::u8 > * ConnexComp
 	U d ;
 	for ( DigitalSet::ConstIterator pt = pts->begin() ; pt != pts->end(); pt++ ) {
 		d = (*_depth )( (*pt).at(1),(*pt).at(0),(*pt).at(2) ) ;
-		di = (int)floor( sqrt( cast_integer<U,double>( d ) + 1. ) );
+		di = (int)floor( sqrt( d + 0.0f ) + 1. );
 		if ( di > margin ) margin = di ;
 	}
-	
+std::cerr<<"line "<<__LINE__<<" margin = "<<margin<<std::endl;
 	for ( z = 0 ; z < _depth->n_slices ; z+= _s_zunit-2*margin )
 		for ( y = 0 ; y < _depth->n_rows ; y+= _s_yunit-2*margin )
 			for ( x = 0 ; x < _depth->n_cols ; x+= _s_xunit-2*margin ) {
 				n_rows = std::min(y + _s_yunit - 2 * margin ,_depth->n_rows-1) - y ;
 				n_cols = std::min(x + _s_xunit - 2 * margin,_depth->n_cols-1) - x ;
 				n_slices = std::min(z + _s_zunit - 2 * margin,_depth->n_slices-1) - z ;
-				
+std::cerr<<"line "<<__LINE__<<std::endl;
 				Domain domain( Point(0,0,0), Point(n_cols-1,n_rows-1, n_slices-1) ) ;
 				Image 		*distances =new Image( domain ) ;
 				for ( DigitalSet::ConstIterator pt = pts->begin() ; pt != pts->end(); pt++ ) {
 					Point ptShift = *pt ;
 					ptShift -= _lower[selection] ;
 					ptShift -= Point(x,y,z);
-					if ( !domain.isInside( ptShift ) ) continue ;
-					distances->setValue( ptShift, (*_depth)( (*pt).at(1),(*pt).at(0),(*pt).at(2) ) ) ;
+					ptShift += Point(margin,margin,margin);
+					if ( !domain.isInside( ptShift ) ) continue;
+					else distances->setValue( ptShift, (*_depth)( (*pt).at(1),(*pt).at(0),(*pt).at(2) ) ) ;
 				}
 				OutImage componentDGImg( domain ) ;
 				RDT rdt ;
 				componentDGImg = rdt.reconstruction( *distances ) ;
-				
+				delete distances;
+std::cerr<<"line "<<__LINE__<< " domain "<<domain.lowerBound()<<" "<< domain.upperBound()<<std::endl<<(int)(y-margin)<<" "<<(int)(x-margin)<<" "<<(int)(z-margin)<<std::endl;
 				for ( Domain::ConstIterator pt = domain.begin() ; pt != domain.end(); pt++ )
-					if ( componentDGImg( *pt ) )
+					if ( componentDGImg( *pt ) ) {
+						uint xx = (*pt).at(0)+x-margin,
+						     yy = (*pt).at(1)+y-margin,
+						     zz = (*pt).at(2)+z-margin ;
+std::cerr<<(*pt)<<" "<<xx<<" "<<yy<<" "<<zz<<std::endl;
 						(*scene)( (*pt).at(1)+y-margin,(*pt).at(0)+x-margin,(*pt).at(2)+z-margin ) = 1 ;
+					}
+std::cerr<<"line "<<__LINE__<<std::endl;
 			}
+std::cerr<<"line "<<__LINE__<<std::endl;
 	return scene ;
 }
 
@@ -1193,10 +1259,11 @@ template <typename T, typename U, typename V> bool ConnexComponentRebuilder<T,U,
 		setBounds( selection ) ;
 	
 	if ( _layers[ selection ].first == 0 ) return true ;
-	
+	uint32_t volume = 0 ;	
 	// if we use tilling, we get a BillonTpl<arma::u8>*
-	
+
 	Domain domain( Point(0,0,0), _upper[ selection ] - _lower[ selection ]) ;
+#ifndef TILLED_RECONSTRUCTION
 	Image 		*distances =new Image( domain ) ;
 	const DigitalSet * pts = _layers[ selection ].first ;
 	for ( DigitalSet::ConstIterator pt = pts->begin() ; pt != pts->end(); pt++ ) {
@@ -1221,14 +1288,19 @@ template <typename T, typename U, typename V> bool ConnexComponentRebuilder<T,U,
 	RDT rdt ;
 	componentDGImg = rdt.reconstruction( *distances ) ;
 	
-	uint32_t volume = 0 ;
+
 	for ( Domain::ConstIterator pt = domain.begin() ; pt != domain.end(); pt++ )
 		if ( componentDGImg( *pt ) > 0 )
 			volume++ ;
+	delete distances ;
+#else
+	BillonTpl< arma::u8 > * componentDGImg = safety_run( selection ) ;
+	volume = arma::accu(*componentDGImg ) ;
+#endif
 	_volumes[ selection ] = volume ;
 	
 	
-	delete distances ;
+
 #ifdef SAFETY_MEMORY_CONSUPTION
 	if ( !_depthfile.isEmpty() ) {
 		Pgm3dFactory< U > factory ;
@@ -1323,7 +1395,7 @@ if ( g_debug ) std::cerr<<"[ Debug ] : "<<(*other)(*loc)<<" (depth "<< (*_depth)
 					memcpy( plane_intermediate, plane, sizeof(int)*3 ) ;
 					plane_intermediate[3] = - ( plane_intermediate[0] * new_ref.at(0) + plane_intermediate[1] * new_ref.at(1) + plane_intermediate[2] * new_ref.at(2) ) ;
 					if ( g_debug ) std::cerr<<"[ Debug ] : "<<plane_intermediate[0]<<" "<<plane_intermediate[1]<<" "<<plane_intermediate[2]<<" "<<plane_intermediate[3]<<" function "<<__FUNCTION__<<" @ line "<<__LINE__<<std::endl;
-					if ( componentDGImg.domain().isInside( new_ref ) )
+					if ( domain.isInside( new_ref ) )
 						set_voxels( componentDGImg, plane_intermediate, new_ref, crop, (*me)(*loc)-_lower[ selection ], (*_depth)((*me)(*loc).at(1),(*me)(*loc).at(0),(*me)(*loc).at(2)) ) ;
 
 					#ifdef DEBUG_REMOVAL_EXT
@@ -1341,7 +1413,11 @@ if ( g_debug ) std::cerr<<"[ Debug ] : "<<(*other)(*loc)<<" (depth "<< (*_depth)
 		#endif
 	}
 	while ( !toRemove.isEmpty() ) {
+		#ifdef TILLED_RECONSTRUCTION
+		(*componentDGImg)(toRemove.front().at(1),toRemove.front().at(0),toRemove.front().at(2)) =0 ;
+		#else
 		componentDGImg.setValue( toRemove.front(),0 ) ;
+		#endif
 		toRemove.pop_front() ;
 	}
 	#ifdef DEBUG_REMOVAL_EXT
@@ -1351,8 +1427,14 @@ if ( g_debug ) std::cerr<<"[ Debug ] : "<<(*other)(*loc)<<" (depth "<< (*_depth)
 	#endif
 	// now, we can copy the image
 int32_t nVoxels = 0 ;
+if ( g_debug ) std::cerr<<"[ Debug ] : stores ill defined voxels"<<std::endl;
 	for ( Domain::ConstIterator pt = domain.begin() ; pt != domain.end(); pt++ )
-		if ( componentDGImg( *pt ) > 0 ) {
+		#ifdef TILLED_RECONSTRUCTION
+		if ( (*componentDGImg)( (*pt).at(1),(*pt).at(0),(*pt).at(2) ) > 0 )
+		#else
+		if ( componentDGImg( *pt ) > 0 )
+		#endif
+		{	
 			nVoxels++ ;
 			Point ptShift( (*pt).at(0)+_lower[selection].at(0),(*pt).at(1)+_lower[selection].at(1),(*pt).at(2)+_lower[selection].at(2) ) ;
 			if ( storeOverlaping )
@@ -1380,6 +1462,11 @@ if ( g_debug ) std::cerr<<"[ Debug ] : "<<nVoxels<<" voxels remaining function "
 	std::cerr<<"CC "<<(int)color<<" : "<<accu( thisCC )<<std::endl;
 	#endif
 	//std::cerr<<"Info ("<<__FUNCTION__<<" @ line "<<__LINE__<<" ) copy done "<<selection<<std::endl;
+	
+	#ifdef TILLED_RECONSTRUCTION
+	delete componentDGImg ;
+	#endif
+	
 	return true ;
 }
 
