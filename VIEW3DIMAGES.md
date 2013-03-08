@@ -124,7 +124,7 @@ Importing a dicom folder's content leads to the creation of a xml file that cont
   - a list of available ressouces of size 1.
 The distinct ressources are issued from the processing methods. From scratch, a single process called _import_ is enumerated (tag **Algorithm** as a child of **Process**).
 A single 3D pgm file named _input.pgm3d_ defines the displayable ressource (__o__ uput __pgm__ file or __opgm__ as an abbreviation) and may be identified as the _main ressource_.
-For a displayable ressource, we get a serie of informations gathered in the __value__ field : the filename, its meaning, the voxels' type, the image's dimensions.
+For a displayable ressource, we get a serie of information gathered in the __value__ field : the filename, its meaning, the voxels' type, the image's dimensions.
 Whenever a displayable ressource's dimension is smaller than the one of the main ressource, e.g. the ressource attached to the _buildscene_ process, an additional offset is specified.
 
 To keep track of the parameters' values used during a process call, we recommend to save them in the project file (e.g. the _binarization_ process).
