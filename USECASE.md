@@ -10,7 +10,7 @@ Now, you may quit the gui and open a terminal:
 ~~~
 cd ~/outputData/MeMo0013/serie_2
 ls
-	binary.pgm3d  input.pgm3d  serie_3.xml
+	binary.pgm3d  input.pgm3d  serie_2.xml
 ~~~
 
 # Initializing the scene
@@ -56,9 +56,9 @@ ls
 	content.dt.pgm3d  content.skeleucl.pgm3d  inner.skel.pgm3d  mask.pgm
 
 ~~~
-We have filtered out the skeleton and possibly created several disconnected components. We just select the biggest one:
+We have filtered out the skeleton and possibly created several disconnected components. We just select the biggest one (**top 1**):
 ~~~
-labelingcc -i inner.skel.pgm3d -o inner.skel.main.pgm3d -t 1
+labelingcc -i inner.skel.pgm3d -o inner.skel.main.pgm3d --top 1
 	"Nombre de composantes = 2954"
 ls
 	binary.pgm3d      content.pgm3d           hull.dt.pgm3d          inner.skel.pgm3d  mask.pgm		serie_2.xml

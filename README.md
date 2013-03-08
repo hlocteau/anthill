@@ -12,4 +12,4 @@ Several tools are distributed:
   - catchskel;
   - keepInnerSkelOnly;
   - rebuild;
-  - view3dPgm.
+  - [view3dPgm](@ref view3d).
