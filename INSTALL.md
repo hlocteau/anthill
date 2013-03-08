@@ -87,7 +87,7 @@ sudo make install
 ### 6. DGtal
 
 The collaborative project DGtal aims at developing generic, efficient and reliable digital geometry data structures, algorithms and tools. 
-It takes the form of an open-source C++ library DGtal and a set of tools and binaries DGtalTools.
+It takes the form of an open-source C++ library DGtal and a set of tools and binaries DGtalTools (http://libdgtal.org/).
 We mainly used it for the display 3D object and for the Reverse Euclidean Distance Transform.
 ~~~
 cd ~/3rdParty
