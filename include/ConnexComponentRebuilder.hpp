@@ -12,7 +12,7 @@ using DGtal::Z3i::DigitalSet ;
 using DGtal::Z3i::Point ;
 using DGtal::Z3i::Domain ;
 
-#define TILLED_RECONSTRUCTION
+//#define TILLED_RECONSTRUCTION
 
 /**
  * \brief Rebuild an object from its skeleton and the corresponding depth map
@@ -101,7 +101,7 @@ protected:
     BillonTpl< arma::u8 > *       safety_run ( T selection ) ;
     void                                init ( const BillonTpl< T > &, QList< T > *ignoring) ;
     bool                           setBounds ( uint32_t selection ) ;
-    void                          set_voxels ( const OutImage & img, const int * plane, const Point &seed, QList<Point> &crop, const Point &refPoint, U maxDist  ) ;
+    //void                          set_voxels ( const OutImage & img, const int * plane, const Point &seed, QList<Point> &crop, const Point &refPoint, U maxDist  ) ;
     
     void set_voxels( 
 #ifdef TILLED_RECONSTRUCTION
