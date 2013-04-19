@@ -112,10 +112,10 @@ int main( int narg, char **argv ) {
 	}
 	
 
-	DistType margin = (int)floor( sqrt( Depth->max() ) + 1. );
+	DistType margin = (int)floor( sqrt( Depth->max() ) + 1. )-1;
 	
 	if ( std::min( params._xunit, std::min(params._yunit,params._zunit) ) < 2*margin ) {
-		std::cerr<<"[ Error ] : as max depth is "<<cast_integer<DistType,int>(margin)<<", grid is too small"<<std::endl;
+		std::cerr<<"[ Error ] : as max depth is "<<cast_integer<DistType,int>(margin)<<" ("<<Depth->max()<<"), grid is too small"<<std::endl;
 		delete Img ;
 		delete Depth ;
 		return -2 ;
@@ -136,6 +136,7 @@ int main( int narg, char **argv ) {
 				n_cols = std::min(x + params._xunit - 2 * margin,Img->n_cols-1) - x ;
 				n_slices = std::min(z + params._zunit - 2 * margin,Img->n_slices-1) - z ;
 				subImg.fill(0) ;
+				std::cout<<__FUNCTION__<<" init"<<std::endl;
 				subImg  ( span( margin,margin+n_rows), span( margin,margin+n_cols), span( margin, margin+n_slices ) ) =
 				          (*Img)( span( y, y + n_rows ), span( x, x + n_cols ), span( z, z + n_slices ) ) ;
 				subDepth.fill(0) ;
@@ -145,13 +146,49 @@ int main( int narg, char **argv ) {
 				ccr.setDepth( &subDepth ) ;
 				ccr.run( ) ;
 				const BillonTpl<OutType> &res = ccr.result() ;
+				std::cout<<__FUNCTION__<<" set"<<std::endl;
 				for ( zo = 0 ; zo < params._zunit; zo++ )
 					for ( yo = 0; yo < params._yunit; yo++ )
 						for ( xo = 0; xo < params._xunit; xo++ )
 							if ( res( yo,xo,zo ) ) {
-								scene( yo+y-margin,xo+x-margin,zo+z-margin ) = 1 ;
-								assert( (*Depth)( yo+y-margin,xo+x-margin,zo+z-margin )>0 ) ;
+								if ( !( yo+y-margin/*+1*/ < scene.n_rows ) ) {
+									std::cerr<<"x,y,z="<<x<<","<<y<<","<<z<<" x0,y0,z0="<<xo<<","<<yo<<","<<zo<<" n_rows,n_cols,n_slices="<<n_rows<<","<<n_cols<<","<<n_slices<<" margin="<<margin<<std::endl;
+									assert( yo+y-margin/*+1*/ < scene.n_rows ) ;
+								}
+								if ( !( xo+x-margin/*+1*/ < scene.n_cols ) ) {
+									std::cerr<<"x,y,z="<<x<<","<<y<<","<<z<<" x0,y0,z0="<<xo<<","<<yo<<","<<zo<<" n_rows,n_cols,n_slices="<<n_rows<<","<<n_cols<<","<<n_slices<<" margin="<<margin<<std::endl;
+									assert( xo+x-margin/*+1*/ < scene.n_cols ) ;
+								}
+								if ( !( zo+z-margin/*+1*/ < scene.n_slices ) ) {
+									std::cerr<<"x,y,z="<<x<<","<<y<<","<<z<<" x0,y0,z0="<<xo<<","<<yo<<","<<zo<<" n_rows,n_cols,n_slices="<<n_rows<<","<<n_cols<<","<<n_slices<<" margin="<<margin<<std::endl;
+									assert( zo+z-margin/*+1*/ < scene.n_slices ) ;
+								}
+								
+								assert( yo+y-margin/*+1*/ >=0 ) ;
+								assert( xo+x-margin/*+1*/ >=0 ) ;
+								assert( zo+z-margin/*+1*/ >=0 ) ;
+								scene( yo+y-margin/*+1*/,xo+x-margin/*+1*/,zo+z-margin/*+1*/ ) = 1 ;
+								if ( false && !( (*Depth)( yo+y-margin/*+1*/,xo+x-margin/*+1*/,zo+z-margin/*+1*/ )>0 ) ) {
+									std::cerr<<"x,y,z="<<x<<","<<y<<","<<z<<" x0,y0,z0="<<xo<<","<<yo<<","<<zo<<" n_rows,n_cols,n_slices="<<n_rows<<","<<n_cols<<","<<n_slices<<" margin="<<margin<<std::endl;
+									std::cerr<<"on y ";
+									for ( int c=std::max(0,(int)(yo+y-margin+1 -margin)); c !=std::min(Depth->n_rows,yo+y-margin+1 +margin+1) ; c++ )
+										std::cerr<<" "<<c<<":"<<(int) (*Depth)( c,xo+x-margin+1,zo+z-margin+1 ) ;
+									std::cerr<<std::endl;
+
+									std::cerr<<"on x ";
+									for ( int c=std::max(0,(int)(xo+x-margin+1 -margin)); c !=std::min(Depth->n_cols,xo+x-margin+1 +margin+1) ; c++ )
+										std::cerr<<" "<<c<<":"<<(int) (*Depth)( yo+y-margin+1,c,zo+z-margin+1 ) ;
+									std::cerr<<std::endl;
+
+									std::cerr<<"on z ";
+									for ( int c=std::max(0,(int)(zo+z-margin+1 -margin)); c !=std::min(Depth->n_slices,zo+z-margin+1 +margin+1) ; c++ )
+										std::cerr<<" "<<c<<":"<<(int) (*Depth)( yo+y-margin+1,xo+x-margin+1,c ) ;
+									std::cerr<<std::endl;
+									
+								}
+								//assert( (*Depth)( yo+y-margin/*+1*/,xo+x-margin/*+1*/,zo+z-margin/*+1*/ )>0 ) ;
 							}
+				std::cout<<__FUNCTION__<<" set (done)"<<std::endl;
 			}
 	delete Img ;
 	delete Depth ;
