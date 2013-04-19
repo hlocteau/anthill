@@ -30,6 +30,15 @@ ${BUILD}/test_rag : ${OBJ}/test_rag.o ${OBJ}/rag.o ${OBJ}/IOPgm3d.o
 ${BUILD}/pgmcrop : ${OBJ}/pgmcrop.o ${OBJ}/IOPgm3d.o
 	${LINK} ${OBJ}/pgmcrop.o ${OBJ}/IOPgm3d.o -o "$@" -lQtCore ${LIB_BOOST} ${LIB_BOOST_PARAM}
 
+${BUILD}/pgmpush : ${OBJ}/pgmpush.o ${OBJ}/IOPgm3d.o
+	${LINK} ${OBJ}/pgmpush.o ${OBJ}/IOPgm3d.o -o "$@" -lQtCore ${LIB_BOOST} ${LIB_BOOST_PARAM}
+
+${BUILD}/pgmneg : ${OBJ}/pgmneg.o ${OBJ}/IOPgm3d.o
+	${LINK} ${OBJ}/pgmneg.o ${OBJ}/IOPgm3d.o -o "$@" -lQtCore ${LIB_BOOST} ${LIB_BOOST_PARAM}
+
+${BUILD}/pgmbrowse : ${OBJ}/pgmbrowse.o ${OBJ}/IOPgm3d.o
+	${LINK} ${OBJ}/pgmbrowse.o ${OBJ}/IOPgm3d.o -o "$@" -lQtCore ${LIB_BOOST} ${LIB_BOOST_PARAM} -lncurses
+
 # compilation files
 
 ${OBJ}/test_boundVol.o : test_boundvol.cpp
@@ -42,6 +51,15 @@ ${OBJ}/test_rag.o : test_rag.cpp
 	${COMPILE} $< -o "$@"
 
 ${OBJ}/pgmcrop.o : pgmcrop.cpp
+	${COMPILE} $< -o "$@"
+
+${OBJ}/pgmpush.o : pgmpush.cpp
+	${COMPILE} $< -o "$@"
+
+${OBJ}/pgmneg.o : pgmneg.cpp
+	${COMPILE} $< -o "$@"
+
+${OBJ}/pgmbrowse.o : pgmbrowse.cpp
 	${COMPILE} $< -o "$@"
 
 .PHONY: ${OBJ}/rag.o ${OBJ}/IOPgm3d.o ${OBJ}/geom2d.o
