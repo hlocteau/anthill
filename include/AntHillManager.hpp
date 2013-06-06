@@ -206,7 +206,7 @@ std::cerr<<"[ debug ] : draw @line "<<__LINE__<<std::endl;
 }
 
 /**
- * \bug drawing a subimage on axis x is ill defined (the dimensions of the rectangle seems to be swapped)
+ * \bug drawing a subimage on axis x is ill defined (the dimensions of the rectangle seem to be swapped)
  */
 template <typename T,typename U>
 void AntHillManager::draw( const BillonTpl< T > *data, arma::Mat<U> &image, uint8_t axis, uint16_t coordinate, const Interval<T> &range,bool normalize ) {
