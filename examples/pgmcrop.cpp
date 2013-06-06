@@ -1,7 +1,8 @@
 /**
  * \file pgmcrop.cpp
  */
-#include <io/Pgm3dFactory.h>
+//#include <io/Pgm3dFactory.h>
+#include <io/IOUtils.h>
 
 typedef arma::u32 elem_type ;
 typedef Pgm3dFactory<elem_type> IFactory ;
@@ -100,13 +101,6 @@ int main( int narg, char **argv ) {
 		outputFilePath /= QString("%1.crop_x%2-%3_y%4-%5_z%6-%7%8").arg(inputFilePath.stem().c_str()).arg(xmin).arg(xmax).arg(ymin).arg(ymax).arg(zmin).arg(zmax).arg( inputFilePath.extension().c_str() ).toStdString().c_str() ;
 		std::cout<<"Info : use default output file name convention "<<outputFilePath.c_str()<<std::endl;
 	}
-	if ( factory.was_char() )
-		IOPgm3d< elem_type, qint8, false>::write( crop, outputFilePath.c_str() ) ;
-	else if ( factory.was_integer() )
-		IOPgm3d< elem_type, qint32, false>::write( crop, outputFilePath.c_str() ) ;
-	else {
-		std::cerr<<"Error : input data were not integers. This program is supposed to manipulate this kind of image. No output."<<std::endl;
-		return -2 ;
-	}
+	save_minspace( crop, outputFilePath.c_str() ) ;
 	return 1 ;
 }
