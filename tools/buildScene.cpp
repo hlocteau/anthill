@@ -70,7 +70,7 @@ int main( int narg, char **argv ) {
 	CS_CCExtractor extractor;
 	BillonTpl<arma::u16> *labels = extractor.run( factory->scene() ) ;
 	delete factory ;
-	
+	IOPgm3d<arma::u16,qint16,false>::write( *labels, "/tmp/labels.pgm3d" ) ;
 	// note : bounding boxes and volumes are computed by extractor...
 	
 	MyBounding bounding( *labels ) ;
